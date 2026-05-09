@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: springapp/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+    networks:
+      - curakid-network
+    depends_on:
+      - intelligence
+    develop:
+      watch:
+        - action: rebuild
+          path: ./springapp
+        - action: rebuild
+          path: ./essential
+        - action: rebuild
+          path: ./feature/profile
+
+  intelligence:
+    build:
+      context: ./intelligence
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - TRANSFORMERS_CACHE=/cache/huggingface
+    volumes:
+      - hf-cache:/cache/huggingface
+    networks:
+      - curakid-network
+    develop:
+      watch:
+        - action: sync
+          path: ./intelligence
+          target: /app
+          ignore:
+            - __pycache__/
+            - venv/
+        - action: rebuild
+          path: ./intelligence/requirements.txt
+
+volumes:
+  hf-cache:
+
+networks:
+  curakid-network:
+    driver: bridge

@@ -1,0 +1,67 @@
+[versions]
+#kotlin = "2.3.0"
+#spring-boot = "4.1.0-SNAPSHOT"
+kotlin = "2.2.21"
+spring-boot = "4.0.2"
+spring-dep-mgmt = "1.1.7"
+postgresql = "42.7.5"
+hibernate-vector = "7.2.1.Final"
+h2-version = "2.3.232"
+slf4j-version = "2.1.0-alpha1"
+mockito = "5.21.0"
+spring-ai = "1.0.0-SNAPSHOT"
+jjwt = "0.12.6"
+google-auth = "1.33.0"
+
+
+[libraries]
+slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j-version" }
+
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security", version.ref = "spring-boot" }
+
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "spring-boot" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+hibernate-vector = { module = "org.hibernate.orm:hibernate-vector", version.ref = "hibernate-vector" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "spring-boot" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation", version.ref = "spring-boot" }
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux", version.ref = "spring-boot" }
+spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "spring-boot" }
+spring-ai-core = { module = "org.springframework.ai:spring-ai-core", version.ref = "spring-ai" }
+spring-ai-vertex-ai-gemini = { module = "org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter", version.ref = "spring-ai" }
+jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
+jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
+jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+google-auth-library = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
+google-api-client = { module = "com.google.api-client:google-api-client", version = "2.7.2" }
+spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "spring-boot" }
+poi-ooxml = { module = "org.apache.poi:poi-ooxml", version = "5.4.0" }
+
+# TEST
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "spring-boot" }
+spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test", version.ref = "spring-boot" }
+spring-security-test = { group = "org.springframework.security", name = "spring-security-test" }
+h2 = { module = "com.h2database:h2", version.ref = "h2-version" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version = "5.4.0" }
+okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version = "4.12.0" }
+
+# BUILD-LOGIC
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-spring-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin" }
+spring-boot-gradlePlugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "spring-boot" }
+spring-dependency-management-gradlePlugin = { module = "io.spring.gradle:dependency-management-plugin", version.ref = "spring-dep-mgmt" }
+kotlin-jpa-gradlePlugin = { module = "org.jetbrains.kotlin.plugin.jpa:org.jetbrains.kotlin.plugin.jpa.gradle.plugin", version.ref = "kotlin" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dep-mgmt" }
+
+
+
+# CUSTOM
+curakid-spring-app = { id = "curakid.spring.app" }
+curakid-feature = { id = "curakid.feature" }
+curakid-kotlin-library = { id = "curakid.kotlin.library" }

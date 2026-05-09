@@ -1,0 +1,125 @@
+package com.misterio.curakid.development
+
+import com.misterio.curakid.assessments.AssessmentDomain
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.*
+import java.math.BigDecimal
+import java.util.*
+
+class LifePeriodQuestionServiceTest {
+
+    private lateinit var lifePeriodRepository: LifePeriodRepository
+    private lateinit var service: LifePeriodQuestionService
+
+    @BeforeEach
+    fun setUp() {
+        lifePeriodRepository = mock()
+        service = LifePeriodQuestionService(lifePeriodRepository)
+    }
+
+    @Test
+    fun `getAllPeriodsWithQuestions should return sorted DTOs`() {
+        val period1 = createPeriod("P1M", "1 міс", 1, 1)
+        val period2 = createPeriod("P2M", "2 міс", 2, 2)
+
+        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+            .thenReturn(listOf(period1, period2))
+
+        val result = service.getAllPeriodsWithQuestions()
+
+        assertEquals(2, result.size)
+        assertEquals("P1M", result[0].code)
+        assertEquals("P2M", result[1].code)
+    }
+
+    @Test
+    fun `getAllPeriodsWithQuestions should map questions and options correctly`() {
+        val period = createPeriod("P1M", "1 міс", 1, 1)
+        val question = Question("Can the child see?", AssessmentDomain.MOTOR, BigDecimal("2.0"), period).apply {
+            id = UUID.randomUUID()
+        }
+        val option1 = AnswerOption(question, "Yes", "1", 1).apply { id = UUID.randomUUID() }
+        val option2 = AnswerOption(question, "No", "0", 2).apply { id = UUID.randomUUID() }
+        question.options.addAll(listOf(option2, option1)) // intentionally unordered
+        period.questions.add(question)
+
+        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+            .thenReturn(listOf(period))
+
+        val result = service.getAllPeriodsWithQuestions()
+
+        assertEquals(1, result.size)
+        val periodDto = result[0]
+        assertEquals(1, periodDto.questions.size)
+
+        val questionDto = periodDto.questions[0]
+        assertEquals("Can the child see?", questionDto.text)
+        assertEquals("MOTOR", questionDto.domain)
+        assertEquals(2, questionDto.options.size)
+        // Options should be sorted by order
+        assertEquals("Yes", questionDto.options[0].text)
+        assertEquals("No", questionDto.options[1].text)
+    }
+
+    @Test
+    fun `getAllPeriodsWithQuestions should return empty list when no periods`() {
+        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+            .thenReturn(emptyList())
+
+        val result = service.getAllPeriodsWithQuestions()
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `getPeriodWithQuestions should return correct DTO`() {
+        val period = createPeriod("P3_4M", "3–4 міс", 3, 4)
+
+        whenever(lifePeriodRepository.findByCode("P3_4M"))
+            .thenReturn(Optional.of(period))
+
+        val result = service.getPeriodWithQuestions("P3_4M")
+
+        assertEquals("P3_4M", result.code)
+        assertEquals("3–4 міс", result.label)
+        assertEquals(3, result.minMonths)
+        assertEquals(4, result.maxMonths)
+    }
+
+    @Test
+    fun `getPeriodWithQuestions should throw for unknown code`() {
+        whenever(lifePeriodRepository.findByCode("UNKNOWN"))
+            .thenReturn(Optional.empty())
+
+        assertThrows<IllegalArgumentException> {
+            service.getPeriodWithQuestions("UNKNOWN")
+        }
+    }
+
+    @Test
+    fun `questions should be sorted by weight`() {
+        val period = createPeriod("P1M", "1 міс", 1, 1)
+
+        val q1 = Question("Heavy question", AssessmentDomain.SPEECH, BigDecimal("3.0"), period).apply { id = UUID.randomUUID() }
+        val q2 = Question("Light question", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply { id = UUID.randomUUID() }
+        period.questions.addAll(listOf(q1, q2)) // heavy first
+
+        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+            .thenReturn(listOf(period))
+
+        val result = service.getAllPeriodsWithQuestions()
+        val questions = result[0].questions
+
+        assertEquals("Light question", questions[0].text)
+        assertEquals("Heavy question", questions[1].text)
+    }
+
+    private fun createPeriod(code: String, label: String, min: Int, max: Int): LifePeriod {
+        return LifePeriod(code, label, min, max).apply {
+            id = UUID.randomUUID()
+        }
+    }
+}

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curakid Admin - Knowledge Base</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-color: #F3F4F6;
+            --surface: #FFFFFF;
+            --text-main: #111827;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+            --error: #EF4444;
+            --success: #10B981;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 2rem;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+        }
+
+        .sidebar h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            margin-top: 0;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: #EEF2FF;
+            color: var(--primary);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem 4rem;
+            max-width: 1200px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h2 {
+            font-size: 1.875rem;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        textarea.form-control {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            background-color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+            font-weight: 500;
+        }
+
+        .alert.success {
+            background-color: #D1FAE5;
+            color: #065F46;
+            display: block;
+        }
+
+        .alert.error {
+            background-color: #FEE2E2;
+            color: #991B1B;
+            display: block;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            background-color: #F9FAFB;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background-color: #EEF2FF;
+            color: var(--primary);
+        }
+
+        .delete-btn {
+            color: var(--error);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .delete-btn:hover {
+            background-color: #FEE2E2;
+        }
+
+        #token-container {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #FFFBEB;
+            border: 1px solid #FDE68A;
+            border-radius: 8px;
+            color: #92400E;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h1>Curakid Admin</h1>
+        <nav>
+            <a href="/admin/ui/articles" class="nav-item active">База знань</a>
+            <a href="/admin/ui/periods" class="nav-item">Вікові періоди</a>
+            <a href="/admin/ui/quizzes" class="nav-item">Опитування</a>
+            <a href="/admin/ui/vaccines" class="nav-item">Календар щеплень</a>
+            <a href="/admin/ui/rules" class="nav-item">Нечіткі правила</a>
+            <a href="/admin/ui/users" class="nav-item">Користувачі</a>
+            <a href="#" onclick="logout()" class="nav-item" style="color: var(--error); margin-top: 2rem;">Вийти</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2>Knowledge Base Articles</h2>
+        </div>
+
+        <div id="status-message" class="alert"></div>
+
+        <div class="card fade-in">
+            <h3>Add New Article</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">The content will be vectorized and stored for RAG search.</p>
+            
+            <form id="add-article-form">
+                <div class="form-group">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" class="form-control" required placeholder="e.g. Signs of Autism in Toddlers">
+                </div>
+                
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <input type="text" id="category" class="form-control" required placeholder="e.g. Autism, ADHD, General">
+                </div>
+
+                <div class="form-group">
+                    <label for="content">Article Content</label>
+                    <textarea id="content" class="form-control" required placeholder="Paste the full medical protocol or article content here..."></textarea>
+                </div>
+
+                <button type="submit" class="btn" id="submit-btn">
+                    <span>Save & Generate Embeddings</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="card fade-in" style="animation-delay: 0.1s;">
+            <h3>Existing Articles</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="articles-table-body">
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted);">Loading articles...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Init Token
+        const savedToken = document.cookie
+            .split(';')
+            .find(c => c.trim().startsWith('admin_token='))
+            ?.split('=')[1];
+        if (!savedToken) {
+            window.location.href = '/admin/ui/login';
+        } else {
+            fetchArticles();
+        }
+
+        function logout() {
+            localStorage.removeItem('curakid_admin_token');
+            window.location.href = '/admin/ui/login';
+        }
+
+        function getAuthHeader() {
+            const token = document.cookie
+                .split(';')
+                .find(c => c.trim().startsWith('admin_token='))
+                ?.split('=')[1];
+            return token ? { 'Authorization': 'Bearer ' + token } : {};
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById('status-message');
+            el.textContent = text;
+            el.className = 'alert ' + type;
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        // Fetch Articles
+        async function fetchArticles() {
+            try {
+                const response = await fetch('/api/admin/knowledge', {
+                    headers: getAuthHeader()
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error("Unauthorized. Please check your JWT token.");
+                    }
+                    throw new Error("Failed to fetch articles");
+                }
+
+                const articles = await response.json();
+                const tbody = document.getElementById('articles-table-body');
+                
+                if (articles.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No articles found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = articles.map(art => `
+                    <tr>
+                        <td style="font-weight: 500;">${escapeHtml(art.title)}</td>
+                        <td><span class="badge">${escapeHtml(art.category)}</span></td>
+                        <td>
+                            <button class="delete-btn" onclick="deleteArticle('${art.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (err) {
+                showMessage(err.message, 'error');
+            }
+        }
+
+        // Add Article
+        document.getElementById('add-article-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            
+            const payload = {
+                title: document.getElementById('title').value,
+                category: document.getElementById('category').value,
+                content: document.getElementById('content').value
+            };
+
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Processing...';
+
+                const response = await fetch('/api/admin/knowledge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader()
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to save article");
+                }
+
+                showMessage('Article saved and embeddings generated successfully!', 'success');
+                e.target.reset();
+                await fetchArticles();
+
+            } catch (err) {
+                showMessage(err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save & Generate Embeddings';
+            }
+        });
+
+        // Delete Article
+        async function deleteArticle(id) {
+            if (!confirm('Are you sure you want to delete this article?')) return;
+
+            try {
+                const response = await fetch('/api/admin/knowledge/' + id, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to delete article");
+                }
+
+                showMessage('Article deleted.', 'success');
+                await fetchArticles();
+
+            } catch (err) {
+                showMessage(err.message, 'error');
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            return (unsafe || '').toString()
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

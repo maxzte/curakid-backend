@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curakid Admin - Календар щеплень</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-color: #F3F4F6;
+            --surface: #FFFFFF;
+            --text-main: #111827;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+            --error: #EF4444;
+            --success: #10B981;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 2rem;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+        }
+
+        .sidebar h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            margin-top: 0;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: #EEF2FF;
+            color: var(--primary);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem 4rem;
+            max-width: 1200px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h2 {
+            font-size: 1.875rem;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .flex-row .form-group {
+            flex: 1;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+            font-weight: 500;
+        }
+
+        .alert.success {
+            background-color: #D1FAE5;
+            color: #065F46;
+            display: block;
+        }
+
+        .alert.error {
+            background-color: #FEE2E2;
+            color: #991B1B;
+            display: block;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            background-color: #F9FAFB;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background-color: #EEF2FF;
+            color: var(--primary);
+        }
+
+        .delete-btn {
+            color: var(--error);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            padding: 0.5rem;
+            border-radius: 6px;
+        }
+
+        .edit-btn {
+            color: var(--primary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            padding: 0.5rem;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h1>Curakid Admin</h1>
+        <nav>
+            <a href="/admin/ui/articles" class="nav-item">База знань</a>
+            <a href="/admin/ui/periods" class="nav-item">Вікові періоди</a>
+            <a href="/admin/ui/quizzes" class="nav-item">Опитування</a>
+            <a href="/admin/ui/vaccines" class="nav-item active">Календар щеплень</a>
+            <a href="/admin/ui/rules" class="nav-item">Нечіткі правила</a>
+            <a href="/admin/ui/users" class="nav-item">Користувачі</a>
+            <a href="#" onclick="logout()" class="nav-item" style="color: var(--error); margin-top: 2rem;">Вийти</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2>Національний календар щеплень</h2>
+        </div>
+
+        <div id="status-message" class="alert"></div>
+
+        <div class="card">
+            <h3 id="form-title">Додати нове щеплення</h3>
+            <form id="vaccine-form">
+                <input type="hidden" id="vaccine-id">
+                <div class="flex-row">
+                    <div class="form-group">
+                        <label for="name">Назва вакцини</label>
+                        <input type="text" id="name" class="form-control" required placeholder="Напр: БЦЖ, АКДП">
+                    </div>
+                    <div class="form-group">
+                        <label for="disease">Хвороба</label>
+                        <input type="text" id="disease" class="form-control" required placeholder="Напр: Туберкульоз">
+                    </div>
+                </div>
+
+                <div class="flex-row">
+                    <div class="form-group">
+                        <label for="doseNumber">Номер дози</label>
+                        <input type="number" id="doseNumber" class="form-control" required value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="totalDoses">Всього доз у серії</label>
+                        <input type="number" id="totalDoses" class="form-control" required value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="type">Тип</label>
+                        <select id="type" class="form-control">
+                            <option value="VACCINATION">Вакцинація</option>
+                            <option value="REVACCINATION">Ревакцинація</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex-row">
+                    <div class="form-group">
+                        <label for="scheduledAgeMonths">Вік (місяці)</label>
+                        <input type="number" id="scheduledAgeMonths" class="form-control" placeholder="Напр: 2">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduledAgeDays">Вік (дні)</label>
+                        <input type="number" id="scheduledAgeDays" class="form-control" placeholder="Для новонароджених">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Примітки</label>
+                    <textarea id="notes" class="form-control" rows="2"></textarea>
+                </div>
+
+                <button type="submit" class="btn" id="submit-btn">Зберегти щеплення</button>
+                <button type="button" class="btn" id="cancel-btn" style="background-color: var(--text-muted); display: none;" onclick="resetForm()">Скасувати</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Список щеплень</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Назва</th>
+                            <th>Хвороба</th>
+                            <th>Доза</th>
+                            <th>Вік</th>
+                            <th>Тип</th>
+                            <th>Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vaccines-table-body">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted);">Завантаження...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        if (!localStorage.getItem('curakid_admin_token')) {
+            window.location.href = '/admin/ui/login';
+        }
+
+        function logout() {
+            localStorage.removeItem('curakid_admin_token');
+            window.location.href = '/admin/ui/login';
+        }
+
+        function getAuthHeader() {
+            const token = localStorage.getItem('curakid_admin_token');
+            return token ? { 'Authorization': token.startsWith('Bearer ') ? token : 'Bearer ' + token } : {};
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById('status-message');
+            el.textContent = text;
+            el.className = 'alert ' + type;
+            setTimeout(() => el.style.display = 'none', 5000);
+            el.style.display = 'block';
+        }
+
+        async function fetchVaccines() {
+            try {
+                const response = await fetch('/api/admin/vaccines', {
+                    headers: getAuthHeader()
+                });
+                const vaccines = await response.json();
+                const tbody = document.getElementById('vaccines-table-body');
+                
+                if (vaccines.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Нічого не знайдено.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = vaccines.map(v => `
+                    <tr>
+                        <td style="font-weight: 600;">${v.name}</td>
+                        <td>${v.disease}</td>
+                        <td>${v.doseNumber}/${v.totalDoses}</td>
+                        <td>${v.scheduledAgeMonths ? v.scheduledAgeMonths + ' міс.' : (v.scheduledAgeDays ? v.scheduledAgeDays + ' дн.' : '-')}</td>
+                        <td><span class="badge">${v.type === 'VACCINATION' ? 'Вакц.' : 'Ревакц.'}</span></td>
+                        <td>
+                            <button class="edit-btn" onclick="editVaccine('${v.id}')">Edit</button>
+                            <button class="delete-btn" onclick="deleteVaccine('${v.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                showMessage('Помилка завантаження: ' + err.message, 'error');
+            }
+        }
+
+        document.getElementById('vaccine-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('vaccine-id').value;
+            const payload = {
+                name: document.getElementById('name').value,
+                disease: document.getElementById('disease').value,
+                doseNumber: parseInt(document.getElementById('doseNumber').value),
+                totalDoses: parseInt(document.getElementById('totalDoses').value),
+                type: document.getElementById('type').value,
+                scheduledAgeMonths: document.getElementById('scheduledAgeMonths').value ? parseInt(document.getElementById('scheduledAgeMonths').value) : null,
+                scheduledAgeDays: document.getElementById('scheduledAgeDays').value ? parseInt(document.getElementById('scheduledAgeDays').value) : null,
+                notes: document.getElementById('notes').value
+            };
+
+            try {
+                const url = id ? `/api/admin/vaccines/${id}` : '/api/admin/vaccines';
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showMessage('Збережено успішно!', 'success');
+                    resetForm();
+                    fetchVaccines();
+                } else {
+                    throw new Error('Помилка сервера');
+                }
+            } catch (err) {
+                showMessage(err.message, 'error');
+            }
+        });
+
+        async function deleteVaccine(id) {
+            if (!confirm('Ви впевнені?')) return;
+            try {
+                const response = await fetch(`/api/admin/vaccines/${id}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeader()
+                });
+                if (response.ok) {
+                    showMessage('Видалено', 'success');
+                    fetchVaccines();
+                }
+            } catch (err) {
+                showMessage(err.message, 'error');
+            }
+        }
+
+        window.editVaccine = async function(id) {
+            try {
+                const response = await fetch('/api/admin/vaccines', { headers: getAuthHeader() });
+                const vaccines = await response.json();
+                const v = vaccines.find(v => v.id === id);
+                if (v) {
+                    document.getElementById('vaccine-id').value = v.id;
+                    document.getElementById('name').value = v.name;
+                    document.getElementById('disease').value = v.disease;
+                    document.getElementById('doseNumber').value = v.doseNumber;
+                    document.getElementById('totalDoses').value = v.totalDoses;
+                    document.getElementById('type').value = v.type;
+                    document.getElementById('scheduledAgeMonths').value = v.scheduledAgeMonths || '';
+                    document.getElementById('scheduledAgeDays').value = v.scheduledAgeDays || '';
+                    document.getElementById('notes').value = v.notes || '';
+                    
+                    document.getElementById('form-title').textContent = 'Редагувати щеплення';
+                    document.getElementById('submit-btn').textContent = 'Оновити щеплення';
+                    document.getElementById('cancel-btn').style.display = 'inline-block';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            } catch (err) {}
+        }
+
+        function resetForm() {
+            document.getElementById('vaccine-form').reset();
+            document.getElementById('vaccine-id').value = '';
+            document.getElementById('form-title').textContent = 'Додати нове щеплення';
+            document.getElementById('submit-btn').textContent = 'Зберегти щеплення';
+            document.getElementById('cancel-btn').style.display = 'none';
+        }
+
+        fetchVaccines();
+    </script>
+</body>
+</html>

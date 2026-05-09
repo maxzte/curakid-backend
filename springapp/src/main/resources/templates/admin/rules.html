@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curakid Admin - Fuzzy Rules</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-color: #F3F4F6;
+            --surface: #FFFFFF;
+            --text-main: #111827;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+            --error: #EF4444;
+            --success: #10B981;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 2rem;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+        }
+
+        .sidebar h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            margin-top: 0;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: #EEF2FF;
+            color: var(--primary);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem 4rem;
+            max-width: 1200px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h2 {
+            font-size: 1.875rem;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            margin-bottom: 2rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            box-sizing: border-box;
+            min-height: 400px;
+            resize: vertical;
+            background-color: #F9FAFB;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            background-color: #FFF;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            margin-top: 1rem;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+            font-weight: 500;
+        }
+
+        .alert.success {
+            background-color: #D1FAE5;
+            color: #065F46;
+            display: block;
+        }
+
+        .alert.error {
+            background-color: #FEE2E2;
+            color: #991B1B;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h1>Curakid Admin</h1>
+        <nav>
+            <a href="/admin/ui/articles" class="nav-item">База знань</a>
+            <a href="/admin/ui/periods" class="nav-item">Вікові періоди</a>
+            <a href="/admin/ui/quizzes" class="nav-item">Опитування</a>
+            <a href="/admin/ui/vaccines" class="nav-item">Календар щеплень</a>
+            <a href="/admin/ui/rules" class="nav-item active">Нечіткі правила</a>
+            <a href="/admin/ui/users" class="nav-item">Користувачі</a>
+            <a href="#" onclick="logout()" class="nav-item" style="color: var(--error); margin-top: 2rem;">Вийти</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2>Fuzzy Logic Rules</h2>
+        </div>
+
+        <div id="status-message" class="alert"></div>
+
+        <div class="card">
+            <h3>Edit Rules (JSON)</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Update the rules used by the Intelligence Service for fuzzy logic inference. Ensure valid JSON.</p>
+            
+            <textarea id="rules-json" class="form-control" spellcheck="false" placeholder="Loading rules..."></textarea>
+            
+            <button class="btn" id="save-btn" onclick="saveRules()">Save Rules</button>
+        </div>
+    </div>
+
+    <script>
+        if (!localStorage.getItem('curakid_admin_token')) {
+            window.location.href = '/admin/ui/login';
+        }
+
+        function logout() {
+            localStorage.removeItem('curakid_admin_token');
+            window.location.href = '/admin/ui/login';
+        }
+
+        function getAuthHeader() {
+            let token = localStorage.getItem('curakid_admin_token');
+            if (!token) return {};
+            return { 'Authorization': token.startsWith('Bearer ') ? token : 'Bearer ' + token };
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById('status-message');
+            el.textContent = text;
+            el.className = 'alert ' + type;
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        async function fetchRules() {
+            try {
+                const response = await fetch('/api/admin/fuzzy/rules', {
+                    headers: getAuthHeader()
+                });
+                
+                if (!response.ok) throw new Error("Failed to fetch rules.");
+
+                const rules = await response.json();
+                document.getElementById('rules-json').value = JSON.stringify(rules, null, 4);
+
+            } catch (err) {
+                document.getElementById('rules-json').value = "Error loading rules: " + err.message;
+                showMessage(err.message, 'error');
+            }
+        }
+
+        async function saveRules() {
+            const btn = document.getElementById('save-btn');
+            const rulesText = document.getElementById('rules-json').value;
+            let parsedRules;
+
+            try {
+                parsedRules = JSON.parse(rulesText);
+            } catch (e) {
+                showMessage("Invalid JSON format. Please check syntax.", 'error');
+                return;
+            }
+
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const response = await fetch('/api/admin/fuzzy/rules', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader()
+                    },
+                    body: JSON.stringify({ rules: parsedRules })
+                });
+
+                if (!response.ok) throw new Error("Failed to save rules");
+
+                showMessage('Rules updated successfully!', 'success');
+                fetchRules();
+
+            } catch (err) {
+                showMessage(err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Rules';
+            }
+        }
+
+        // Init
+        fetchRules();
+    </script>
+</body>
+</html>

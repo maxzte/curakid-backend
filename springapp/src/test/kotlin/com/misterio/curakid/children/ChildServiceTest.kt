@@ -1,6 +1,7 @@
 package com.misterio.curakid.children
 
 import com.misterio.curakid.auth.User
+import com.misterio.curakid.vaccine.VaccineService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -12,13 +13,14 @@ import java.util.*
 class ChildServiceTest {
 
     private lateinit var childRepository: ChildRepository
+    private lateinit var vaccineService: VaccineService
     private lateinit var childService: ChildService
     private lateinit var user: User
 
     @BeforeEach
     fun setUp() {
         childRepository = mock()
-        childService = ChildService(childRepository)
+        childService = ChildService(childRepository, vaccineService)
         user = User(email = "test@test.com", passwordHash = "hash", name = "Test User").apply {
             id = UUID.randomUUID()
         }
@@ -29,7 +31,8 @@ class ChildServiceTest {
         val request = CreateChildRequest(
             name = "Ivan",
             birthDate = LocalDate.of(2022, 1, 1),
-            gender = Gender.MALE
+            gender = Gender.MALE,
+            isPremature = false,
         )
         val savedChild = Child(user, "Ivan", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
             id = UUID.randomUUID()

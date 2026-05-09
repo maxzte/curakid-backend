@@ -14,7 +14,7 @@ class LifePeriod(
     var label: String = "",
 
     @Column(nullable = false)
-    var about: String,
+    var about: String = "",
 
     @Column(name = "min_months", nullable = false)
     var minMonths: Int = 0,

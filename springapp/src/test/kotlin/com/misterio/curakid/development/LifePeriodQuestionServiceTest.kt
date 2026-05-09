@@ -12,20 +12,21 @@ import java.util.*
 class LifePeriodQuestionServiceTest {
 
     private lateinit var lifePeriodRepository: LifePeriodRepository
+    private lateinit var questionRepository: QuestionRepository
     private lateinit var service: LifePeriodQuestionService
 
     @BeforeEach
     fun setUp() {
         lifePeriodRepository = mock()
-        service = LifePeriodQuestionService(lifePeriodRepository)
+        service = LifePeriodQuestionService(lifePeriodRepository, questionRepository)
     }
 
     @Test
     fun `getAllPeriodsWithQuestions should return sorted DTOs`() {
-        val period1 = createPeriod("P1M", "1 міс", 1, 1)
-        val period2 = createPeriod("P2M", "2 міс", 2, 2)
+        val period1 = createPeriod("P1M", "1 міс", about = "lorem ipsum", 1, 1)
+        val period2 = createPeriod("P2M", "2 міс", about = "lorem ipsum", 2, 2)
 
-        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+        whenever(lifePeriodRepository.findAllWithQuestions())
             .thenReturn(listOf(period1, period2))
 
         val result = service.getAllPeriodsWithQuestions()
@@ -37,7 +38,7 @@ class LifePeriodQuestionServiceTest {
 
     @Test
     fun `getAllPeriodsWithQuestions should map questions and options correctly`() {
-        val period = createPeriod("P1M", "1 міс", 1, 1)
+        val period = createPeriod("P1M", "1 міс", "lorem ipsum", 1, 1)
         val question = Question("Can the child see?", AssessmentDomain.MOTOR, BigDecimal("2.0"), period).apply {
             id = UUID.randomUUID()
         }
@@ -46,7 +47,7 @@ class LifePeriodQuestionServiceTest {
         question.options.addAll(listOf(option2, option1)) // intentionally unordered
         period.questions.add(question)
 
-        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+        whenever(lifePeriodRepository.findAllWithQuestions())
             .thenReturn(listOf(period))
 
         val result = service.getAllPeriodsWithQuestions()
@@ -66,7 +67,7 @@ class LifePeriodQuestionServiceTest {
 
     @Test
     fun `getAllPeriodsWithQuestions should return empty list when no periods`() {
-        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+        whenever(lifePeriodRepository.findAllWithQuestions())
             .thenReturn(emptyList())
 
         val result = service.getAllPeriodsWithQuestions()
@@ -76,7 +77,7 @@ class LifePeriodQuestionServiceTest {
 
     @Test
     fun `getPeriodWithQuestions should return correct DTO`() {
-        val period = createPeriod("P3_4M", "3–4 міс", 3, 4)
+        val period = createPeriod("P3_4M", "3–4 міс", "lorem ipsum", 3, 4)
 
         whenever(lifePeriodRepository.findByCode("P3_4M"))
             .thenReturn(Optional.of(period))
@@ -101,13 +102,17 @@ class LifePeriodQuestionServiceTest {
 
     @Test
     fun `questions should be sorted by weight`() {
-        val period = createPeriod("P1M", "1 міс", 1, 1)
+        val period = createPeriod("P1M", "1 міс", "lorem ipsum", 1, 1)
 
-        val q1 = Question("Heavy question", AssessmentDomain.SPEECH, BigDecimal("3.0"), period).apply { id = UUID.randomUUID() }
-        val q2 = Question("Light question", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply { id = UUID.randomUUID() }
+        val q1 = Question("Heavy question", AssessmentDomain.SPEECH, BigDecimal("3.0"), period).apply {
+            id = UUID.randomUUID()
+        }
+        val q2 = Question("Light question", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply {
+            id = UUID.randomUUID()
+        }
         period.questions.addAll(listOf(q1, q2)) // heavy first
 
-        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions())
+        whenever(lifePeriodRepository.findAllWithQuestions())
             .thenReturn(listOf(period))
 
         val result = service.getAllPeriodsWithQuestions()
@@ -117,8 +122,8 @@ class LifePeriodQuestionServiceTest {
         assertEquals("Heavy question", questions[1].text)
     }
 
-    private fun createPeriod(code: String, label: String, min: Int, max: Int): LifePeriod {
-        return LifePeriod(code, label, min, max).apply {
+    private fun createPeriod(code: String, label: String, about: String, min: Int, max: Int): LifePeriod {
+        return LifePeriod(code, label, about, min, max).apply {
             id = UUID.randomUUID()
         }
     }

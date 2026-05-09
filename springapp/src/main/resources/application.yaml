@@ -4,12 +4,13 @@ spring:
 
   datasource:
     driver-class-name: org.postgresql.Driver
-#    url: jdbc:postgresql://127.0.0.1:54332/postgres?options=-c%20search_path%3Dpublic,extensions
-#    username: postgres
-#    password: postgres
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: jdbc:postgresql://127.0.0.1:54332/postgres?options=-c%20search_path%3Dpublic,extensions
+    username: postgres
+    password: postgres
+
+#    url: ${SPRING_DATASOURCE_URL}
+#    username: ${SPRING_DATASOURCE_USERNAME}
+#    password: ${SPRING_DATASOURCE_PASSWORD}
 
   jpa:
     hibernate:

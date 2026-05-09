@@ -29,7 +29,13 @@ class AdminQuizServiceTest {
 
     @Test
     fun `createLifePeriod should save and return period`() {
-        val request = CreateLifePeriodRequest("P1M", "1 міс", 1, 1)
+        val request = CreateLifePeriodRequest(
+            code = "P1M",
+            label = "1 міс",
+            about = "lorem ipsum",
+            minMonths = 1,
+            maxMonths = 1
+        )
         whenever(lifePeriodRepository.save(any<LifePeriod>())).thenAnswer { it.arguments[0] }
 
         val result = service.createLifePeriod(request)
@@ -52,12 +58,12 @@ class AdminQuizServiceTest {
 
     @Test
     fun `getLifePeriods should delegate to repository`() {
-        whenever(lifePeriodRepository.findAllWithQuestionsAndOptions()).thenReturn(emptyList())
+        whenever(lifePeriodRepository.findAllWithQuestions()).thenReturn(emptyList())
 
         val result = service.getLifePeriods()
 
         assertTrue(result.isEmpty())
-        verify(lifePeriodRepository).findAllWithQuestionsAndOptions()
+        verify(lifePeriodRepository).findAllWithQuestions()
     }
 
     // --- Questions ---
@@ -65,7 +71,10 @@ class AdminQuizServiceTest {
     @Test
     fun `createQuestion should link to correct life period`() {
         val periodId = UUID.randomUUID()
-        val period = LifePeriod("P1M", "1 міс", 1, 1).apply { id = periodId }
+        val period =
+            LifePeriod(code = "P1M", label = "1 міс", about = "lorem ipsum", minMonths = 1, maxMonths = 1).apply {
+                id = periodId
+            }
         val request = CreateQuizQuestionRequest("Does the child respond?", AssessmentDomain.MOTOR, BigDecimal("1.0"))
 
         whenever(lifePeriodRepository.findById(periodId)).thenReturn(Optional.of(period))
@@ -94,7 +103,7 @@ class AdminQuizServiceTest {
     @Test
     fun `updateQuestion should update existing fields`() {
         val questionId = UUID.randomUUID()
-        val period = LifePeriod("P1M", "1 міс", 1, 1)
+        val period = LifePeriod(code = "P1M", label = "1 міс", about = "lorem ipsum", minMonths = 1, maxMonths = 1)
         val existing = Question("Old Text", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply { id = questionId }
         val request = CreateQuizQuestionRequest("New Text", AssessmentDomain.SPEECH, BigDecimal("1.5"))
 
@@ -123,7 +132,7 @@ class AdminQuizServiceTest {
     @Test
     fun `createAnswerOption should link to correct question`() {
         val questionId = UUID.randomUUID()
-        val period = LifePeriod("P1M", "1 міс", 1, 1)
+        val period = LifePeriod(code = "P1M", label = "1 міс", about = "lorem ipsum", minMonths = 1, maxMonths = 1)
         val question = Question("text", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply { id = questionId }
         val request = CreateAnswerOptionRequest("Yes", "1", 1)
 

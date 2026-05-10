@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+</head>
+<body>
+
+<div th:fragment="sidebar(activePage)" class="sidebar">
+    <h1>Curakid Admin</h1>
+    <nav>
+        <a href="/admin/ui/articles" 
+           th:classappend="${activePage == 'articles' ? 'active' : ''}" 
+           class="nav-item">База знань</a>
+           
+        <a href="/admin/ui/periods" 
+           th:classappend="${activePage == 'periods' ? 'active' : ''}" 
+           class="nav-item">Вікові періоди</a>
+           
+        <a href="/admin/ui/quizzes" 
+           th:classappend="${activePage == 'quizzes' ? 'active' : ''}" 
+           class="nav-item">Опитування</a>
+           
+        <a href="/admin/ui/vaccines" 
+           th:classappend="${activePage == 'vaccines' ? 'active' : ''}" 
+           class="nav-item">Календар щеплень</a>
+           
+        <a href="/admin/ui/rules" 
+           th:classappend="${activePage == 'rules' ? 'active' : ''}" 
+           class="nav-item">Нечіткі правила</a>
+           
+        <a href="/admin/ui/users" 
+           th:classappend="${activePage == 'users' ? 'active' : ''}" 
+           class="nav-item">Користувачі</a>
+           
+        <a href="#" onclick="logout()" class="nav-item" style="color: var(--error); margin-top: 2rem;">Вийти</a>
+    </nav>
+    
+    <script th:inline="javascript">
+        function logout() {
+            localStorage.removeItem('curakid_admin_token');
+            // Also clear cookie if exists
+            document.cookie = "admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            window.location.href = '/admin/ui/login';
+        }
+    </script>
+</div>
+
+</body>
+</html>

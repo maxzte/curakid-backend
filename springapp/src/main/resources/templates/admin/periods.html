@@ -272,18 +272,7 @@
 </head>
 <body>
 
-    <div class="sidebar">
-        <h1>Curakid Admin</h1>
-        <nav>
-            <a href="/admin/ui/articles" class="nav-item">База знань</a>
-            <a href="/admin/ui/periods" class="nav-item active">Вікові періоди</a>
-            <a href="/admin/ui/quizzes" class="nav-item">Опитування</a>
-            <a href="/admin/ui/vaccines" class="nav-item">Календар щеплень</a>
-            <a href="/admin/ui/rules" class="nav-item">Нечіткі правила</a>
-            <a href="/admin/ui/users" class="nav-item">Користувачі</a>
-            <a href="#" onclick="logout()" class="nav-item" style="color: var(--error); margin-top: 2rem;">Вийти</a>
-        </nav>
-    </div>
+    <div th:replace="~{admin/fragments :: sidebar('periods')}"></div>
 
     <div class="main-content">
         <div class="header">
@@ -399,11 +388,6 @@
             window.location.href = '/admin/ui/login';
         } else {
             fetchPeriods();
-        }
-
-        function logout() {
-            localStorage.removeItem('curakid_admin_token');
-            window.location.href = '/admin/ui/login';
         }
 
         function getAuthHeader() {

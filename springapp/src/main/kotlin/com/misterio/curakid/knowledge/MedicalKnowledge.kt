@@ -14,10 +14,12 @@ class MedicalKnowledge(
     @Column(name = "content", columnDefinition = "TEXT", nullable = false)
     var content: String = "",
 
-    @Column(name = "category")
-    var category: String? = null,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    var category: MedicalCategory? = null,
 
     // 1024-dim vector from intfloat/multilingual-e5-large, stored as float array
+    @JdbcTypeCode(SqlTypes.VECTOR)
     @Column(name = "embedding", columnDefinition = "vector(1024)")
     var embedding: FloatArray? = null,
 

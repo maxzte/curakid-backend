@@ -232,18 +232,7 @@
 </head>
 <body>
 
-    <div class="sidebar">
-        <h1>Curakid Admin</h1>
-        <nav>
-            <a href="/admin/ui/articles" class="nav-item active">База знань</a>
-            <a href="/admin/ui/periods" class="nav-item">Вікові періоди</a>
-            <a href="/admin/ui/quizzes" class="nav-item">Опитування</a>
-            <a href="/admin/ui/vaccines" class="nav-item">Календар щеплень</a>
-            <a href="/admin/ui/rules" class="nav-item">Нечіткі правила</a>
-            <a href="/admin/ui/users" class="nav-item">Користувачі</a>
-            <a href="#" onclick="logout()" class="nav-item" style="color: var(--error); margin-top: 2rem;">Вийти</a>
-        </nav>
-    </div>
+    <div th:replace="~{admin/fragments :: sidebar('articles')}"></div>
 
     <div class="main-content">
         <div class="header">
@@ -251,6 +240,23 @@
         </div>
 
         <div id="status-message" class="alert"></div>
+        
+        <div class="card fade-in" style="margin-bottom: 2rem;">
+            <h3>Manage Categories</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Create categories for articles (e.g. Nutrition, Development).</p>
+            
+            <form id="add-category-form" style="display: flex; gap: 1rem; align-items: flex-end;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="cat-name">Technical Name (ID)</label>
+                    <input type="text" id="cat-name" class="form-control" required placeholder="NUTRITION">
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="cat-display">Display Name</label>
+                    <input type="text" id="cat-display" class="form-control" required placeholder="Харчування">
+                </div>
+                <button type="submit" class="btn">Add Category</button>
+            </form>
+        </div>
 
         <div class="card fade-in">
             <h3>Add New Article</h3>
@@ -264,7 +270,9 @@
                 
                 <div class="form-group">
                     <label for="category">Category</label>
-                    <input type="text" id="category" class="form-control" required placeholder="e.g. Autism, ADHD, General">
+                    <select id="category" class="form-control" required>
+                        <option value="">Loading categories...</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -308,12 +316,12 @@
         if (!savedToken) {
             window.location.href = '/admin/ui/login';
         } else {
-            fetchArticles();
+            initPage();
         }
 
-        function logout() {
-            localStorage.removeItem('curakid_admin_token');
-            window.location.href = '/admin/ui/login';
+        async function initPage() {
+            await fetchCategories();
+            await fetchArticles();
         }
 
         function getAuthHeader() {
@@ -328,7 +336,30 @@
             const el = document.getElementById('status-message');
             el.textContent = text;
             el.className = 'alert ' + type;
+            el.style.display = 'block';
             setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        let categories = [];
+
+        async function fetchCategories() {
+            try {
+                const response = await fetch('/api/admin/knowledge/categories', {
+                    headers: getAuthHeader()
+                });
+                categories = await response.json();
+                
+                const select = document.getElementById('category');
+                if (categories.length === 0) {
+                    select.innerHTML = '<option value="">No categories - please create one first</option>';
+                } else {
+                    select.innerHTML = categories.map(c => `
+                        <option value="${c.id}">${c.displayName} (${c.name})</option>
+                    `).join('');
+                }
+            } catch (err) {
+                showMessage('Failed to load categories', 'error');
+            }
         }
 
         // Fetch Articles
@@ -353,15 +384,18 @@
                     return;
                 }
 
-                tbody.innerHTML = articles.map(art => `
+                tbody.innerHTML = articles.map(art => {
+                    const cat = art.category ? art.category.displayName : 'No Category';
+                    return `
                     <tr>
                         <td style="font-weight: 500;">${escapeHtml(art.title)}</td>
-                        <td><span class="badge">${escapeHtml(art.category)}</span></td>
+                        <td><span class="badge">${escapeHtml(cat)}</span></td>
                         <td>
                             <button class="delete-btn" onclick="deleteArticle('${art.id}')">Delete</button>
                         </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
 
             } catch (err) {
                 showMessage(err.message, 'error');
@@ -375,7 +409,7 @@
             
             const payload = {
                 title: document.getElementById('title').value,
-                category: document.getElementById('category').value,
+                categoryId: document.getElementById('category').value,
                 content: document.getElementById('content').value
             };
 
@@ -405,6 +439,34 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Save & Generate Embeddings';
+            }
+        });
+
+        // Add Category
+        document.getElementById('add-category-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('cat-name').value.toUpperCase(),
+                displayName: document.getElementById('cat-display').value
+            };
+
+            try {
+                const response = await fetch('/api/admin/knowledge/categories', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader()
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error("Failed to save category");
+
+                showMessage('Category added!', 'success');
+                e.target.reset();
+                await fetchCategories();
+            } catch (err) {
+                showMessage(err.message, 'error');
             }
         });
 

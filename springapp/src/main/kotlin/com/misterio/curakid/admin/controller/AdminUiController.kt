@@ -1,4 +1,4 @@
-package com.misterio.curakid.admin
+package com.misterio.curakid.admin.controller
 
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping

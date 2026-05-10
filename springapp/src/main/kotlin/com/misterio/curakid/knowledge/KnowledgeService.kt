@@ -63,7 +63,7 @@ class KnowledgeService(
                 .bodyValue(EmbeddingRequest(text))
                 .retrieve()
                 .bodyToMono(EmbeddingResponse::class.java)
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(60))
                 .block()
                 ?.embedding
         } catch (ex: Exception) {

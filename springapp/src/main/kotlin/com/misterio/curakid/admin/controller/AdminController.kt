@@ -1,5 +1,18 @@
-package com.misterio.curakid.admin
+package com.misterio.curakid.admin.controller
 
+import com.misterio.curakid.admin.AdminFuzzyService
+import com.misterio.curakid.admin.AdminKnowledgeService
+import com.misterio.curakid.admin.AdminQuizService
+import com.misterio.curakid.admin.AdminUserResponse
+import com.misterio.curakid.admin.AdminUserService
+import com.misterio.curakid.admin.AdminVaccineService
+import com.misterio.curakid.admin.CreateAnswerOptionRequest
+import com.misterio.curakid.admin.CreateArticleRequest
+import com.misterio.curakid.admin.CreateCategoryRequest
+import com.misterio.curakid.admin.CreateLifePeriodRequest
+import com.misterio.curakid.admin.CreateQuizQuestionRequest
+import com.misterio.curakid.admin.CreateVaccineTemplateRequest
+import com.misterio.curakid.admin.UpdateRulesRequest
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.*
@@ -17,7 +30,7 @@ class AdminController(
     // Knowledge
     @PostMapping("/knowledge")
     fun uploadArticle(@RequestBody request: CreateArticleRequest) =
-        ResponseEntity.ok(knowledgeService.uploadArticle(request.title, request.content, request.category))
+        ResponseEntity.ok(knowledgeService.uploadArticle(request.title, request.content, request.categoryId))
 
     @GetMapping("/knowledge")
     fun getArticles() = ResponseEntity.ok(knowledgeService.getArticles())
@@ -27,6 +40,13 @@ class AdminController(
         knowledgeService.deleteArticle(id)
         return ResponseEntity.noContent().build()
     }
+
+    @GetMapping("/knowledge/categories")
+    fun getCategories() = ResponseEntity.ok(knowledgeService.getCategories())
+
+    @PostMapping("/knowledge/categories")
+    fun createCategory(@RequestBody request: CreateCategoryRequest) =
+        ResponseEntity.ok(knowledgeService.createCategory(request))
 
     // Quiz — Life Periods
     @GetMapping("/quiz/life-periods")

@@ -24,4 +24,19 @@ interface MedicalKnowledgeRepository : JpaRepository<MedicalKnowledge, UUID> {
         @Param("embedding") embedding: String,  // formatted as pgvector literal: '[0.1, 0.2, ...]'
         @Param("limit") limit: Int
     ): List<MedicalKnowledge>
+
+    @Query(
+        value = """
+            SELECT * FROM medical_knowledge
+            WHERE category_id = :categoryId
+            ORDER BY embedding <=> CAST(:embedding AS vector)
+            LIMIT :limit
+        """,
+        nativeQuery = true
+    )
+    fun findTopNByEmbeddingSimilarityAndCategory(
+        @Param("embedding") embedding: String,
+        @Param("categoryId") categoryId: UUID,
+        @Param("limit") limit: Int
+    ): List<MedicalKnowledge>
 }

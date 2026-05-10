@@ -1,13 +1,18 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.assessments.AssessmentDomain
+import com.misterio.curakid.knowledge.MedicalCategory
 import java.math.BigDecimal
 import java.util.*
 
 data class CreateArticleRequest(
     val title: String,
     val content: String,
-    val category: String?
+    val categoryId: UUID
+)
+
+data class CreateCategoryRequest(
+    val name: String,
+    val displayName: String
 )
 
 data class CreateLifePeriodRequest(

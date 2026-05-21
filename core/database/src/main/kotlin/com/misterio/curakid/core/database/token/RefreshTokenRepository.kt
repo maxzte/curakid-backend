@@ -8,9 +8,13 @@ import java.util.Optional
 import java.util.UUID
 
 interface RefreshTokenRepository : JpaRepository<RefreshToken, UUID> {
+
+    fun findByUser(user: User): Optional<RefreshToken>
+
     fun findByToken(token: String): Optional<RefreshToken>
 
     @Modifying
     @Transactional
     fun deleteByUser(user: User): Int
+
 }

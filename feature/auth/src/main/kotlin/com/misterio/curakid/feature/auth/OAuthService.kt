@@ -65,13 +65,23 @@ class OAuthService(
     }
 
     private fun generateAndSaveRefreshToken(user: User): String {
-        refreshTokenRepository.deleteByUser(user)
         val tokenStr = jwtService.generateRefreshToken(user)
-        val refreshToken = RefreshToken(
-            user = user,
-            token = tokenStr,
-            expiryDate = Instant.now().plusMillis(604800000)
-        )
+
+        val refreshToken = refreshTokenRepository.findByUser(user)
+            .map { existing ->
+                existing.apply {
+                    token = tokenStr
+                    expiryDate = Instant.now().plusMillis(604800000)
+                }
+            }
+            .orElseGet {
+                RefreshToken(
+                    user = user,
+                    token = tokenStr,
+                    expiryDate = Instant.now().plusMillis(604800000)
+                )
+            }
+
         refreshTokenRepository.save(refreshToken)
         return tokenStr
     }

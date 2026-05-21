@@ -22,9 +22,29 @@ services:
         - action: rebuild
           path: ./springapp
         - action: rebuild
-          path: ./essential
+          path: ./core/essential
         - action: rebuild
-          path: ./feature/profile
+          path: ./core/security
+        - action: rebuild
+          path: ./core/database
+        - action: rebuild
+          path: ./feature/auth
+        - action: rebuild
+          path: ./feature/children
+        - action: rebuild
+          path: ./feature/development
+        - action: rebuild
+          path: ./feature/measurements
+        - action: rebuild
+          path: ./feature/knowledge
+        - action: rebuild
+          path: ./feature/reports
+        - action: rebuild
+          path: ./feature/fis
+        - action: rebuild
+          path: ./feature/vaccine
+        - action: rebuild
+          path: ./build-logic
 
   intelligence:
     build:

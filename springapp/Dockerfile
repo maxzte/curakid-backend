@@ -1,36 +1,46 @@
-# Stage 1: Build the application
-FROM eclipse-temurin:21-jdk-jammy as build
+# Stage 1: Build
+FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
 
-# Copy gradle executable and wrapper
 COPY gradlew .
 COPY gradle gradle
+RUN chmod +x gradlew
 
-# Copy build configuration files
+# Build configs
 COPY build.gradle.kts settings.gradle.kts ./
-COPY springapp/build.gradle.kts springapp/
-# Copy other modules if they are dependencies (as seen in springapp/build.gradle.kts)
-COPY essential/ essential/
-COPY feature/profile/ feature/profile/
+COPY build-logic/ build-logic/
 
-# Pre-fetch dependencies to cache them in a Docker layer
+# Module configs
+COPY springapp/build.gradle.kts springapp/
+COPY core/essential/build.gradle.kts core/essential/
+COPY core/security/build.gradle.kts core/security/
+COPY core/database/build.gradle.kts core/database/
+COPY feature/auth/build.gradle.kts feature/auth/
+COPY feature/children/build.gradle.kts feature/children/
+COPY feature/development/build.gradle.kts feature/development/
+COPY feature/measurements/build.gradle.kts feature/measurements/
+COPY feature/knowledge/build.gradle.kts feature/knowledge/
+COPY feature/reports/build.gradle.kts feature/reports/
+COPY feature/fis/build.gradle.kts feature/fis/
+COPY feature/vaccine/build.gradle.kts feature/vaccine/
+
+# Pre-fetch dependencies (кешується як окремий шар)
 RUN ./gradlew :springapp:dependencies --no-daemon || true
 
-# Copy source code and build
+# Copy all source code and build
 COPY . .
 RUN ./gradlew :springapp:bootJar --no-daemon
 
 # Stage 2: Extract layers
-FROM eclipse-temurin:21-jre-jammy as extract
+FROM eclipse-temurin:21-jre-jammy AS extract
 WORKDIR /app
 COPY --from=build /app/springapp/build/libs/*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract
 
-# Stage 3: Final image
+# Stage 3: Final
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# Copy the layers from the extract stage
 COPY --from=extract /app/dependencies/ ./
 COPY --from=extract /app/spring-boot-loader/ ./
 COPY --from=extract /app/snapshot-dependencies/ ./
@@ -38,5 +48,4 @@ COPY --from=extract /app/application/ ./
 
 EXPOSE 8080
 
-# Use the JarLauncher for faster startup and better resource usage
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

@@ -1,11 +1,19 @@
 package com.misterio.curakid.development
 
-import com.misterio.curakid.assessments.AssessmentDomain
-import org.junit.jupiter.api.Assertions.*
+import com.misterio.curakid.core.database.answer.AnswerOption
+import com.misterio.curakid.core.database.assessments.AssessmentDomain
+import com.misterio.curakid.core.database.development.LifePeriod
+import com.misterio.curakid.core.database.development.LifePeriodRepository
+import com.misterio.curakid.core.database.question.Question
+import com.misterio.curakid.core.database.question.QuestionRepository
+import com.misterio.curakid.feature.development.LifePeriodQuestionService
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mockito.kotlin.*
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 import java.math.BigDecimal
 import java.util.*
 
@@ -18,6 +26,7 @@ class LifePeriodQuestionServiceTest {
     @BeforeEach
     fun setUp() {
         lifePeriodRepository = mock()
+        questionRepository = mock()
         service = LifePeriodQuestionService(lifePeriodRepository, questionRepository)
     }
 
@@ -39,7 +48,7 @@ class LifePeriodQuestionServiceTest {
     @Test
     fun `getAllPeriodsWithQuestions should map questions and options correctly`() {
         val period = createPeriod("P1M", "1 міс", "lorem ipsum", 1, 1)
-        val question = Question("Can the child see?", AssessmentDomain.MOTOR, BigDecimal("2.0"), period).apply {
+        val question = Question("Can the child see?", AssessmentDomain.MOTOR_GROSS, BigDecimal("2.0"), period).apply {
             id = UUID.randomUUID()
         }
         val option1 = AnswerOption(question, "Yes", "1", 1).apply { id = UUID.randomUUID() }
@@ -58,7 +67,7 @@ class LifePeriodQuestionServiceTest {
 
         val questionDto = periodDto.questions[0]
         assertEquals("Can the child see?", questionDto.text)
-        assertEquals("MOTOR", questionDto.domain)
+        assertEquals("MOTOR_GROSS", questionDto.domain)
         assertEquals(2, questionDto.options.size)
         // Options should be sorted by order
         assertEquals("Yes", questionDto.options[0].text)
@@ -107,7 +116,7 @@ class LifePeriodQuestionServiceTest {
         val q1 = Question("Heavy question", AssessmentDomain.SPEECH, BigDecimal("3.0"), period).apply {
             id = UUID.randomUUID()
         }
-        val q2 = Question("Light question", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply {
+        val q2 = Question("Light question", AssessmentDomain.MOTOR_GROSS, BigDecimal("1.0"), period).apply {
             id = UUID.randomUUID()
         }
         period.questions.addAll(listOf(q1, q2)) // heavy first

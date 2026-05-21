@@ -1,0 +1,68 @@
+package com.misterio.curakid.feature.assessments
+
+import com.misterio.curakid.core.database.children.ChildRepository
+import com.misterio.curakid.core.database.currentUser
+import jakarta.validation.Valid
+import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+import java.util.NoSuchElementException
+import java.util.UUID
+
+@RestController
+@RequestMapping("/api/children/{childId}/assessments")
+class AssessmentController(
+    private val assessmentService: SkillAssessmentService,
+    private val childRepository: ChildRepository
+) {
+    @GetMapping
+    fun getAssessments(
+        @PathVariable childId: UUID,
+        auth: Authentication
+    ): ResponseEntity<List<AssessmentResponse>> {
+        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
+            .orElseThrow { NoSuchElementException("Child not found") }
+        return ResponseEntity.ok(assessmentService.getAssessmentsByChild(child))
+    }
+
+    @PostMapping
+    fun saveAnswers(
+        @PathVariable childId: UUID,
+        @PathVariable periodId: UUID,
+        @Valid @RequestBody request: SaveAnswersRequest,
+        auth: Authentication
+    ): ResponseEntity<List<AssessmentResponse>> {
+        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
+            .orElseThrow { NoSuchElementException("Child not found") }
+        return ResponseEntity.status(201).body(assessmentService.saveAssessmentAnswers(child, periodId, request))
+    }
+
+    @PatchMapping("/{assessmentId}")
+    fun updateAnswers(
+        @PathVariable childId: UUID,
+        @PathVariable assessmentId: UUID,
+        @Valid @RequestBody request: AnswerRequest,
+        auth: Authentication
+    ): ResponseEntity<AssessmentResponse> {
+        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
+            .orElseThrow { NoSuchElementException("Child not found") }
+        return ResponseEntity.ok(assessmentService.updateAssessmentAnswers(assessmentId, child, request))
+    }
+
+    @PostMapping("/complete")
+    fun completePeriodAssessment(
+        @PathVariable childId: UUID,
+        @Valid @RequestBody request: CompletePeriodAssessmentRequest,
+        auth: Authentication
+    ): ResponseEntity<CompletePeriodAssessmentResponse> {
+        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
+            .orElseThrow { NoSuchElementException("Child not found") }
+        return ResponseEntity.accepted().body(assessmentService.completePeriodAssessment(child, request))
+    }
+}

@@ -1,10 +1,10 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.knowledge.KnowledgeService
-import com.misterio.curakid.knowledge.MedicalKnowledge
-import com.misterio.curakid.knowledge.MedicalKnowledgeRepository
-import com.misterio.curakid.knowledge.MedicalCategory
-import com.misterio.curakid.knowledge.MedicalCategoryRepository
+import com.misterio.curakid.common.analysis.EmbeddingProvider
+import com.misterio.curakid.core.database.knowledge.MedicalKnowledge
+import com.misterio.curakid.core.database.knowledge.MedicalKnowledgeRepository
+import com.misterio.curakid.core.database.knowledge.MedicalCategory
+import com.misterio.curakid.feature.knowledge.MedicalCategoryRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -13,15 +13,15 @@ import java.util.*
 class AdminKnowledgeService(
     private val knowledgeRepository: MedicalKnowledgeRepository,
     private val categoryRepository: MedicalCategoryRepository,
-    private val knowledgeService: KnowledgeService
+    private val embeddingProvider: EmbeddingProvider
 ) {
     @Transactional
     fun uploadArticle(title: String, content: String, categoryId: UUID): MedicalKnowledge {
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { RuntimeException("Category not found") }
 
-        // Generate embedding via Python service
-        val embedding = knowledgeService.generateEmbedding(content)
+        // Generate embedding via Python service (now via EmbeddingProvider interface)
+        val embedding = embeddingProvider.generateEmbedding(content)
             ?: throw RuntimeException("Failed to generate embedding for the article")
         
         val article = MedicalKnowledge(

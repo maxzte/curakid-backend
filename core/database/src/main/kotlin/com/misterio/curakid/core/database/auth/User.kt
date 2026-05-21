@@ -1,0 +1,57 @@
+package com.misterio.curakid.core.database.auth
+
+import com.misterio.curakid.core.database.BaseEntity
+import jakarta.persistence.*
+import org.springframework.security.core.GrantedAuthority
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.core.userdetails.UserDetails
+
+@Entity
+@Table(name = "users")
+class User(
+
+    @Column(unique = true, nullable = false)
+    var email: String = "",
+
+    @Column(name = "password_hash", nullable = false)
+    var passwordHash: String = "",
+
+    @Column(name = "name", nullable = false)
+    var name: String = "",
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var role: Role = Role.ROLE_USER,
+
+    @Column(name = "is_active", nullable = false)
+    var isActive: Boolean = false,
+
+    @Column(name = "onboarding_completed", nullable = false)
+    var onboardingCompleted: Boolean = false,
+
+    @Column(name = "verification_code")
+    var verificationCode: String? = null,
+
+    @Column(name = "verification_code_expiry")
+    var verificationCodeExpiry: java.time.Instant? = null,
+
+    @Column(name = "reset_code")
+    var resetCode: String? = null,
+
+    @Column(name = "reset_code_expiry")
+    var resetCodeExpiry: java.time.Instant? = null
+
+) : BaseEntity(), UserDetails {
+    override fun getAuthorities(): Collection<GrantedAuthority> = listOf(SimpleGrantedAuthority(role.name))
+    override fun getPassword(): String = passwordHash
+    override fun getUsername(): String = email
+    override fun isAccountNonExpired(): Boolean = true
+    override fun isAccountNonLocked(): Boolean = true
+    override fun isCredentialsNonExpired(): Boolean = true
+    override fun isEnabled(): Boolean = isActive
+}
+
+enum class Role {
+    ROLE_USER,
+    ROLE_ADMIN
+}

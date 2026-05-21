@@ -1,0 +1,1 @@
+UPDATE public.events SET events.status = 'PLANNED';

@@ -1,7 +1,7 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.auth.User
-import com.misterio.curakid.auth.UserRepository
+import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.auth.UserRepository
 import org.springframework.stereotype.Service
 
 @Service

@@ -33,10 +33,13 @@ class FisRequest(BaseModel):
     wfaZscore: Optional[float]
     hfaZscore: Optional[float]
     bmiZscore: Optional[float]
-    motorScore: Optional[float]
+    motorGrossScore: Optional[float]
+    motorFineScore: Optional[float]
     speechScore: Optional[float]
     cognitiveScore: Optional[float]
     socialScore: Optional[float]
+    selfCareScore: Optional[float]
+    sensoryScore: Optional[float]
     rules: List[Dict[str, Any]]
 
 class EmbeddingRequest(BaseModel):
@@ -49,58 +52,148 @@ async def health():
 @app.post("/analyze", dependencies=[Depends(verify_internal_key)])
 async def analyze(request: FisRequest):
     """
-    Performs Fuzzy Inference based on child data and dynamic rules.
+    Performs Fuzzy Inference based on child data and dynamic rules from DB.
     """
     try:
-        # For now, we implement a robust heuristic that mimics fuzzy logic
-        # until the full skfuzzy rule parser is refined for dynamic JSON rules.
+        # 1. Define Antecedents (Inputs)
+        # Z-scores: range -4 to 4
+        z_range = np.arange(-4, 4.1, 0.1)
+        wfa = ctrl.Antecedent(z_range, 'wfaZscore')
+        hfa = ctrl.Antecedent(z_range, 'hfaZscore')
+        bmi = ctrl.Antecedent(z_range, 'bmiZscore')
         
-        # Heuristic: 
-        # Z-scores < -2 are critical (1.0)
-        # Scores < 50 are critical (1.0)
-        
-        breakdown = {}
-        
-        # Physical
-        phys_score = 0.0
-        phys_count = 0
-        for val in [request.wfaZscore, request.hfaZscore, request.bmiZscore]:
+        # Skill scores: range 0 to 100
+        s_range = np.arange(0, 101, 1)
+        motor_gross = ctrl.Antecedent(s_range, 'motorGrossScore')
+        motor_fine = ctrl.Antecedent(s_range, 'motorFineScore')
+        speech = ctrl.Antecedent(s_range, 'speechScore')
+        cognitive = ctrl.Antecedent(s_range, 'cognitiveScore')
+        social = ctrl.Antecedent(s_range, 'socialScore')
+        self_care = ctrl.Antecedent(s_range, 'selfCareScore')
+        sensory = ctrl.Antecedent(s_range, 'sensoryScore')
+
+        # 2. Define Consequent (Output)
+        u_range = np.arange(0, 1.01, 0.01)
+        urgency = ctrl.Consequent(u_range, 'urgency')
+
+        # 3. Define Trapezoidal Membership Functions
+        # For Z-scores
+        for var in [wfa, hfa, bmi]:
+            var['VERY_LOW'] = fuzz.trapmf(var.universe, [-4, -4, -3, -2])
+            var['LOW'] = fuzz.trapmf(var.universe, [-3, -2, -1, 0])
+            var['NORMAL'] = fuzz.trapmf(var.universe, [-1, 0, 0, 1])
+            var['HIGH'] = fuzz.trapmf(var.universe, [0, 1, 2, 3])
+            var['VERY_HIGH'] = fuzz.trapmf(var.universe, [2, 3, 4, 4])
+
+        # For Skill scores
+        for var in [motor_gross, motor_fine, speech, cognitive, social, self_care, sensory]:
+            var['CRITICAL'] = fuzz.trapmf(var.universe, [0, 0, 20, 40])
+            var['BELOW_NORMAL'] = fuzz.trapmf(var.universe, [30, 40, 60, 75])
+            var['NORMAL'] = fuzz.trapmf(var.universe, [70, 85, 100, 100])
+
+        # For Urgency
+        urgency['LOW'] = fuzz.trapmf(urgency.universe, [0, 0, 0.2, 0.4])
+        urgency['MEDIUM'] = fuzz.trapmf(urgency.universe, [0.3, 0.4, 0.6, 0.7])
+        urgency['HIGH'] = fuzz.trapmf(urgency.universe, [0.6, 0.8, 1, 1])
+
+        # 4. Map Variables for dynamic lookup
+        vars_map = {
+            'wfaZscore': wfa, 'hfaZscore': hfa, 'bmiZscore': bmi,
+            'motorGrossScore': motor_gross, 'motorFineScore': motor_fine,
+            'speechScore': speech, 'cognitiveScore': cognitive,
+            'socialScore': social, 'selfCareScore': self_care,
+            'sensoryScore': sensory
+        }
+
+        # 5. Build Rules dynamically
+        rules_list = []
+        for r in request.rules:
+            try:
+                # Build IF part (AND conditions)
+                cond_objs = []
+                for c in r['conditions']:
+                    var_obj = vars_map.get(c['variable'])
+                    if var_obj:
+                        cond_objs.append(var_obj[c['term']])
+                
+                if not cond_objs:
+                    continue
+
+                if len(cond_objs) == 1:
+                    if_part = cond_objs[0]
+                else:
+                    if_part = cond_objs[0]
+                    for next_cond in cond_objs[1:]:
+                        if_part &= next_cond
+                
+                # Build THEN part
+                then_part = urgency[r['consequent']]
+                
+                rules_list.append(ctrl.Rule(if_part, then_part))
+            except Exception as rule_err:
+                logger.warning(f"Skipping invalid rule: {r}, error: {rule_err}")
+
+        if not rules_list:
+            # Fallback to default heuristic if no rules defined
+            return await analyze_fallback(request)
+
+        # 6. Computation
+        fis_ctrl = ctrl.ControlSystem(rules_list)
+        fis_sim = ctrl.ControlSystemSimulation(fis_ctrl)
+
+        # Set inputs
+        inputs_provided = False
+        for key, var in vars_map.items():
+            val = getattr(request, key, None)
             if val is not None:
-                # Map Z-score -3..0 to 1..0
-                score = np.clip((0 - val) / 2.0, 0, 1)
-                phys_score += score
-                phys_count += 1
-        breakdown["physical"] = phys_score / phys_count if phys_count > 0 else 0.0
-        
-        # Skills
-        skill_score = 0.0
-        skill_count = 0
-        for name, val in [("motor", request.motorScore), ("speech", request.speechScore), 
-                          ("cognitive", request.cognitiveScore), ("social", request.socialScore)]:
-            if val is not None:
-                # Map 0..100 to 1..0
-                score = np.clip((80 - val) / 50.0, 0, 1)
-                skill_score += score
-                skill_count += 1
-                breakdown[name] = score
-        
-        avg_skill = skill_score / skill_count if skill_count > 0 else 0.0
-        
-        # Final Urgency: Max of physical and skills
-        urgency_score = max(breakdown.get("physical", 0.0), avg_skill)
-        
+                fis_sim.input[key] = float(val)
+                inputs_provided = True
+
+        if not inputs_provided:
+            return {"urgencyScore": 0.0, "isFallback": False, "breakdown": {}}
+
+        fis_sim.compute()
+        res_urgency = fis_sim.output['urgency']
+
+        # Build breakdown (simplified for now)
+        breakdown = {k: round(float(fuzz.interp_membership(v.universe, v[list(v.terms.keys())[0]].mf, getattr(request, k) or 0)), 2) 
+                     for k, v in vars_map.items() if getattr(request, k) is not None}
+
         return {
-            "urgencyScore": round(float(urgency_score), 2),
+            "urgencyScore": round(float(res_urgency), 2),
             "isFallback": False,
             "breakdown": breakdown
         }
+
     except Exception as e:
         logger.error(f"Error during FIS analysis: {str(e)}")
-        return {
-            "urgencyScore": 0.5,
-            "isFallback": True,
-            "error": str(e)
-        }
+        return await analyze_fallback(request)
+
+async def analyze_fallback(request: FisRequest):
+    # Keep the previous heuristic as a safety fallback
+    breakdown = {}
+    skill_score = 0.0
+    skill_count = 0
+    domains = [("motor_gross", request.motorGrossScore), ("motor_fine", request.motorFineScore),
+               ("speech", request.speechScore), ("cognitive", request.cognitiveScore),
+               ("social", request.socialScore), ("self_care", request.selfCareScore),
+               ("sensory", request.sensoryScore)]
+    
+    for name, val in domains:
+        if val is not None:
+            score = np.clip((80 - val) / 50.0, 0, 1)
+            skill_score += score
+            skill_count += 1
+            breakdown[name] = round(float(score), 2)
+    
+    avg_skill = skill_score / skill_count if skill_count > 0 else 0.0
+    urgency_score = max(avg_skill, 0.0)
+    
+    return {
+        "urgencyScore": round(float(urgency_score), 2),
+        "isFallback": True,
+        "breakdown": breakdown
+    }
 
 @app.post("/embed", dependencies=[Depends(verify_internal_key)])
 async def embed(request: EmbeddingRequest):

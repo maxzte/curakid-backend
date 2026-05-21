@@ -10,6 +10,7 @@ h2-version = "2.3.232"
 slf4j-version = "2.1.0-alpha1"
 mockito = "5.21.0"
 spring-ai = "1.0.0-SNAPSHOT"
+gemini = "2.0.0-M6"
 jjwt = "0.12.6"
 google-auth = "1.33.0"
 
@@ -26,8 +27,10 @@ spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-start
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation", version.ref = "spring-boot" }
 spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux", version.ref = "spring-boot" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "spring-boot" }
+spring-boot-starter-mail = { module = "org.springframework.boot:spring-boot-starter-mail", version.ref = "spring-boot" }
+spring-boot-starter-json = { module = "org.springframework.boot:spring-boot-starter-json", version.ref = "spring-boot" }
 spring-ai-core = { module = "org.springframework.ai:spring-ai-core", version.ref = "spring-ai" }
-spring-ai-vertex-ai-gemini = { module = "org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter", version.ref = "spring-ai" }
+spring-ai-google-gemini = { module = "org.springframework.ai:spring-ai-starter-model-google-genai", version.ref = "gemini" }
 jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }

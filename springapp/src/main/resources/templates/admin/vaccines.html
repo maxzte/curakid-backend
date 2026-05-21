@@ -4,217 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curakid Admin - Календар щеплень</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4F46E5;
-            --primary-hover: #4338CA;
-            --bg-color: #F3F4F6;
-            --surface: #FFFFFF;
-            --text-main: #111827;
-            --text-muted: #6B7280;
-            --border: #E5E7EB;
-            --error: #EF4444;
-            --success: #10B981;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 280px;
-            background-color: var(--surface);
-            border-right: 1px solid var(--border);
-            padding: 2rem;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-        }
-
-        .sidebar h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 2rem;
-            margin-top: 0;
-        }
-
-        .nav-item {
-            display: block;
-            padding: 0.75rem 1rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 2rem 4rem;
-            max-width: 1200px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h2 {
-            font-size: 1.875rem;
-            margin: 0;
-            font-weight: 700;
-        }
-
-        .card {
-            background-color: var(--surface);
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            margin-bottom: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            color: var(--text-main);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 1rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            box-sizing: border-box;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        .flex-row {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .flex-row .form-group {
-            flex: 1;
-        }
-
-        .btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            display: none;
-            font-weight: 500;
-        }
-
-        .alert.success {
-            background-color: #D1FAE5;
-            color: #065F46;
-            display: block;
-        }
-
-        .alert.error {
-            background-color: #FEE2E2;
-            color: #991B1B;
-            display: block;
-        }
-
-        .table-container {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            text-align: left;
-            padding: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
-            font-weight: 600;
-            color: var(--text-muted);
-            background-color: #F9FAFB;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .delete-btn {
-            color: var(--error);
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            padding: 0.5rem;
-            border-radius: 6px;
-        }
-
-        .edit-btn {
-            color: var(--primary);
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            padding: 0.5rem;
-            margin-right: 0.5rem;
-        }
-    </style>
+    <th:block th:replace="admin/fragments :: head-links"></th:block>
 </head>
 <body>
 
@@ -224,8 +14,6 @@
         <div class="header">
             <h2>Національний календар щеплень</h2>
         </div>
-
-        <div id="status-message" class="alert"></div>
 
         <div class="card">
             <h3 id="form-title">Додати нове щеплення</h3>
@@ -305,29 +93,17 @@
         </div>
     </div>
 
+    <div th:replace="~{admin/fragments :: scripts}"></div>
+
     <script>
-        if (!localStorage.getItem('curakid_admin_token')) {
-            window.location.href = '/admin/ui/login';
-        }
+        fetchVaccines();
 
-        function getAuthHeader() {
-            const token = localStorage.getItem('curakid_admin_token');
-            return token ? { 'Authorization': token.startsWith('Bearer ') ? token : 'Bearer ' + token } : {};
-        }
-
-        function showMessage(text, type) {
-            const el = document.getElementById('status-message');
-            el.textContent = text;
-            el.className = 'alert ' + type;
-            setTimeout(() => el.style.display = 'none', 5000);
-            el.style.display = 'block';
-        }
 
         async function fetchVaccines() {
             try {
-                const response = await fetch('/api/admin/vaccines', {
-                    headers: getAuthHeader()
-                });
+                const response = await AdminAuth.apiFetch('/api/admin/vaccines');
+                if (!response) return;
+                
                 const vaccines = await response.json();
                 const tbody = document.getElementById('vaccines-table-body');
                 
@@ -344,13 +120,13 @@
                         <td>${v.scheduledAgeMonths ? v.scheduledAgeMonths + ' міс.' : (v.scheduledAgeDays ? v.scheduledAgeDays + ' дн.' : '-')}</td>
                         <td><span class="badge">${v.type === 'VACCINATION' ? 'Вакц.' : 'Ревакц.'}</span></td>
                         <td>
-                            <button class="edit-btn" onclick="editVaccine('${v.id}')">Edit</button>
-                            <button class="delete-btn" onclick="deleteVaccine('${v.id}')">Delete</button>
+                            <button class="edit-btn" onclick="editVaccine('${v.id}')">Редагувати</button>
+                            <button class="delete-btn" onclick="deleteVaccine('${v.id}')">Видалити</button>
                         </td>
                     </tr>
                 `).join('');
             } catch (err) {
-                showMessage('Помилка завантаження: ' + err.message, 'error');
+                AdminAuth.showToast('Помилка завантаження: ' + err.message, 'error');
             }
         }
 
@@ -372,43 +148,40 @@
                 const url = id ? `/api/admin/vaccines/${id}` : '/api/admin/vaccines';
                 const method = id ? 'PUT' : 'POST';
                 
-                const response = await fetch(url, {
+                const response = await AdminAuth.apiFetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify(payload)
                 });
 
-                if (response.ok) {
-                    showMessage('Збережено успішно!', 'success');
+                if (response && response.ok) {
+                    AdminAuth.showToast('Збережено успішно!', 'success');
                     resetForm();
                     fetchVaccines();
-                } else {
-                    throw new Error('Помилка сервера');
                 }
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             }
         });
 
         async function deleteVaccine(id) {
             if (!confirm('Ви впевнені?')) return;
             try {
-                const response = await fetch(`/api/admin/vaccines/${id}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
+                const response = await AdminAuth.apiFetch(`/api/admin/vaccines/${id}`, {
+                    method: 'DELETE'
                 });
-                if (response.ok) {
-                    showMessage('Видалено', 'success');
+                if (response && response.ok) {
+                    AdminAuth.showToast('Видалено', 'success');
                     fetchVaccines();
                 }
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             }
         }
 
         window.editVaccine = async function(id) {
             try {
-                const response = await fetch('/api/admin/vaccines', { headers: getAuthHeader() });
+                const response = await AdminAuth.apiFetch('/api/admin/vaccines');
+                if (!response) return;
                 const vaccines = await response.json();
                 const v = vaccines.find(v => v.id === id);
                 if (v) {
@@ -437,8 +210,6 @@
             document.getElementById('submit-btn').textContent = 'Зберегти щеплення';
             document.getElementById('cancel-btn').style.display = 'none';
         }
-
-        fetchVaccines();
     </script>
 </body>
 </html>

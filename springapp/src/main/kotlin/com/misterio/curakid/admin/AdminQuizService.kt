@@ -1,6 +1,11 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.development.*
+import com.misterio.curakid.core.database.answer.AnswerOption
+import com.misterio.curakid.core.database.answer.AnswerOptionRepository
+import com.misterio.curakid.core.database.development.LifePeriod
+import com.misterio.curakid.core.database.development.LifePeriodRepository
+import com.misterio.curakid.core.database.question.Question
+import com.misterio.curakid.core.database.question.QuestionRepository
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -31,7 +36,7 @@ class AdminQuizService(
         val period = LifePeriod(
             code = request.code,
             label = request.label,
-            about = request.about,
+            description = request.description,
             minMonths = request.minMonths,
             maxMonths = request.maxMonths
         )
@@ -50,7 +55,7 @@ class AdminQuizService(
         }
         existing.code = request.code
         existing.label = request.label
-        existing.about = request.about
+        existing.description = request.description
         existing.minMonths = request.minMonths
         existing.maxMonths = request.maxMonths
         return lifePeriodRepository.save(existing)
@@ -70,6 +75,18 @@ class AdminQuizService(
             weight = request.weight,
             lifePeriod = period
         )
+        
+        request.options.forEach { opt ->
+            question.options.add(
+                AnswerOption(
+                    question = question,
+                    text = opt.text,
+                    value = opt.value,
+                    displayOrder = opt.displayOrder
+                )
+            )
+        }
+        
         return questionRepository.save(question)
     }
 
@@ -101,7 +118,7 @@ class AdminQuizService(
             question = question,
             text = request.text,
             value = request.value,
-            order = request.displayOrder
+            displayOrder = request.displayOrder
         )
         return answerOptionRepository.save(option)
     }
@@ -109,4 +126,16 @@ class AdminQuizService(
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
     fun deleteAnswerOption(id: UUID) = answerOptionRepository.deleteById(id)
+
+    @Transactional
+    @CacheEvict(value = ["lifePeriods"], allEntries = true)
+    fun updateAnswerOption(id: UUID, request: CreateAnswerOptionRequest): AnswerOption {
+        val existing = answerOptionRepository.findById(id).orElseThrow {
+            IllegalArgumentException("AnswerOption $id not found")
+        }
+        existing.text = request.text
+        existing.value = request.value
+        existing.displayOrder = request.displayOrder
+        return answerOptionRepository.save(existing)
+    }
 }

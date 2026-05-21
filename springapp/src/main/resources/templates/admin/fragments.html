@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:fragment="head-links">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/common.css}">
 </head>
 <body>
 
@@ -9,38 +12,113 @@
     <nav>
         <a href="/admin/ui/articles" 
            th:classappend="${activePage == 'articles' ? 'active' : ''}" 
-           class="nav-item">База знань</a>
+           class="nav-item"><i class="fas fa-book"></i> База знань</a>
            
         <a href="/admin/ui/periods" 
            th:classappend="${activePage == 'periods' ? 'active' : ''}" 
-           class="nav-item">Вікові періоди</a>
+           class="nav-item"><i class="fas fa-calendar-alt"></i> Вікові періоди</a>
            
         <a href="/admin/ui/quizzes" 
            th:classappend="${activePage == 'quizzes' ? 'active' : ''}" 
-           class="nav-item">Опитування</a>
+           class="nav-item"><i class="fas fa-tasks"></i> Опитування</a>
            
         <a href="/admin/ui/vaccines" 
            th:classappend="${activePage == 'vaccines' ? 'active' : ''}" 
-           class="nav-item">Календар щеплень</a>
+           class="nav-item"><i class="fas fa-syringe"></i> Календар щеплень</a>
            
         <a href="/admin/ui/rules" 
            th:classappend="${activePage == 'rules' ? 'active' : ''}" 
-           class="nav-item">Нечіткі правила</a>
+           class="nav-item"><i class="fas fa-brain"></i> Нечіткі правила</a>
            
         <a href="/admin/ui/users" 
            th:classappend="${activePage == 'users' ? 'active' : ''}" 
-           class="nav-item">Користувачі</a>
+           class="nav-item"><i class="fas fa-users"></i> Користувачі</a>
            
-        <a href="#" onclick="logout()" class="nav-item" style="color: var(--error); margin-top: 2rem;">Вийти</a>
+        <a href="#" onclick="AdminAuth.logout()" class="nav-item" style="color: #ef4444; margin-top: auto; padding-top: 2rem;">
+            <i class="fas fa-sign-out-alt"></i> Вийти
+        </a>
     </nav>
-    
+    <div id="toast-container" class="toast-container"></div>
+</div>
+
+<div th:fragment="scripts">
     <script th:inline="javascript">
-        function logout() {
-            localStorage.removeItem('curakid_admin_token');
-            // Also clear cookie if exists
-            document.cookie = "admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            window.location.href = '/admin/ui/login';
-        }
+        const AdminAuth = {
+            getToken: () => localStorage.getItem('curakid_admin_token'),
+            
+            logout: () => {
+                localStorage.removeItem('curakid_admin_token');
+                window.location.href = '/admin/ui/login';
+            },
+
+            checkAuth: () => {
+                if (!AdminAuth.getToken() && window.location.pathname !== '/admin/ui/login') {
+                    window.location.href = '/admin/ui/login';
+                }
+            },
+
+            getHeaders: () => {
+                const token = AdminAuth.getToken();
+                return {
+                    'Authorization': token && (token.startsWith('Bearer ') ? token : 'Bearer ' + token),
+                    'Content-Type': 'application/json'
+                };
+            },
+
+            apiFetch: async (url, options = {}) => {
+                const headers = AdminAuth.getHeaders();
+                const config = {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...(options.headers || {})
+                    }
+                };
+
+                try {
+                    const response = await fetch(url, config);
+                    
+                    if (response.status === 401) {
+                        console.error('Session expired or unauthorized');
+                        AdminAuth.logout();
+                        return null;
+                    }
+                    
+                    return response;
+                } catch (e) {
+                    console.error('API Error:', e);
+                    AdminAuth.showToast('Помилка з\'єднання з сервером', 'error');
+                    throw e;
+                }
+            },
+
+            showToast: (message, type = 'info') => {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                
+                let icon = 'info-circle';
+                if (type === 'success') icon = 'check-circle';
+                if (type === 'error') icon = 'exclamation-circle';
+
+                toast.innerHTML = `
+                    <i class="fas fa-${icon}"></i>
+                    <span style="flex: 1;">${message}</span>
+                `;
+
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.animation = 'toast-fade-out 0.3s ease forwards';
+                    setTimeout(() => toast.remove(), 300);
+                }, 4000);
+            }
+        };
+
+        // Auto-check on load
+        AdminAuth.checkAuth();
     </script>
 </div>
 

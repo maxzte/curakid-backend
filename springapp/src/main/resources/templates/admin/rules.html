@@ -3,248 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Curakid Admin - Fuzzy Rules</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4F46E5;
-            --primary-hover: #4338CA;
-            --bg-color: #F3F4F6;
-            --surface: #FFFFFF;
-            --text-main: #111827;
-            --text-muted: #6B7280;
-            --border: #E5E7EB;
-            --error: #EF4444;
-            --success: #10B981;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 280px;
-            background-color: var(--surface);
-            border-right: 1px solid var(--border);
-            padding: 2rem;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-        }
-
-        .sidebar h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 2rem;
-            margin-top: 0;
-        }
-
-        .nav-item {
-            display: block;
-            padding: 0.75rem 1rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 2rem 4rem;
-            max-width: 1200px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h2 {
-            font-size: 1.875rem;
-            margin: 0;
-            font-weight: 700;
-        }
-
-        .card {
-            background-color: var(--surface);
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            margin-bottom: 2rem;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 1rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.9rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            box-sizing: border-box;
-            min-height: 400px;
-            resize: vertical;
-            background-color: #F9FAFB;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-            background-color: #FFF;
-        }
-
-        .btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            margin-top: 1rem;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            display: none;
-            font-weight: 500;
-        }
-
-        .alert.success {
-            background-color: #D1FAE5;
-            color: #065F46;
-            display: block;
-        }
-
-        .alert.error {
-            background-color: #FEE2E2;
-            color: #991B1B;
-            display: block;
-        }
-    </style>
+    <title>Curakid Admin | Fuzzy Logic Studio</title>
+    <th:block th:replace="admin/fragments :: head-links"></th:block>
 </head>
 <body>
 
     <div th:replace="~{admin/fragments :: sidebar('rules')}"></div>
+    <div th:replace="~{admin/fragments :: scripts}"></div>
 
     <div class="main-content">
-        <div class="header">
-            <h2>Fuzzy Logic Rules</h2>
+        <div class="header" style="margin-bottom: 3rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+            <h2 style="margin: 0 0 0.75rem 0; color: var(--text-main); font-size: 2.25rem; font-weight: 800; letter-spacing: -0.025em;">Студія нечіткої логіки</h2>
         </div>
 
-        <div id="status-message" class="alert"></div>
+        <div class="">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h3 style="margin: 0;">Активні правила аналізу</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn-secondary" onclick="openJsonEditor()" style="background-color: var(--text-muted); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            <i class="fas fa-code" style="margin-right: 0.5rem;"></i> JSON Редактор
+                        </button>
+                        <button class="btn-primary" onclick="saveAllRules()">
+                            <i class="fas fa-save" style="margin-right: 0.5rem;"></i> Оновити Intelligence
+                        </button>
+                    </div>
+                </div>
 
-        <div class="card">
-            <h3>Edit Rules (JSON)</h3>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Update the rules used by the Intelligence Service for fuzzy logic inference. Ensure valid JSON.</p>
-            
-            <textarea id="rules-json" class="form-control" spellcheck="false" placeholder="Loading rules..."></textarea>
-            
-            <button class="btn" id="save-btn" onclick="saveRules()">Save Rules</button>
+                <div id="rules-container">
+                    <!-- Rules will be injected here -->
+                </div>
+
+                <button class="btn-add" onclick="addNewRule()">
+                    <i class="fas fa-plus-circle"></i> Додати нове логічне правило
+                </button>
+            </div>
         </div>
     </div>
 
+    <div id="json-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>JSON Редактор правил</h3>
+                <span class="close-modal" onclick="closeJsonEditor()">&times;</span>
+            </div>
+            <div class="form-group">
+                <label for="rules-json">Структура правил (ID та час додаються автоматично)</label>
+                <textarea id="rules-json" class="form-control" style="font-family: monospace; height: 400px; font-size: 0.85rem;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
+                <button class="btn-secondary" onclick="closeJsonEditor()" style="background: var(--text-muted); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;">Скасувати</button>
+                <button class="btn-primary" onclick="applyJsonRules()">Застосувати зміни</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
     <script>
-        if (!localStorage.getItem('curakid_admin_token')) {
-            window.location.href = '/admin/ui/login';
-        }
-
-        function getAuthHeader() {
-            let token = localStorage.getItem('curakid_admin_token');
-            if (!token) return {};
-            return { 'Authorization': token.startsWith('Bearer ') ? token : 'Bearer ' + token };
-        }
-
-        function showMessage(text, type) {
-            const el = document.getElementById('status-message');
-            el.textContent = text;
-            el.className = 'alert ' + type;
-            setTimeout(() => el.style.display = 'none', 5000);
-        }
+        let rules = [];
+        const variables = [
+            'wfaZscore', 'hfaZscore', 'bmiZscore',
+            'motorGrossScore', 'motorFineScore', 'speechScore',
+            'cognitiveScore', 'socialScore', 'selfCareScore', 'sensoryScore'
+        ];
+        const domains = ['GENERAL', 'MOTOR', 'SPEECH', 'COGNITIVE', 'SOCIAL', 'PHYSICAL'];
+        const terms = {
+            z: ['VERY_LOW', 'LOW', 'NORMAL', 'HIGH', 'VERY_HIGH'],
+            skill: ['CRITICAL', 'BELOW_NORMAL', 'NORMAL']
+        };
 
         async function fetchRules() {
             try {
-                const response = await fetch('/api/admin/fuzzy/rules', {
-                    headers: getAuthHeader()
-                });
-                
-                if (!response.ok) throw new Error("Failed to fetch rules.");
-
-                const rules = await response.json();
-                document.getElementById('rules-json').value = JSON.stringify(rules, null, 4);
-
-            } catch (err) {
-                document.getElementById('rules-json').value = "Error loading rules: " + err.message;
-                showMessage(err.message, 'error');
-            }
-        }
-
-        async function saveRules() {
-            const btn = document.getElementById('save-btn');
-            const rulesText = document.getElementById('rules-json').value;
-            let parsedRules;
-
-            try {
-                parsedRules = JSON.parse(rulesText);
+                const res = await AdminAuth.apiFetch('/api/admin/fuzzy/rules');
+                if (!res) return;
+                rules = await res.json();
+                renderRules();
             } catch (e) {
-                showMessage("Invalid JSON format. Please check syntax.", 'error');
-                return;
-            }
-
-            try {
-                btn.disabled = true;
-                btn.textContent = 'Saving...';
-
-                const response = await fetch('/api/admin/fuzzy/rules', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...getAuthHeader()
-                    },
-                    body: JSON.stringify({ rules: parsedRules })
-                });
-
-                if (!response.ok) throw new Error("Failed to save rules");
-
-                showMessage('Rules updated successfully!', 'success');
-                fetchRules();
-
-            } catch (err) {
-                showMessage(err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Save Rules';
+                console.error("Fetch rules failed:", e);
+                AdminAuth.showToast("Не вдалося завантажити правила", "error");
             }
         }
 
-        // Init
+        function renderRules() {
+            const container = document.getElementById('rules-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            rules.forEach((rule, index) => {
+                const conditions = rule.conditions || [];
+                const usedVariablesInRule = conditions.map(c => c.variable);
+                const div = document.createElement('div');
+                div.className = 'rule-item';
+                div.innerHTML = `
+                    <div class="rule-header flex justify-between">
+                        <select onchange="rules[${index}].domain = this.value" style="background: var(--bg-color); color: var(--primary); border: none; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; cursor: pointer; outline: none;">
+                            ${domains.map(d => `<option value="${d}" ${rule.domain === d ? 'selected' : ''}>${d}</option>`).join('')}
+                        </select>
+                        <i class="fas fa-trash trash-btn" onclick="removeRule(${index})"></i>
+                    </div>
+                    <div class="logic-row" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <span class="logic-keyword" style="width: 50px; color: var(--primary); font-weight: 700; text-transform: lowercase;">якщо</span>
+                        ${conditions.map((c, ci) => `
+                            <div style="display:inline-flex; align-items:center; gap:0.5rem; background: #f9fafb; padding: 0.5rem 0.75rem; border-radius: 10px; border: 1px solid #f3f4f6;">
+                                <select onchange="updateCondition(${index}, ${ci}, 'variable', this.value)" style="border: none; background: transparent; font-weight: 500; cursor: pointer;">
+                                    ${variables.map(v => {
+                                        const isUsed = usedVariablesInRule.includes(v) && v !== c.variable;
+                                        return `<option value="${v}" ${c.variable === v ? 'selected' : ''} ${isUsed ? 'disabled' : ''}>${v}</option>`;
+                                    }).join('')}
+                                </select>
+                                <span class="logic-keyword" style="color: var(--text-muted); font-weight: 400;">є</span>
+                                <select onchange="updateCondition(${index}, ${ci}, 'term', this.value)" style="border: none; background: transparent; font-weight: 600; color: var(--primary); cursor: pointer;">
+                                    ${(c.variable && c.variable.includes('Score') ? terms.skill : terms.z).map(t => 
+                                        `<option value="${t}" ${c.term === t ? 'selected' : ''}>${t}</option>`
+                                    ).join('')}
+                                </select>
+                                ${ci < conditions.length - 1 ? '<span class="logic-keyword" style="margin: 0 0.25rem; font-weight: 700;">та</span>' : ''}
+                                ${conditions.length > 1 ? `<i class="fas fa-times" style="font-size: 0.7rem; color: var(--error); cursor: pointer; margin-left: 0.5rem;" onclick="removeCondition(${index}, ${ci})"></i>` : ''}
+                            </div>
+                        `).join('')}
+                        ${conditions.length < variables.length ? `
+                            <i class="fas fa-plus-circle" style="cursor:pointer; color:var(--primary); font-size: 1.25rem; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="addCondition(${index})"></i>
+                        ` : ''}
+                    </div>
+                    <div class="logic-row" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid #f9fafb; display: flex; align-items: center; gap: 1rem;">
+                        <span class="logic-keyword" style="width: 50px; color: #4338CA; font-weight: 700; text-transform: lowercase;">тоді</span>
+                        <span style="color: var(--text-muted);">критичність є</span>
+                        <select onchange="rules[${index}].consequent = this.value" style="background: #EEF2FF; border: 1px solid #C7D2FE; padding: 0.4rem 1rem; border-radius: 8px; font-weight: 700; color: #4338CA; cursor: pointer;">
+                            <option value="LOW" ${rule.consequent === 'LOW' ? 'selected' : ''}>НИЗЬКА</option>
+                            <option value="MEDIUM" ${rule.consequent === 'MEDIUM' ? 'selected' : ''}>СЕРЕДНЯ</option>
+                            <option value="HIGH" ${rule.consequent === 'HIGH' ? 'selected' : ''}>ВИСОКА</option>
+                        </select>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addNewRule() {
+            rules.push({
+                domain: 'GENERAL',
+                conditions: [{ variable: 'wfaZscore', term: 'NORMAL' }],
+                consequent: 'LOW',
+                isActive: true
+            });
+            renderRules();
+        }
+
+        function addCondition(ruleIndex) {
+            const used = rules[ruleIndex].conditions.map(c => c.variable);
+            const nextVar = variables.find(v => !used.includes(v));
+            if (nextVar) {
+                rules[ruleIndex].conditions.push({ variable: nextVar, term: nextVar.includes('Score') ? 'NORMAL' : 'NORMAL' });
+                renderRules();
+            }
+        }
+
+        function removeCondition(ri, ci) {
+            rules[ri].conditions.splice(ci, 1);
+            renderRules();
+        }
+
+        function updateCondition(ri, ci, field, val) {
+            rules[ri].conditions[ci][field] = val;
+            renderRules(); // Re-render to update term options based on variable type
+        }
+
+        function removeRule(index) {
+            rules.splice(index, 1);
+            renderRules();
+        }
+
+        async function saveAllRules() {
+            try {
+                // Ensure every rule has required structure
+                const rulesToSave = rules.map(r => ({
+                    domain: r.domain || 'GENERAL',
+                    conditions: r.conditions || [],
+                    consequent: r.consequent || 'MEDIUM',
+                    isActive: r.isActive !== undefined ? r.isActive : (r.active !== undefined ? r.active : true)
+                }));
+
+                const res = await AdminAuth.apiFetch('/api/admin/fuzzy/rules', {
+                    method: 'PUT',
+                    body: JSON.stringify({ rules: rulesToSave })
+                });
+                if (res && res.ok) AdminAuth.showToast("Базу знань оновлено успішно!", "success");
+                else if (res) throw new Error("Server returned error status");
+            } catch (e) {
+                console.error("Save rules failed:", e);
+                AdminAuth.showToast("Не вдалося оновити ядро аналізу", "error");
+            }
+        }
+
+        function openJsonEditor() {
+            // Clean rules from technical fields for the editor
+            const cleanRules = rules.map(({ id, createdAt, updatedAt, ...rest }) => rest);
+            document.getElementById('rules-json').value = JSON.stringify(cleanRules, null, 2);
+            document.getElementById('json-modal').classList.add('open');
+        }
+
+        function closeJsonEditor() {
+            document.getElementById('json-modal').classList.remove('open');
+        }
+
+        async function applyJsonRules() {
+            try {
+                const val = document.getElementById('rules-json').value;
+                const newRules = JSON.parse(val);
+                if (!Array.isArray(newRules)) throw new Error("Rules must be an array");
+                
+                rules = newRules;
+                renderRules();
+                closeJsonEditor();
+                
+                // Automatically trigger save after applying JSON
+                await saveAllRules();
+            } catch (e) {
+                console.error("JSON Apply failed:", e);
+                AdminAuth.showToast("Помилка JSON: " + e.message, "error");
+            }
+        }
+
         fetchRules();
     </script>
 </body>

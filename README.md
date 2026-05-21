@@ -49,9 +49,16 @@
 Це запустить обидва сервіси (Spring Boot та Python) в єдиній мережі.
 
 ```bash
-docker compose up --watch
+docker-compose up --watch
 docker-compose up --build
 docker compose up -d
+docker compose logs -f backend
+
+#Локальна розробка
+docker-compose up intelligence
+./gradlew :springapp:bootRun
+
+
 ```
 
 - **Spring App**: `http://localhost:8080`

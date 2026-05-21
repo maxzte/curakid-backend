@@ -4,387 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curakid Admin - Quizzes</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4F46E5;
-            --primary-hover: #4338CA;
-            --bg-color: #F3F4F6;
-            --surface: #FFFFFF;
-            --text-main: #111827;
-            --text-muted: #6B7280;
-            --border: #E5E7EB;
-            --error: #EF4444;
-            --success: #10B981;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 280px;
-            background-color: var(--surface);
-            border-right: 1px solid var(--border);
-            padding: 2rem;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-        }
-
-        .sidebar h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 2rem;
-            margin-top: 0;
-        }
-
-        .nav-item {
-            display: block;
-            padding: 0.75rem 1rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 2rem 4rem;
-            max-width: 1200px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h2 {
-            font-size: 1.875rem;
-            margin: 0;
-            font-weight: 700;
-        }
-
-        .card {
-            background-color: var(--surface);
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            margin-bottom: 2rem;
-        }
-
-        .card h3 {
-            margin-top: 0;
-            margin-bottom: 1.5rem;
-            font-weight: 600;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.4rem;
-            color: var(--text-main);
-            font-size: 0.95rem;
-        }
-
-        .form-hint {
-            display: block;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-top: 0.3rem;
-            font-weight: 400;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 1rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            box-sizing: border-box;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        .flex-row {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .flex-row .form-group {
-            flex: 1;
-        }
-
-        .btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        .btn:disabled {
-            background-color: var(--text-muted);
-            cursor: not-allowed;
-        }
-
-        .btn-sm {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.85rem;
-        }
-
-        .btn-danger {
-            background-color: var(--error);
-        }
-
-        .btn-danger:hover {
-            background-color: #DC2626;
-        }
-
-        .btn-success {
-            background-color: var(--success);
-        }
-
-        .btn-success:hover {
-            background-color: #059669;
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            display: none;
-            font-weight: 500;
-        }
-
-        .alert.success {
-            background-color: #D1FAE5;
-            color: #065F46;
-            display: block;
-        }
-
-        .alert.error {
-            background-color: #FEE2E2;
-            color: #991B1B;
-            display: block;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        /* Tree structure styles */
-        .period-card {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-        }
-
-        .period-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            background-color: #F9FAFB;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .period-header:hover {
-            background-color: #F3F4F6;
-        }
-
-        .period-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .period-info .toggle {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            transition: transform 0.2s ease;
-        }
-
-        .period-info .toggle.open {
-            transform: rotate(90deg);
-        }
-
-        .period-body {
-            display: none;
-            padding: 1rem 1.5rem;
-            border-top: 1px solid var(--border);
-        }
-
-        .period-body.open {
-            display: block;
-        }
-
-        .question-item {
-            background-color: #FAFAFA;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .question-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 0.5rem;
-        }
-
-        .options-list {
-            padding-left: 1.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .option-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.4rem 0.75rem;
-            margin-bottom: 0.25rem;
-            background-color: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .option-value {
-            color: var(--text-muted);
-            font-size: 0.8rem;
-        }
-
-        .add-inline-form {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-end;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-            background: #f8fafc;
-            padding: 1.25rem;
-            border-radius: 10px;
-            border: 1px dashed var(--border);
-        }
-
-        .inline-field {
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        .inline-field label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.025em;
-            color: var(--text-muted);
-        }
-
-        .add-inline-form input,
-        .add-inline-form select {
-            padding: 0.6rem 0.8rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            background-color: white;
-        }
-
-        .add-inline-form input:focus,
-        .add-inline-form select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        .section-divider {
-            border: none;
-            border-top: 1px solid var(--border);
-            margin: 1rem 0;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: var(--text-muted);
-            padding: 2rem;
-            font-style: italic;
-        }
-
-        .inline-status {
-            margin-top: 0.75rem;
-            font-size: 0.9rem;
-            font-weight: 500;
-            min-height: 1.2rem;
-        }
-
-        .inline-status.success {
-            color: #065F46;
-        }
-
-        .inline-status.error {
-            color: #991B1B;
-        }
-
-        .inline-status.loading {
-            color: var(--text-muted);
-        }
-    </style>
+    <th:block th:replace="admin/fragments :: head-links"></th:block>
 </head>
 <body>
 
     <div th:replace="~{admin/fragments :: sidebar('quizzes')}"></div>
+    <div th:replace="~{admin/fragments :: scripts}"></div>
 
     <div class="main-content">
         <div class="header">
             <h2>Керування опитуваннями</h2>
         </div>
-
-        <div id="status-message" class="alert"></div>
 
         <!-- Add Life Period Form -->
         <div class="card">
@@ -419,30 +49,17 @@
 
         <!-- Life Periods Tree -->
         <div class="card">
-            <h3>Вікові періоди та питання</h3>
+            <h3>Вікові періоди та запитання</h3>
             <div id="periods-container">
-                <div class="empty-state">Loading...</div>
+                <div class="empty-state">Завантаження...</div>
             </div>
         </div>
     </div>
 
     <script>
-        if (!localStorage.getItem('curakid_admin_token')) {
-            window.location.href = '/admin/ui/login';
-        }
+        fetchPeriods();
 
-        function getAuthHeader() {
-            let token = localStorage.getItem('curakid_admin_token');
-            if (!token) return {};
-            return { 'Authorization': token.startsWith('Bearer ') ? token : 'Bearer ' + token };
-        }
-
-        function showMessage(text, type) {
-            const el = document.getElementById('status-message');
-            el.textContent = text;
-            el.className = 'alert ' + type;
-            setTimeout(() => { el.className = 'alert'; }, 5000);
-        }
+        // Unified toast is used via AdminAuth.showToast
 
         function setPeriodCreateStatus(type = '', text = '') {
             const el = document.getElementById('period-create-status');
@@ -476,18 +93,16 @@
         // --- Fetch & Render ---
         async function fetchPeriods() {
             try {
-                const response = await fetch('/api/admin/quiz/life-periods', {
-                    headers: getAuthHeader()
-                });
-                if (!response.ok) throw new Error("Failed to fetch life periods");
-
+                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods');
+                if (!response) return;
+                
                 const payload = await response.json();
                 const periods = normalizePeriodsPayload(payload).map(normalizePeriod);
                 renderPeriods(periods);
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
                 document.getElementById('periods-container').innerHTML =
-                    '<div class="empty-state">Failed to load periods.</div>';
+                    '<div class="empty-state">Не вдалося завантажити періоди.</div>';
             }
         }
 
@@ -495,7 +110,7 @@
             const container = document.getElementById('periods-container');
 
             if (periods.length === 0) {
-                container.innerHTML = '<div class="empty-state">No life periods found. Add one above.</div>';
+                container.innerHTML = '<div class="empty-state">Вікових періодів не знайдено. Додайте новий вище.</div>';
                 return;
             }
 
@@ -509,32 +124,62 @@
                             <span style="color: var(--text-muted); font-size: 0.85rem;">${p.minMonths}–${p.maxMonths} мiс</span>
                             <span style="color: var(--text-muted); font-size: 0.85rem;">(${p.questions ? p.questions.length : 0} питань)</span>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deletePeriod('${p.id}')">Delete</button>
+                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deletePeriod('${p.id}')">Видалити</button>
                     </div>
                     <div class="period-body">
                         ${renderQuestions(p.questions || [], p.id)}
 
                         <hr class="section-divider">
-                        <strong style="font-size: 0.95rem; display: block; margin-bottom: 0.5rem; color: var(--primary);">Додати запитання</strong>
-                        <div class="add-inline-form">
-                            <div class="inline-field" style="flex: 2; min-width: 250px;">
-                                <label>Текст запитання</label>
-                                <input type="text" placeholder="Напр: Чи може дитина тримати голову?" id="q-text-${p.id}">
+                        <strong style="font-size: 0.95rem; display: block; margin-bottom: 0.5rem; color: var(--primary);">@Question: Додати запитання</strong>
+                        <div class="add-inline-form" style="flex-direction: column; align-items: stretch;">
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="inline-field" style="flex: 2; min-width: 250px;">
+                                    <label>Текст запитання</label>
+                                    <input type="text" placeholder="Напр: Чи може дитина тримати голову?" id="q-text-${p.id}">
+                                </div>
+                                <div class="inline-field">
+                                    <label>Домен розвитку</label>
+                                    <select id="q-domain-${p.id}">
+                                        <option value="MOTOR_GROSS">Груба моторика</option>
+                                        <option value="MOTOR_FINE">Дрібна моторика</option>
+                                        <option value="SPEECH">Мовлення</option>
+                                        <option value="COGNITIVE">Пізнання</option>
+                                        <option value="SOCIAL_EMOTIONAL">Соціально-емоційний</option>
+                                        <option value="SELF_CARE">Самообслуговування</option>
+                                        <option value="SENSORY">Сенсорний</option>
+                                    </select>
+                                </div>
+                                <div class="inline-field">
+                                    <label>Вага</label>
+                                    <input type="number" placeholder="1.0" step="0.1" value="1.0" id="q-weight-${p.id}" style="width: 80px;">
+                                </div>
                             </div>
-                            <div class="inline-field">
-                                <label>Домен розвитку</label>
-                                <select id="q-domain-${p.id}">
-                                    <option value="MOTOR">Моторика</option>
-                                    <option value="SPEECH">Мовлення</option>
-                                    <option value="COGNITIVE">Пізнання</option>
-                                    <option value="SOCIAL">Соціалізація</option>
-                                </select>
+                            
+                            <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px dashed var(--border);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">@AnswerOption: Варіанти відповідей:</label>
+                                <div id="q-options-container-${p.id}" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                                    <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
+                                        <input type="text" class="q-opt-text" value="Так" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <input type="text" class="q-opt-value" value="1.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
+                                    </div>
+                                    <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
+                                        <input type="text" class="q-opt-text" value="Іноді / Частково" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <input type="text" class="q-opt-value" value="0.5" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
+                                    </div>
+                                    <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
+                                        <input type="text" class="q-opt-text" value="Ще ні" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <input type="text" class="q-opt-value" value="0.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm" onclick="addOptionRowToNewQuestion('${p.id}')" style="margin-top: 0.5rem; background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border);">+ Додати варіант</button>
                             </div>
-                            <div class="inline-field">
-                                <label>Вага</label>
-                                <input type="number" placeholder="1.0" step="0.1" value="1.0" id="q-weight-${p.id}" style="width: 80px;">
+                            
+                            <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+                                <button class="btn btn-sm btn-success" onclick="addQuestion('${p.id}')">Додати запитання</button>
                             </div>
-                            <button class="btn btn-sm btn-success" onclick="addQuestion('${p.id}')" style="height: 42px;">Додати</button>
                         </div>
                     </div>
                 </div>
@@ -542,34 +187,67 @@
         }
 
         function renderQuestions(questions, periodId) {
+            const domains = [
+                { value: 'MOTOR_GROSS', label: 'Груба моторика' },
+                { value: 'MOTOR_FINE', label: 'Дрібна моторика' },
+                { value: 'SPEECH', label: 'Мовлення' },
+                { value: 'COGNITIVE', label: 'Пізнання' },
+                { value: 'SOCIAL_EMOTIONAL', label: 'Соціально-емоційний' },
+                { value: 'SELF_CARE', label: 'Самообслуговування' },
+                { value: 'SENSORY', label: 'Сенсорний' }
+            ];
+
             if (questions.length === 0) {
                 return '<div class="empty-state" style="padding: 1rem;">No questions yet.</div>';
             }
 
             return questions.map(q => `
                 <div class="question-item">
-                    <div class="question-header">
-                        <div>
-                            <strong>${q.text}</strong>
-                            <div style="margin-top: 0.25rem;">
-                                <span class="badge">${q.domain}</span>
-                                <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">weight: ${q.weight}</span>
+                    <div class="question-header" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div onclick="toggleOptions(this)" style="cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="toggle-icon" style="font-size: 0.7rem; color: var(--text-muted);">▶</span>
+                                <strong style="color: var(--primary);">@Question</strong>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-sm btn-success" onclick="updateQuestionData('${q.id}')">✓</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteQuestion('${q.id}')">Delete</button>
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="deleteQuestion('${q.id}')">Delete</button>
+
+                        <div class="flex-row" style="flex-wrap: wrap; gap: 0.75rem;">
+                            <div class="inline-field" style="flex: 2; min-width: 250px;">
+                                <label style="font-size: 0.7rem;">Текст запитання</label>
+                                <input type="text" value="${q.text}" id="q-text-edit-${q.id}" style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                            </div>
+                            <div class="inline-field">
+                                <label style="font-size: 0.7rem;">Домен</label>
+                                <select id="q-domain-edit-${q.id}" style="padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: white;">
+                                    ${domains.map(d => `<option value="${d.value}" ${q.domain === d.value ? 'selected' : ''}>${d.label}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="inline-field">
+                                <label style="font-size: 0.7rem;">Вага</label>
+                                <input type="number" step="0.1" value="${q.weight}" id="q-weight-edit-${q.id}" style="width: 65px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                            </div>
+                        </div>
                     </div>
 
                     <div class="options-list">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; display: block;">@AnswerOption:</label>
                         ${(q.options || []).map(o => `
-                            <div class="option-item">
-                                <span>${o.text} <span class="option-value">(value: ${o.value})</span></span>
+                            <div class="option-item" style="gap: 0.5rem;">
+                                <input type="text" id="o-text-edit-${o.id}" value="${o.text}" style="flex: 1; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.9rem;">
+                                <input type="text" id="o-value-edit-${o.id}" value="${o.value}" style="width: 60px; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.8rem; color: var(--text-muted);">
+                                <input type="number" id="o-order-edit-${o.id}" value="${o.order}" style="width: 40px; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.8rem; color: var(--text-muted);">
+                                <button class="btn btn-sm btn-success" onclick="updateOption('${o.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">✓</button>
                                 <button class="btn btn-sm btn-danger" onclick="deleteOption('${o.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">×</button>
                             </div>
                         `).join('')}
 
                         <div class="add-inline-form" style="margin-top: 1rem; background: #ffffff;">
                             <div class="inline-field" style="flex: 1;">
-                                <label>Текст варіанту</label>
+                                <label>@AnswerOption: Текст варіанту</label>
                                 <input type="text" placeholder="Напр: Так" id="o-text-${q.id}">
                             </div>
                             <div class="inline-field">
@@ -594,18 +272,41 @@
             toggle.classList.toggle('open');
         }
 
+        function toggleOptions(headerEl) {
+            const container = headerEl.closest('.question-item');
+            const list = container.querySelector('.options-list');
+            const icon = headerEl.querySelector('.toggle-icon');
+
+            const isOpen = list.classList.toggle('open');
+            icon.textContent = isOpen ? '▼' : '▶';
+        }
+
+        function addOptionRowToNewQuestion(periodId) {
+            const container = document.getElementById(`q-options-container-${periodId}`);
+            const div = document.createElement('div');
+            div.className = 'flex-row q-option-row';
+            div.style.alignItems = 'center';
+            div.style.gap = '0.5rem';
+            div.innerHTML = `
+                <input type="text" class="q-opt-text" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                <input type="text" class="q-opt-value" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
+            `;
+            container.appendChild(div);
+        }
+
         // --- Actions ---
         async function deletePeriod(id) {
-            if (!confirm('Delete this life period and all its questions?')) return;
+            if (!confirm('Видалити цей віковий період та всі його запитання?')) return;
             try {
-                const resp = await fetch(`/api/admin/quiz/life-periods/${id}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
+                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/life-periods/${id}`, {
+                    method: 'DELETE'
                 });
-                if (!resp.ok) throw new Error('Failed to delete period');
-                showMessage('Period deleted', 'success');
-                fetchPeriods();
-            } catch (err) { showMessage(err.message, 'error'); }
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Період видалено', 'success');
+                    fetchPeriods();
+                }
+            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
         }
 
         async function addQuestion(periodId) {
@@ -613,31 +314,66 @@
             const domain = document.getElementById(`q-domain-${periodId}`).value;
             const weight = parseFloat(document.getElementById(`q-weight-${periodId}`).value);
 
-            if (!text) { showMessage('Question text is required', 'error'); return; }
+            const container = document.getElementById(`q-options-container-${periodId}`);
+            const optionRows = container.querySelectorAll('.q-option-row');
+            const options = [];
+            
+            optionRows.forEach((row, index) => {
+                const optText = row.querySelector('.q-opt-text').value;
+                const optValue = row.querySelector('.q-opt-value').value;
+                if (optText && optValue) {
+                    options.push({
+                        text: optText,
+                        value: optValue,
+                        displayOrder: index + 1
+                    });
+                }
+            });
+
+            if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
 
             try {
-                const resp = await fetch(`/api/admin/quiz/life-periods/${periodId}/questions`, {
+                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/life-periods/${periodId}/questions`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+                    body: JSON.stringify({ text, domain, weight, options })
+                });
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Запитання додано', 'success');
+                    fetchPeriods();
+                }
+            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
+        }
+
+        async function updateQuestionData(id) {
+            const text = document.getElementById(`q-text-edit-${id}`).value;
+            const domain = document.getElementById(`q-domain-edit-${id}`).value;
+            const weight = parseFloat(document.getElementById(`q-weight-edit-${id}`).value);
+
+            if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
+
+            try {
+                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${id}`, {
+                    method: 'PUT',
                     body: JSON.stringify({ text, domain, weight })
                 });
-                if (!resp.ok) throw new Error('Failed to add question');
-                showMessage('Question added', 'success');
-                fetchPeriods();
-            } catch (err) { showMessage(err.message, 'error'); }
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Запитання оновлено', 'success');
+                    fetchPeriods();
+                }
+            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
         }
 
         async function deleteQuestion(id) {
-            if (!confirm('Delete this question and all its options?')) return;
+            if (!confirm('Видалити це запитання та всі його варіанти?')) return;
             try {
-                const resp = await fetch(`/api/admin/quiz/questions/${id}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
+                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${id}`, {
+                    method: 'DELETE'
                 });
-                if (!resp.ok) throw new Error('Failed to delete question');
-                showMessage('Question deleted', 'success');
-                fetchPeriods();
-            } catch (err) { showMessage(err.message, 'error'); }
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Запитання видалено', 'success');
+                    fetchPeriods();
+                }
+            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
         }
 
         async function addOption(questionId) {
@@ -645,30 +381,48 @@
             const value = document.getElementById(`o-value-${questionId}`).value;
             const displayOrder = parseInt(document.getElementById(`o-order-${questionId}`).value) || 1;
 
-            if (!text || !value) { showMessage('Option text and value are required', 'error'); return; }
+            if (!text || !value) { AdminAuth.showToast('Текст та значення варіанту обов’язкові', 'error'); return; }
 
             try {
-                const resp = await fetch(`/api/admin/quiz/questions/${questionId}/options`, {
+                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${questionId}/options`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify({ text, value, displayOrder })
                 });
-                if (!resp.ok) throw new Error('Failed to add option');
-                showMessage('Option added', 'success');
-                fetchPeriods();
-            } catch (err) { showMessage(err.message, 'error'); }
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Варіант додано', 'success');
+                    fetchPeriods();
+                }
+            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
+        }
+
+        async function updateOption(id) {
+            const text = document.getElementById(`o-text-edit-${id}`).value;
+            const value = document.getElementById(`o-value-edit-${id}`).value;
+            const displayOrder = parseInt(document.getElementById(`o-order-edit-${id}`).value) || 0;
+
+            try {
+                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/options/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ text, value, displayOrder })
+                });
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Варіант оновлено', 'success');
+                    fetchPeriods();
+                }
+            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
         }
 
         async function deleteOption(id) {
+            if (!confirm('Ви впевнені?')) return;
             try {
-                const resp = await fetch(`/api/admin/quiz/options/${id}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
+                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/options/${id}`, {
+                    method: 'DELETE'
                 });
-                if (!resp.ok) throw new Error('Failed to delete option');
-                showMessage('Option deleted', 'success');
-                fetchPeriods();
-            } catch (err) { showMessage(err.message, 'error'); }
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Option deleted', 'success');
+                    fetchPeriods();
+                }
+            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
         }
 
         // --- Create Period Form ---
@@ -676,7 +430,7 @@
             e.preventDefault();
             const submitButton = e.target.querySelector('button[type="submit"]');
             submitButton.disabled = true;
-            setPeriodCreateStatus('loading', 'Creating period...');
+            setPeriodCreateStatus('loading', 'Створення періоду...');
 
             const payload = {
                 code: document.getElementById('period-code').value,
@@ -686,18 +440,18 @@
             };
 
             try {
-                const resp = await fetch('/api/admin/quiz/life-periods', {
+                const resp = await AdminAuth.apiFetch('/api/admin/quiz/life-periods', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify(payload)
                 });
-                if (!resp.ok) throw new Error('Failed to create period');
-                showMessage('Period created!', 'success');
-                setPeriodCreateStatus('success', `Period "${payload.label}" created successfully`);
-                e.target.reset();
-                await fetchPeriods();
+                if (resp && resp.ok) {
+                    AdminAuth.showToast('Період створено!', 'success');
+                    setPeriodCreateStatus('success', `Період "${payload.label}" успішно створено`);
+                    e.target.reset();
+                    await fetchPeriods();
+                }
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
                 setPeriodCreateStatus('error', err.message);
             } finally {
                 submitButton.disabled = false;

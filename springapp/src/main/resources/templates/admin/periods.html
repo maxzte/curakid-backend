@@ -4,271 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curakid Admin - Вікові періоди</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4F46E5;
-            --primary-hover: #4338CA;
-            --bg-color: #F3F4F6;
-            --surface: #FFFFFF;
-            --text-main: #111827;
-            --text-muted: #6B7280;
-            --border: #E5E7EB;
-            --error: #EF4444;
-            --success: #10B981;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 280px;
-            background-color: var(--surface);
-            border-right: 1px solid var(--border);
-            padding: 2rem;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-        }
-
-        .sidebar h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 2rem;
-            margin-top: 0;
-        }
-
-        .nav-item {
-            display: block;
-            padding: 0.75rem 1rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 2rem 4rem;
-            max-width: 1200px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h2 {
-            font-size: 1.875rem;
-            margin: 0;
-            font-weight: 700;
-        }
-
-        .card {
-            background-color: var(--surface);
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            margin-bottom: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            color: var(--text-main);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 1rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            box-sizing: border-box;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        .flex-row {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .flex-row .form-group {
-            flex: 1;
-        }
-
-        .btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .btn-secondary {
-            background-color: var(--text-muted);
-        }
-
-        .btn-secondary:hover {
-            background-color: #4B5563;
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            display: none;
-            font-weight: 500;
-        }
-
-        .alert.success {
-            background-color: #D1FAE5;
-            color: #065F46;
-            display: block;
-        }
-
-        .alert.error {
-            background-color: #FEE2E2;
-            color: #991B1B;
-            display: block;
-        }
-
-        .table-container {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            text-align: left;
-            padding: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
-            font-weight: 600;
-            color: var(--text-muted);
-            background-color: #F9FAFB;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .action-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            padding: 0.5rem;
-            border-radius: 6px;
-            transition: background-color 0.2s ease;
-        }
-
-        .edit-btn {
-            color: var(--primary);
-        }
-
-        .edit-btn:hover {
-            background-color: #EEF2FF;
-        }
-
-        .delete-btn {
-            color: var(--error);
-        }
-
-        .delete-btn:hover {
-            background-color: #FEE2E2;
-        }
-
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 100;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.open {
-            display: flex;
-        }
-
-        .modal-content {
-            background-color: var(--surface);
-            padding: 2rem;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 600px;
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-header h3 {
-            margin: 0;
-        }
-
-        .close-modal {
-            cursor: pointer;
-            font-size: 1.5rem;
-            color: var(--text-muted);
-        }
-    </style>
+    <th:block th:replace="admin/fragments :: head-links"></th:block>
 </head>
 <body>
 
@@ -278,8 +14,6 @@
         <div class="header">
             <h2>Керування віковими періодами</h2>
         </div>
-
-        <div id="status-message" class="alert"></div>
 
         <div class="card">
             <h3>Додати новий період</h3>
@@ -307,8 +41,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="about">Опис періоду</label>
-                    <textarea id="about" class="form-control" required placeholder="Короткий опис особливостей розвитку в цей період..."></textarea>
+                    <label for="description">Опис періоду</label>
+                    <textarea id="description" class="form-control" required placeholder="Короткий опис особливостей розвитку в цей період..."></textarea>
                 </div>
 
                 <button type="submit" class="btn" id="submit-btn">Зберегти період</button>
@@ -369,8 +103,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="edit-about">Опис періоду</label>
-                    <textarea id="edit-about" class="form-control" required></textarea>
+                    <label for="edit-description">Опис періоду</label>
+                    <textarea id="edit-description" class="form-control" required></textarea>
                 </div>
 
                 <div style="display: flex; gap: 1rem; justify-content: flex-end;">
@@ -381,40 +115,24 @@
         </div>
     </div>
 
+    <div th:replace="~{admin/fragments :: scripts}"></div>
+
     <script>
         let periods = [];
+        fetchPeriods();
 
-        if (!localStorage.getItem('curakid_admin_token')) {
-            window.location.href = '/admin/ui/login';
-        } else {
-            fetchPeriods();
-        }
-
-        function getAuthHeader() {
-            const token = localStorage.getItem('curakid_admin_token');
-            return token ? { 'Authorization': token.startsWith('Bearer ') ? token : 'Bearer ' + token } : {};
-        }
-
-        function showMessage(text, type) {
-            const el = document.getElementById('status-message');
-            el.textContent = text;
-            el.className = 'alert ' + type;
-            setTimeout(() => el.style.display = 'none', 5000);
-            el.style.display = 'block';
-        }
 
         async function fetchPeriods() {
             try {
-                const response = await fetch('/api/admin/quiz/life-periods', {
-                    headers: getAuthHeader()
-                });
+                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods');
+                if (!response) return;
                 
                 if (!response.ok) throw new Error("Помилка завантаження");
 
                 periods = await response.json();
                 renderTable();
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             }
         }
 
@@ -431,8 +149,8 @@
                     <td style="font-weight: 500;">${p.label}</td>
                     <td>${p.minMonths} – ${p.maxMonths}</td>
                     <td>
-                        <button class="action-btn edit-btn" onclick="openEditModal('${p.id}')">Edit</button>
-                        <button class="action-btn delete-btn" onclick="deletePeriod('${p.id}')">Delete</button>
+                        <button class="action-btn edit-btn" onclick="openEditModal('${p.id}')">Редагувати</button>
+                        <button class="action-btn delete-btn" onclick="deletePeriod('${p.id}')">Видалити</button>
                     </td>
                 </tr>
             `).join('');
@@ -445,36 +163,36 @@
                 label: document.getElementById('label').value,
                 minMonths: parseInt(document.getElementById('minMonths').value),
                 maxMonths: parseInt(document.getElementById('maxMonths').value),
-                about: document.getElementById('about').value
+                description: document.getElementById('description').value
             };
 
             try {
-                const response = await fetch('/api/admin/quiz/life-periods', {
+                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify(payload)
                 });
-                if (!response.ok) throw new Error("Помилка збереження");
-                showMessage('Період успішно додано!', 'success');
-                e.target.reset();
-                fetchPeriods();
+                if (response && response.ok) {
+                    AdminAuth.showToast('Період успішно додано!', 'success');
+                    e.target.reset();
+                    fetchPeriods();
+                }
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             }
         });
 
         async function deletePeriod(id) {
             if (!confirm('Ви впевнені?')) return;
             try {
-                const response = await fetch('/api/admin/quiz/life-periods/' + id, {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
+                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods/' + id, {
+                    method: 'DELETE'
                 });
-                if (!response.ok) throw new Error("Помилка видалення");
-                showMessage('Період видалено', 'success');
-                fetchPeriods();
+                if (response && response.ok) {
+                    AdminAuth.showToast('Період видалено', 'success');
+                    fetchPeriods();
+                }
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             }
         }
 
@@ -486,7 +204,7 @@
             document.getElementById('edit-label').value = p.label;
             document.getElementById('edit-minMonths').value = p.minMonths;
             document.getElementById('edit-maxMonths').value = p.maxMonths;
-            document.getElementById('edit-about').value = p.about || '';
+            document.getElementById('edit-description').value = p.description || '';
             document.getElementById('edit-modal').classList.add('open');
         }
 
@@ -502,21 +220,21 @@
                 label: document.getElementById('edit-label').value,
                 minMonths: parseInt(document.getElementById('edit-minMonths').value),
                 maxMonths: parseInt(document.getElementById('edit-maxMonths').value),
-                about: document.getElementById('edit-about').value
+                description: document.getElementById('edit-description').value
             };
 
             try {
-                const response = await fetch('/api/admin/quiz/life-periods/' + id, {
+                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods/' + id, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify(payload)
                 });
-                if (!response.ok) throw new Error("Помилка оновлення");
-                showMessage('Період оновлено!', 'success');
-                closeModal();
-                fetchPeriods();
+                if (response && response.ok) {
+                    AdminAuth.showToast('Період оновлено!', 'success');
+                    closeModal();
+                    fetchPeriods();
+                }
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             }
         });
     </script>

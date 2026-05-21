@@ -1,6 +1,6 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.knowledge.MedicalCategory
+import com.misterio.curakid.core.database.assessments.AssessmentDomain
 import java.math.BigDecimal
 import java.util.*
 
@@ -18,7 +18,7 @@ data class CreateCategoryRequest(
 data class CreateLifePeriodRequest(
     val code: String,
     val label: String,
-    val about: String,
+    val description: String,
     val minMonths: Int,
     val maxMonths: Int
 )
@@ -26,7 +26,8 @@ data class CreateLifePeriodRequest(
 data class CreateQuizQuestionRequest(
     val text: String,
     val domain: AssessmentDomain,
-    val weight: BigDecimal
+    val weight: BigDecimal,
+    val options: List<CreateAnswerOptionRequest> = emptyList()
 )
 
 data class CreateAnswerOptionRequest(
@@ -54,8 +55,8 @@ data class AdminUserResponse(
 data class CreateVaccineTemplateRequest(
     val name: String,
     val disease: String,
-    val doseNumber: Int,
-    val totalDoses: Int,
+    val doseNumber: Int?,
+    val totalDoses: Int?,
     val type: String, // String to handle enum from UI
     val scheduledAgeMonths: Int?,
     val scheduledAgeDays: Int?,
@@ -66,8 +67,8 @@ data class AdminVaccineTemplateResponse(
     val id: UUID,
     val name: String,
     val disease: String,
-    val doseNumber: Int,
-    val totalDoses: Int,
+    val doseNumber: Int?,
+    val totalDoses: Int?,
     val type: String,
     val scheduledAgeMonths: Int?,
     val scheduledAgeDays: Int?,

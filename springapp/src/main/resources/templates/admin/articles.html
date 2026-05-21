@@ -4,302 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curakid Admin - Knowledge Base</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4F46E5;
-            --primary-hover: #4338CA;
-            --bg-color: #F3F4F6;
-            --surface: #FFFFFF;
-            --text-main: #111827;
-            --text-muted: #6B7280;
-            --border: #E5E7EB;
-            --error: #EF4444;
-            --success: #10B981;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 280px;
-            background-color: var(--surface);
-            border-right: 1px solid var(--border);
-            padding: 2rem;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-        }
-
-        .sidebar h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 2rem;
-            margin-top: 0;
-        }
-
-        .nav-item {
-            display: block;
-            padding: 0.75rem 1rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 2rem 4rem;
-            max-width: 1200px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h2 {
-            font-size: 1.875rem;
-            margin: 0;
-            font-weight: 700;
-        }
-
-        .card {
-            background-color: var(--surface);
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            margin-bottom: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            color: var(--text-main);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 1rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            box-sizing: border-box;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        textarea.form-control {
-            min-height: 150px;
-            resize: vertical;
-        }
-
-        .btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        .btn:disabled {
-            background-color: var(--text-muted);
-            cursor: not-allowed;
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            display: none;
-            font-weight: 500;
-        }
-
-        .alert.success {
-            background-color: #D1FAE5;
-            color: #065F46;
-            display: block;
-        }
-
-        .alert.error {
-            background-color: #FEE2E2;
-            color: #991B1B;
-            display: block;
-        }
-
-        .table-container {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            text-align: left;
-            padding: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
-            font-weight: 600;
-            color: var(--text-muted);
-            background-color: #F9FAFB;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            background-color: #EEF2FF;
-            color: var(--primary);
-        }
-
-        .delete-btn {
-            color: var(--error);
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            padding: 0.5rem;
-            border-radius: 6px;
-            transition: background-color 0.2s ease;
-        }
-
-        .delete-btn:hover {
-            background-color: #FEE2E2;
-        }
-
-        #token-container {
-            margin-bottom: 2rem;
-            padding: 1rem;
-            background: #FFFBEB;
-            border: 1px solid #FDE68A;
-            border-radius: 8px;
-            color: #92400E;
-        }
-
-        .fade-in {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    <th:block th:replace="admin/fragments :: head-links"></th:block>
 </head>
 <body>
 
     <div th:replace="~{admin/fragments :: sidebar('articles')}"></div>
+    <div th:replace="~{admin/fragments :: scripts}"></div>
 
     <div class="main-content">
         <div class="header">
-            <h2>Knowledge Base Articles</h2>
+            <h2>База знань (Статті)</h2>
         </div>
 
-        <div id="status-message" class="alert"></div>
         
         <div class="card fade-in" style="margin-bottom: 2rem;">
-            <h3>Manage Categories</h3>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Create categories for articles (e.g. Nutrition, Development).</p>
+            <h3>Керування категоріями</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Створіть категорії для статей (напр. Харчування, Розвиток).</p>
             
-            <form id="add-category-form" style="display: flex; gap: 1rem; align-items: flex-end;">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                    <label for="cat-name">Technical Name (ID)</label>
+            <form id="add-category-form" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                    <label for="cat-name">Технічна назва (ID)</label>
                     <input type="text" id="cat-name" class="form-control" required placeholder="NUTRITION">
                 </div>
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                    <label for="cat-display">Display Name</label>
+                <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                    <label for="cat-display">Назва для відображення</label>
                     <input type="text" id="cat-display" class="form-control" required placeholder="Харчування">
                 </div>
-                <button type="submit" class="btn">Add Category</button>
+                <button type="submit" class="btn">Додати категорію</button>
             </form>
         </div>
 
         <div class="card fade-in">
-            <h3>Add New Article</h3>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">The content will be vectorized and stored for RAG search.</p>
+            <h3>Додати нову статтю</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Контент буде векторизовано та збережено для інтелектуального пошуку (RAG).</p>
             
             <form id="add-article-form">
                 <div class="form-group">
-                    <label for="title">Title</label>
-                    <input type="text" id="title" class="form-control" required placeholder="e.g. Signs of Autism in Toddlers">
+                    <label for="title">Заголовок</label>
+                    <input type="text" id="title" class="form-control" required placeholder="Напр: Ознаки аутизму у малюків">
                 </div>
                 
                 <div class="form-group">
-                    <label for="category">Category</label>
+                    <label for="category">Категорія</label>
                     <select id="category" class="form-control" required>
-                        <option value="">Loading categories...</option>
+                        <option value="">Завантаження категорій...</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="content">Article Content</label>
-                    <textarea id="content" class="form-control" required placeholder="Paste the full medical protocol or article content here..."></textarea>
+                    <label for="content">Текст статті</label>
+                    <textarea id="content" class="form-control" required placeholder="Вставте повний текст медичного протоколу або статті тут..."></textarea>
                 </div>
 
                 <button type="submit" class="btn" id="submit-btn">
-                    <span>Save & Generate Embeddings</span>
+                    <span>Зберегти та згенерувати вектори</span>
                 </button>
             </form>
         </div>
 
-        <div class="card fade-in" style="animation-delay: 0.1s;">
-            <h3>Existing Articles</h3>
+        <div class="card fade-in" style="margin-top: 2rem;">
+            <h3>Існуючі статті</h3>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Title</th>
-                            <th>Category</th>
-                            <th>Actions</th>
+                            <th>Заголовок</th>
+                            <th>Категорія</th>
+                            <th>Дії</th>
                         </tr>
                     </thead>
                     <tbody id="articles-table-body">
                         <tr>
-                            <td colspan="3" style="text-align: center; color: var(--text-muted);">Loading articles...</td>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted);">Завантаження статей...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -308,101 +84,68 @@
     </div>
 
     <script>
-        // Init Token
-        const savedToken = document.cookie
-            .split(';')
-            .find(c => c.trim().startsWith('admin_token='))
-            ?.split('=')[1];
-        if (!savedToken) {
-            window.location.href = '/admin/ui/login';
-        } else {
-            initPage();
-        }
+        initPage();
 
         async function initPage() {
             await fetchCategories();
             await fetchArticles();
         }
 
-        function getAuthHeader() {
-            const token = document.cookie
-                .split(';')
-                .find(c => c.trim().startsWith('admin_token='))
-                ?.split('=')[1];
-            return token ? { 'Authorization': 'Bearer ' + token } : {};
-        }
-
-        function showMessage(text, type) {
-            const el = document.getElementById('status-message');
-            el.textContent = text;
-            el.className = 'alert ' + type;
-            el.style.display = 'block';
-            setTimeout(() => el.style.display = 'none', 5000);
-        }
 
         let categories = [];
 
         async function fetchCategories() {
             try {
-                const response = await fetch('/api/admin/knowledge/categories', {
-                    headers: getAuthHeader()
-                });
+                const response = await AdminAuth.apiFetch('/api/admin/knowledge/categories');
+                if (!response) return;
                 categories = await response.json();
                 
                 const select = document.getElementById('category');
                 if (categories.length === 0) {
-                    select.innerHTML = '<option value="">No categories - please create one first</option>';
+                    select.innerHTML = '<option value="">Немає категорій - будь ласка, створіть спочатку</option>';
                 } else {
                     select.innerHTML = categories.map(c => `
                         <option value="${c.id}">${c.displayName} (${c.name})</option>
                     `).join('');
                 }
             } catch (err) {
-                showMessage('Failed to load categories', 'error');
+                AdminAuth.showToast('Не вдалося завантажити категорії', 'error');
             }
         }
 
-        // Fetch Articles
         async function fetchArticles() {
             try {
-                const response = await fetch('/api/admin/knowledge', {
-                    headers: getAuthHeader()
-                });
+                const response = await AdminAuth.apiFetch('/api/admin/knowledge');
+                if (!response) return;
                 
-                if (!response.ok) {
-                    if (response.status === 401 || response.status === 403) {
-                        throw new Error("Unauthorized. Please check your JWT token.");
-                    }
-                    throw new Error("Failed to fetch articles");
-                }
+                if (!response.ok) throw new Error("Failed to fetch articles");
 
                 const articles = await response.json();
                 const tbody = document.getElementById('articles-table-body');
                 
                 if (articles.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No articles found.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Статей не знайдено.</td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = articles.map(art => {
-                    const cat = art.category ? art.category.displayName : 'No Category';
+                    const cat = art.category ? art.category.displayName : 'Без категорії';
                     return `
                     <tr>
                         <td style="font-weight: 500;">${escapeHtml(art.title)}</td>
                         <td><span class="badge">${escapeHtml(cat)}</span></td>
                         <td>
-                            <button class="delete-btn" onclick="deleteArticle('${art.id}')">Delete</button>
+                            <button class="delete-btn" onclick="deleteArticle('${art.id}')">Видалити</button>
                         </td>
                     </tr>
                     `;
                 }).join('');
 
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             }
         }
 
-        // Add Article
         document.getElementById('add-article-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
@@ -415,34 +158,27 @@
 
             try {
                 btn.disabled = true;
-                btn.textContent = 'Processing...';
+                btn.textContent = 'Обробка...';
 
-                const response = await fetch('/api/admin/knowledge', {
+                const response = await AdminAuth.apiFetch('/api/admin/knowledge', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...getAuthHeader()
-                    },
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) {
-                    throw new Error("Failed to save article");
+                if (response && response.ok) {
+                    AdminAuth.showToast('Статтю збережено та векторизовано успішно!', 'success');
+                    e.target.reset();
+                    await fetchArticles();
                 }
 
-                showMessage('Article saved and embeddings generated successfully!', 'success');
-                e.target.reset();
-                await fetchArticles();
-
             } catch (err) {
-                showMessage(err.message, 'error');
+                AdminAuth.showToast(err.message, 'error');
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Save & Generate Embeddings';
+                btn.textContent = 'Зберегти та згенерувати вектори';
             }
         });
 
-        // Add Category
         document.getElementById('add-category-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = {
@@ -451,46 +187,37 @@
             };
 
             try {
-                const response = await fetch('/api/admin/knowledge/categories', {
+                const response = await AdminAuth.apiFetch('/api/admin/knowledge/categories', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...getAuthHeader()
-                    },
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) throw new Error("Failed to save category");
-
-                showMessage('Category added!', 'success');
+            if (response && response.ok) {
+                AdminAuth.showToast('Категорію додано!', 'success');
                 e.target.reset();
                 await fetchCategories();
-            } catch (err) {
-                showMessage(err.message, 'error');
             }
-        });
-
-        // Delete Article
-        async function deleteArticle(id) {
-            if (!confirm('Are you sure you want to delete this article?')) return;
-
-            try {
-                const response = await fetch('/api/admin/knowledge/' + id, {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
-                });
-
-                if (!response.ok) {
-                    throw new Error("Failed to delete article");
-                }
-
-                showMessage('Article deleted.', 'success');
-                await fetchArticles();
-
-            } catch (err) {
-                showMessage(err.message, 'error');
-            }
+        } catch (err) {
+            AdminAuth.showToast(err.message, 'error');
         }
+    });
+
+    async function deleteArticle(id) {
+        if (!confirm('Ви впевнені, що хочете видалити цю статтю?')) return;
+
+        try {
+            const response = await AdminAuth.apiFetch('/api/admin/knowledge/' + id, {
+                method: 'DELETE'
+            });
+
+            if (response && response.ok) {
+                AdminAuth.showToast('Статтю видалено.', 'success');
+                await fetchArticles();
+            }
+        } catch (err) {
+            AdminAuth.showToast(err.message, 'error');
+        }
+    }
 
         function escapeHtml(unsafe) {
             return (unsafe || '').toString()

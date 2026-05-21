@@ -1,12 +1,21 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.assessments.AssessmentDomain
-import com.misterio.curakid.development.*
-import org.junit.jupiter.api.Assertions.*
+import com.misterio.curakid.core.database.answer.AnswerOption
+import com.misterio.curakid.core.database.answer.AnswerOptionRepository
+import com.misterio.curakid.core.database.assessments.AssessmentDomain
+import com.misterio.curakid.core.database.development.LifePeriod
+import com.misterio.curakid.core.database.development.LifePeriodRepository
+import com.misterio.curakid.core.database.question.Question
+import com.misterio.curakid.core.database.question.QuestionRepository
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mockito.kotlin.*
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import java.math.BigDecimal
 import java.util.*
 
@@ -32,7 +41,7 @@ class AdminQuizServiceTest {
         val request = CreateLifePeriodRequest(
             code = "P1M",
             label = "1 міс",
-            about = "lorem ipsum",
+            description = "lorem ipsum",
             minMonths = 1,
             maxMonths = 1
         )
@@ -72,10 +81,10 @@ class AdminQuizServiceTest {
     fun `createQuestion should link to correct life period`() {
         val periodId = UUID.randomUUID()
         val period =
-            LifePeriod(code = "P1M", label = "1 міс", about = "lorem ipsum", minMonths = 1, maxMonths = 1).apply {
+            LifePeriod(code = "P1M", label = "1 міс", description = "lorem ipsum", minMonths = 1, maxMonths = 1).apply {
                 id = periodId
             }
-        val request = CreateQuizQuestionRequest("Does the child respond?", AssessmentDomain.MOTOR, BigDecimal("1.0"))
+        val request = CreateQuizQuestionRequest("Does the child respond?", AssessmentDomain.MOTOR_GROSS, BigDecimal("1.0"))
 
         whenever(lifePeriodRepository.findById(periodId)).thenReturn(Optional.of(period))
         whenever(questionRepository.save(any<Question>())).thenAnswer { it.arguments[0] }
@@ -83,7 +92,7 @@ class AdminQuizServiceTest {
         val result = service.createQuestion(periodId, request)
 
         assertEquals("Does the child respond?", result.text)
-        assertEquals(AssessmentDomain.MOTOR, result.domain)
+        assertEquals(AssessmentDomain.MOTOR_GROSS, result.domain)
         assertEquals(period, result.lifePeriod)
         verify(questionRepository).save(any())
     }
@@ -91,7 +100,7 @@ class AdminQuizServiceTest {
     @Test
     fun `createQuestion should throw when period not found`() {
         val periodId = UUID.randomUUID()
-        val request = CreateQuizQuestionRequest("text", AssessmentDomain.MOTOR, BigDecimal("1.0"))
+        val request = CreateQuizQuestionRequest("text", AssessmentDomain.MOTOR_GROSS, BigDecimal("1.0"))
 
         whenever(lifePeriodRepository.findById(periodId)).thenReturn(Optional.empty())
 
@@ -103,8 +112,9 @@ class AdminQuizServiceTest {
     @Test
     fun `updateQuestion should update existing fields`() {
         val questionId = UUID.randomUUID()
-        val period = LifePeriod(code = "P1M", label = "1 міс", about = "lorem ipsum", minMonths = 1, maxMonths = 1)
-        val existing = Question("Old Text", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply { id = questionId }
+        val period =
+            LifePeriod(code = "P1M", label = "1 міс", description = "lorem ipsum", minMonths = 1, maxMonths = 1)
+        val existing = Question("Old Text", AssessmentDomain.MOTOR_GROSS, BigDecimal("1.0"), period).apply { id = questionId }
         val request = CreateQuizQuestionRequest("New Text", AssessmentDomain.SPEECH, BigDecimal("1.5"))
 
         whenever(questionRepository.findById(questionId)).thenReturn(Optional.of(existing))
@@ -132,8 +142,9 @@ class AdminQuizServiceTest {
     @Test
     fun `createAnswerOption should link to correct question`() {
         val questionId = UUID.randomUUID()
-        val period = LifePeriod(code = "P1M", label = "1 міс", about = "lorem ipsum", minMonths = 1, maxMonths = 1)
-        val question = Question("text", AssessmentDomain.MOTOR, BigDecimal("1.0"), period).apply { id = questionId }
+        val period =
+            LifePeriod(code = "P1M", label = "1 міс", description = "lorem ipsum", minMonths = 1, maxMonths = 1)
+        val question = Question("text", AssessmentDomain.MOTOR_GROSS, BigDecimal("1.0"), period).apply { id = questionId }
         val request = CreateAnswerOptionRequest("Yes", "1", 1)
 
         whenever(questionRepository.findById(questionId)).thenReturn(Optional.of(question))
@@ -143,7 +154,7 @@ class AdminQuizServiceTest {
 
         assertEquals("Yes", result.text)
         assertEquals("1", result.value)
-        assertEquals(1, result.order)
+        assertEquals(1, result.displayOrder)
         assertEquals(question, result.question)
         verify(answerOptionRepository).save(any())
     }

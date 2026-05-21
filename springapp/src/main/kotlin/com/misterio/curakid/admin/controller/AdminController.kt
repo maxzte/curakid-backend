@@ -1,18 +1,6 @@
 package com.misterio.curakid.admin.controller
 
-import com.misterio.curakid.admin.AdminFuzzyService
-import com.misterio.curakid.admin.AdminKnowledgeService
-import com.misterio.curakid.admin.AdminQuizService
-import com.misterio.curakid.admin.AdminUserResponse
-import com.misterio.curakid.admin.AdminUserService
-import com.misterio.curakid.admin.AdminVaccineService
-import com.misterio.curakid.admin.CreateAnswerOptionRequest
-import com.misterio.curakid.admin.CreateArticleRequest
-import com.misterio.curakid.admin.CreateCategoryRequest
-import com.misterio.curakid.admin.CreateLifePeriodRequest
-import com.misterio.curakid.admin.CreateQuizQuestionRequest
-import com.misterio.curakid.admin.CreateVaccineTemplateRequest
-import com.misterio.curakid.admin.UpdateRulesRequest
+import com.misterio.curakid.admin.*
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.*
@@ -94,6 +82,12 @@ class AdminController(
         @RequestBody request: CreateAnswerOptionRequest
     ) = ResponseEntity.ok(quizService.createAnswerOption(questionId, request))
 
+    @PutMapping("/quiz/options/{id}")
+    fun updateAnswerOption(
+        @PathVariable id: UUID,
+        @RequestBody request: CreateAnswerOptionRequest
+    ) = ResponseEntity.ok(quizService.updateAnswerOption(id, request))
+
     @DeleteMapping("/quiz/options/{id}")
     fun deleteAnswerOption(@PathVariable id: UUID): ResponseEntity<Void> {
         quizService.deleteAnswerOption(id)
@@ -106,7 +100,7 @@ class AdminController(
 
     @PutMapping("/fuzzy/rules")
     fun updateRules(@RequestBody request: UpdateRulesRequest) =
-        ResponseEntity.ok(fuzzyService.updateRules("default", request.rules))
+        ResponseEntity.ok(fuzzyService.updateRules(request.rules))
 
     // Users
     @GetMapping("/users")

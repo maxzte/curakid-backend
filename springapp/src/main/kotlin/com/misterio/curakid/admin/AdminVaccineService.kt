@@ -1,8 +1,8 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.vaccine.VaccineTemplate
-import com.misterio.curakid.vaccine.VaccineTemplateRepository
-import com.misterio.curakid.vaccine.VaccineType
+import com.misterio.curakid.core.database.event.VaccineType
+import com.misterio.curakid.core.database.event.VaccineTemplate
+import com.misterio.curakid.core.database.event.VaccineTemplateRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -34,7 +34,7 @@ class AdminVaccineService(
     fun updateTemplate(id: UUID, request: CreateVaccineTemplateRequest): AdminVaccineTemplateResponse {
         val template = vaccineTemplateRepository.findById(id)
             .orElseThrow { NoSuchElementException("Template not found") }
-        
+
         template.apply {
             name = request.name
             disease = request.disease
@@ -45,13 +45,13 @@ class AdminVaccineService(
             scheduledAgeDays = request.scheduledAgeDays
             notes = request.notes
         }
-        
+
         return vaccineTemplateRepository.save(template).toResponse()
     }
 
     @Transactional
     fun deleteTemplate(id: UUID) {
-//        vaccineTemplateRepository.deleteById(id)
+        vaccineTemplateRepository.deleteById(id)
     }
 
     private fun VaccineTemplate.toResponse() = AdminVaccineTemplateResponse(

@@ -25,6 +25,7 @@ include("springapp")
 include("core:essential")
 include("core:security")
 include("core:database")
+include("core:medical")
 
 // Feature modules
 include("feature:auth")

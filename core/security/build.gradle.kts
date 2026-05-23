@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.spring)
 }
 
-group = "com.misterio.curakid.security"
+group = "com.misterio.curakid.core.security"
 
 dependencies {
     implementation(projects.core.database)

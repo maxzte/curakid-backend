@@ -1,9 +1,9 @@
 package com.misterio.curakid.feature.fis
 
-import com.misterio.curakid.common.analysis.EmbeddingProvider
-import com.misterio.curakid.common.analysis.IntelligenceProvider
-import com.misterio.curakid.common.analysis.IntelligenceRequest
-import com.misterio.curakid.common.analysis.IntelligenceResponse
+import com.misterio.curakid.core.essential.common.analysis.EmbeddingProvider
+import com.misterio.curakid.core.essential.common.analysis.IntelligenceProvider
+import com.misterio.curakid.core.essential.common.analysis.IntelligenceRequest
+import com.misterio.curakid.core.essential.common.analysis.IntelligenceResponse
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
@@ -45,7 +45,8 @@ class FisClient(
             socialScore = request.socialScore,
             selfCareScore = request.selfCareScore,
             sensoryScore = request.sensoryScore,
-            rules = request.rules
+            rules = request.rules,
+            norms = request.norms
         )
 
         return try {
@@ -56,7 +57,10 @@ class FisClient(
                 .bodyToMono(FisResponse::class.java)
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .onErrorResume { ex ->
-                    log.warn("FIS service unavailable ({}), using fallback urgency score.", ex.message)
+                    log.warn(
+                        "FIS service unavailable ({}), using fallback urgency score.",
+                        ex.message
+                    )
                     Mono.just(fallbackFisResponse())
                 }
                 .block() ?: fallbackFisResponse()

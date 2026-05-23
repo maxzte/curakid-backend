@@ -7,7 +7,7 @@ group = "com.misterio.curakid.feature.measurements"
 dependencies {
     implementation(projects.core.essential)
     implementation(projects.core.database)
+    implementation(projects.core.medical)
 
     implementation(libs.spring.boot.starter.validation)
-    implementation(libs.poi.ooxml)
 }

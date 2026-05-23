@@ -1,6 +1,6 @@
 package com.misterio.curakid.admin
 
-import com.misterio.curakid.common.analysis.EmbeddingProvider
+import com.misterio.curakid.core.essential.common.analysis.EmbeddingProvider
 import com.misterio.curakid.core.database.knowledge.MedicalKnowledge
 import com.misterio.curakid.core.database.knowledge.MedicalKnowledgeRepository
 import com.misterio.curakid.core.database.knowledge.MedicalCategory

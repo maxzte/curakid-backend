@@ -9,8 +9,6 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 // --- Charts & Norms ---
-enum class ChartType { WFA, HFA, BMI, HCFA, WFH }
-
 data class ChartNormPoint(
     val x: Double, // age in days OR height in cm (for WFH)
     val p01: Double,

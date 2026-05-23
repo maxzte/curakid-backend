@@ -1,12 +1,11 @@
 package com.misterio.curakid.feature.assessments
 
-import com.misterio.curakid.common.analysis.ReportProvider
+import com.misterio.curakid.core.essential.common.analysis.ReportProvider
 import com.misterio.curakid.core.database.answer.AnswerOptionRepository
 import com.misterio.curakid.core.database.assessments.AssessmentAnswer
 import com.misterio.curakid.core.database.assessments.SkillAssessment
 import com.misterio.curakid.core.database.assessments.SkillAssessmentRepository
 import com.misterio.curakid.core.database.children.Child
-import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.database.question.QuestionRepository

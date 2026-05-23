@@ -1,4 +1,4 @@
-package com.misterio.curakid.common.events
+package com.misterio.curakid.core.essential.common.events
 
 import java.util.UUID
 

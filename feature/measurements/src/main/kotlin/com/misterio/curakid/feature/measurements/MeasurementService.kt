@@ -1,10 +1,11 @@
 package com.misterio.curakid.feature.measurements
 
-import com.misterio.curakid.common.analysis.ReportProvider
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.database.measurements.MeasurementWithReportProjection
+import com.misterio.curakid.core.essential.common.analysis.ReportProvider
+import com.misterio.curakid.core.medical.WhoZScoreCalculator
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,13 +13,11 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
-import kotlin.jvm.optionals.getOrNull
 
 @Service
 class MeasurementService(
     private val measurementRepository: MeasurementRepository,
     private val whoZScoreCalculator: WhoZScoreCalculator,
-    private val whoPercentileCalculator: WhoPercentileCalculator,
     private val reportProvider: ReportProvider,
 ) {
     private val log = LoggerFactory.getLogger(MeasurementService::class.java)
@@ -44,7 +43,8 @@ class MeasurementService(
             measurement.wfaZscore = whoZScoreCalculator.calculateWfaZscore(
                 request.weightKg, child.birthDate, child.gender
             )
-            measurement.wfaPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.wfaZscore)
+            measurement.wfaPercentile =
+                whoZScoreCalculator.zScoreToPercentile(measurement.wfaZscore)
             measurement.wfaDeltaZ = calcDelta(measurement.wfaZscore, prev.wfaZscore)
         }
         if (request.heightCm != null) {
@@ -52,20 +52,23 @@ class MeasurementService(
             measurement.hfaZscore = whoZScoreCalculator.calculateHfaZscore(
                 request.heightCm, child.birthDate, child.gender
             )
-            measurement.hfaPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.hfaZscore)
+            measurement.hfaPercentile =
+                whoZScoreCalculator.zScoreToPercentile(measurement.hfaZscore)
             measurement.hfaDeltaZ = calcDelta(measurement.hfaZscore, prev.hfaZscore)
         }
         if (request.weightKg != null && request.heightCm != null) {
             measurement.bmiZscore = whoZScoreCalculator.calculateBmiZscore(
                 request.weightKg, request.heightCm, child.birthDate, child.gender
             )
-            measurement.bmiPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.bmiZscore)
+            measurement.bmiPercentile =
+                whoZScoreCalculator.zScoreToPercentile(measurement.bmiZscore)
             measurement.bmiDeltaZ = calcDelta(measurement.bmiZscore, prev.bmiZscore)
 
             measurement.wfhZscore = whoZScoreCalculator.calculateWfhZscore(
                 request.weightKg, request.heightCm, child.gender
             )
-            measurement.wfhPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.wfhZscore)
+            measurement.wfhPercentile =
+                whoZScoreCalculator.zScoreToPercentile(measurement.wfhZscore)
             measurement.wfhDeltaZ = calcDelta(measurement.wfhZscore, prev.wfhZscore)
         }
         if (request.headCircCm != null) {
@@ -73,7 +76,8 @@ class MeasurementService(
             measurement.hcfaZscore = whoZScoreCalculator.calculateHcfaZscore(
                 request.headCircCm, child.birthDate, child.gender
             )
-            measurement.hcfaPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.hcfaZscore)
+            measurement.hcfaPercentile =
+                whoZScoreCalculator.zScoreToPercentile(measurement.hcfaZscore)
             measurement.hcfaDeltaZ = calcDelta(measurement.hcfaZscore, prev.hcfaZscore)
         }
 
@@ -115,9 +119,10 @@ class MeasurementService(
         before: LocalDateTime,
         lookbackDate: LocalDateTime,
     ): PreviousScores {
-        val candidates = measurementRepository.findByChildAndMeasurementDateBetweenOrderByMeasurementDateDesc(
-            child, lookbackDate, before.minusDays(1)
-        )
+        val candidates =
+            measurementRepository.findByChildAndMeasurementDateBetweenOrderByMeasurementDateDesc(
+                child, lookbackDate, before.minusDays(1)
+            )
         log.debug("findPrevScores = {}", candidates)
         // Для кожного показника беремо найсвіжіший замір де він є
         return PreviousScores(

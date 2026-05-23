@@ -43,6 +43,7 @@ class FisRequest(BaseModel):
     selfCareScore: Optional[float]
     sensoryScore: Optional[float]
     rules: List[Dict[str, Any]]
+    norms: Optional[Dict[str, Dict[str, float]]] = {}
 
 class EmbeddingRequest(BaseModel):
     text: str
@@ -82,12 +83,20 @@ async def analyze(request: FisRequest):
 
         # 3. Define Trapezoidal Membership Functions
         # For Z-scores
-        for var in [wfa, hfa, bmi, hcfa, wfh]:
-            var['VERY_LOW'] = fuzz.trapmf(var.universe, [-4, -4, -3, -2])
-            var['LOW'] = fuzz.trapmf(var.universe, [-3, -2, -1, 0])
-            var['NORMAL'] = fuzz.trapmf(var.universe, [-1, 0, 0, 1])
-            var['HIGH'] = fuzz.trapmf(var.universe, [0, 1, 2, 3])
-            var['VERY_HIGH'] = fuzz.trapmf(var.universe, [2, 3, 4, 4])
+        for var_name, var in [('wfaZscore', wfa), ('hfaZscore', hfa), ('bmiZscore', bmi), ('hcfaZscore', hcfa), ('wfhZscore', wfh)]:
+            n = (request.norms or {}).get(var_name, {})
+            # Use provided norms or fall back to standard Z-score thresholds
+            p3 = n.get('P3', -3.0)
+            p15 = n.get('P15', -2.0)
+            p50 = n.get('P50', 0.0)
+            p85 = n.get('P85', 2.0)
+            p97 = n.get('P97', 3.0)
+
+            var['VERY_LOW'] = fuzz.trapmf(var.universe, [-4, -4, p3, p15])
+            var['LOW'] = fuzz.trapmf(var.universe, [p3, p15, (p15 + p50)/2, p50])
+            var['NORMAL'] = fuzz.trapmf(var.universe, [p15, p50, p50, p85])
+            var['HIGH'] = fuzz.trapmf(var.universe, [p50, (p50 + p85)/2, p85, p97])
+            var['VERY_HIGH'] = fuzz.trapmf(var.universe, [p85, p97, 4, 4])
 
         # For Skill scores
         for var in [motor_gross, motor_fine, speech, cognitive, social, self_care, sensory]:

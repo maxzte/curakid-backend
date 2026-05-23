@@ -1,6 +1,8 @@
 package com.misterio.curakid.feature.measurements
 
 import com.misterio.curakid.core.database.children.Gender
+import com.misterio.curakid.core.medical.ChartType
+import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable

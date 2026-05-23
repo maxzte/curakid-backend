@@ -1,6 +1,6 @@
 package com.misterio.curakid.reports
 
-import com.misterio.curakid.common.analysis.IntelligenceResponse
+import com.misterio.curakid.core.essential.common.analysis.IntelligenceResponse
 import com.misterio.curakid.core.database.assessments.SkillAssessmentRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository

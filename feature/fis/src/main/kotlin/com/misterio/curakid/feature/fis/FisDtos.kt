@@ -1,6 +1,6 @@
 package com.misterio.curakid.feature.fis
 
-import com.misterio.curakid.common.analysis.FuzzyRule
+import com.misterio.curakid.core.essential.common.analysis.FuzzyRule
 import java.math.BigDecimal
 
 data class FisRequest(
@@ -19,7 +19,8 @@ data class FisRequest(
     val socialScore: BigDecimal?,
     val selfCareScore: BigDecimal?,
     val sensoryScore: BigDecimal?,
-    val rules: List<FuzzyRule>
+    val rules: List<FuzzyRule>,
+    val norms: Map<String, Map<String, Double>> = emptyMap()
 )
 
 data class FisResponse(

@@ -1,8 +1,8 @@
 package com.misterio.curakid.feature.knowledge
 
-import com.misterio.curakid.common.analysis.EmbeddingProvider
-import com.misterio.curakid.common.analysis.KnowledgeChunkDto
-import com.misterio.curakid.common.analysis.KnowledgeProvider
+import com.misterio.curakid.core.essential.common.analysis.EmbeddingProvider
+import com.misterio.curakid.core.essential.common.analysis.KnowledgeChunkDto
+import com.misterio.curakid.core.essential.common.analysis.KnowledgeProvider
 import com.misterio.curakid.core.database.knowledge.MedicalKnowledgeRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

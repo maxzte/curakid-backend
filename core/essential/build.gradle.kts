@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.curakid.kotlin.library)
 }
 
-group = "com.misterio.curakid.essential"
+group = "com.misterio.curakid.core.essential"
 version = "unspecified"
 
 dependencies {

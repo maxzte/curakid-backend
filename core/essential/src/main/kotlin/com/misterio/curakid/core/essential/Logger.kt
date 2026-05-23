@@ -1,4 +1,4 @@
-package com.misterio.curakid.essential
+package com.misterio.curakid.core.essential
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

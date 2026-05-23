@@ -1,11 +1,10 @@
 package com.misterio.curakid.measurements
 
-import com.misterio.curakid.common.analysis.ReportProvider
+import com.misterio.curakid.core.essential.common.analysis.ReportProvider
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.Gender
 import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
-import com.misterio.curakid.core.database.reports.AiReportRepository
 import com.misterio.curakid.feature.measurements.AddMeasurementRequest
 import com.misterio.curakid.feature.measurements.MeasurementService
 import com.misterio.curakid.feature.measurements.WhoPercentileCalculator

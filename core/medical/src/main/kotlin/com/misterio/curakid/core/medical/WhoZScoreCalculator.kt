@@ -1,4 +1,4 @@
-package com.misterio.curakid.feature.measurements
+package com.misterio.curakid.core.medical
 
 import com.misterio.curakid.core.database.children.Gender
 import jakarta.annotation.PostConstruct
@@ -213,4 +213,3 @@ class WhoZScoreCalculator {
         return BigDecimal(cdf * 100).setScale(2, RoundingMode.HALF_UP)
     }
 }
-

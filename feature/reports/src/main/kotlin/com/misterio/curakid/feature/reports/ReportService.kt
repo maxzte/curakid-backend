@@ -1,6 +1,5 @@
 package com.misterio.curakid.feature.reports
 
-import com.misterio.curakid.common.analysis.*
 import com.misterio.curakid.core.database.assessments.AssessmentDomain
 import com.misterio.curakid.core.database.assessments.SkillAssessmentRepository
 import com.misterio.curakid.core.database.auth.User
@@ -12,17 +11,26 @@ import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.database.reports.AiReport
 import com.misterio.curakid.core.database.reports.AiReportRepository
 import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
+import com.misterio.curakid.core.essential.common.analysis.FuzzyCondition
+import com.misterio.curakid.core.essential.common.analysis.FuzzyRule
+import com.misterio.curakid.core.essential.common.analysis.IntelligenceProvider
+import com.misterio.curakid.core.essential.common.analysis.IntelligenceRequest
+import com.misterio.curakid.core.essential.common.analysis.KnowledgeChunkDto
+import com.misterio.curakid.core.essential.common.analysis.KnowledgeProvider
+import com.misterio.curakid.core.essential.common.analysis.ReportProvider
+import com.misterio.curakid.core.medical.ChartType
+import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
-import java.util.concurrent.CompletableFuture
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.UUID
+import java.util.concurrent.CompletableFuture
 import kotlin.jvm.optionals.getOrNull
 
 @Service
@@ -36,6 +44,7 @@ class ReportService(
     private val chatClient: ChatClient,
     private val childRepository: ChildRepository,
     private val fuzzyRuleRepository: FuzzyRuleRepository,
+    private val percentileCalculator: WhoPercentileCalculator,
     private val transactionTemplate: TransactionTemplate,
 ) : ReportProvider {
     private val log = LoggerFactory.getLogger(ReportService::class.java)
@@ -74,8 +83,11 @@ class ReportService(
         val child = childRepository.findById(childId).getOrNull() ?: return null
         val measurement = measurementRepository.findById(measurementId).getOrNull() ?: return null
 
-        val ageMonths = ChronoUnit.MONTHS.between(child.birthDate, LocalDate.now()).toInt()
-        val ageDays = ChronoUnit.DAYS.between(child.birthDate, LocalDate.now()).toInt()
+        val today = LocalDate.now()
+        val birthDate = child.birthDate
+        val ageMonths = ChronoUnit.MONTHS.between(birthDate, today).toInt()
+        val birthDatePlusMonths = birthDate.plusMonths(ageMonths.toLong())
+        val ageDays = ChronoUnit.DAYS.between(birthDatePlusMonths, today).toInt()
 
         return ReportContext(
             childId = child.id!!,
@@ -101,8 +113,11 @@ class ReportService(
         val child = childRepository.findById(childId).getOrNull() ?: return null
         val periodSummary = periodSummaryRepository.findById(periodId).getOrNull() ?: return null
 
-        val ageMonths = ChronoUnit.MONTHS.between(child.birthDate, LocalDate.now()).toInt()
-        val ageDays = ChronoUnit.DAYS.between(child.birthDate, LocalDate.now()).toInt()
+        val today = LocalDate.now()
+        val birthDate = child.birthDate
+        val ageMonths = ChronoUnit.MONTHS.between(birthDate, today).toInt()
+        val birthDatePlusMonths = birthDate.plusMonths(ageMonths.toLong())
+        val ageDays = ChronoUnit.DAYS.between(birthDatePlusMonths, today).toInt()
 
         val latestMeasurement = measurementRepository.findAllByChildOrderByMeasurementDateAsc(child).lastOrNull()
         val assessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
@@ -157,7 +172,8 @@ class ReportService(
             socialScore = context.domainScores?.social,
             selfCareScore = context.domainScores?.selfCare,
             sensoryScore = context.domainScores?.sensory,
-            rules = context.rules
+            rules = context.rules,
+            norms = buildFisNorms(context)
         )
 
         val intelligenceResponse = intelligenceProvider.analyze(intelligenceRequest)
@@ -182,7 +198,8 @@ class ReportService(
             context.latestMeasurement,
             context.domainScores,
             urgencyScore,
-            knowledgeChunks
+            knowledgeChunks,
+            buildRawNorms(context)
         )
         log.debug("prompt: {}", prompt)
 
@@ -301,9 +318,19 @@ class ReportService(
         latestMeasurement: MeasurementSummary?,
         domainScores: DomainScores? = null,
         urgencyScore: BigDecimal,
-        chunks: List<KnowledgeChunkDto>
+        chunks: List<KnowledgeChunkDto>,
+        norms: Map<String, Map<String, Double>> = emptyMap()
     ): String {
         val knowledgeContext = chunks.joinToString("\n---\n") { "[${it.title}]\n${it.content}" }
+
+        val normsContext = if (norms.isNotEmpty()) {
+            val sections = norms.map { (variable, points) ->
+                val pointsStr = points.entries.sortedBy { it.key.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+                    .joinToString(", ") { "${it.key}=${it.value}" }
+                "- $variable: $pointsStr"
+            }.joinToString("\n")
+            "## NORMATIVE DATA (WHO Standards for this age/height):\n$sections"
+        } else ""
 
         // Формуємо блок оцінки навичок тільки якщо є дані
         val skillsBlock = domainScores?.let {
@@ -350,6 +377,8 @@ class ReportService(
     Вага-до-зросту (WFH): $wfh
     *(Примітка: 0 — ідеал, від -2 до +2 — норма, поза цими межами — потребує уваги)*
 
+    $normsContext
+
     $skillsBlock
 
     ## АНАЛІЗ ТРИВОЖНОСТІ (FIS):
@@ -384,6 +413,64 @@ class ReportService(
         pastIllnesses = child.pastIllnesses.toList(),
         notes = child.notes.toList()
     )
+
+    private fun buildFisNorms(context: ReportContext): Map<String, Map<String, Double>> {
+        val res = mutableMapOf<String, Map<String, Double>>()
+
+        // Z-score standard thresholds (removes magic numbers from Python FIS logic)
+        val zNorms = mapOf(
+            "P3" to -3.0, "P15" to -2.0, "P50" to 0.0, "P85" to 2.0, "P97" to 3.0
+        )
+
+        res["wfaZscore"] = zNorms
+        res["hfaZscore"] = zNorms
+        res["bmiZscore"] = zNorms
+        res["hcfaZscore"] = zNorms
+        res["wfhZscore"] = zNorms
+
+        // Skill score standard thresholds (0-100%)
+        val skillNorms = mapOf("P3" to 40.0, "P15" to 60.0, "P50" to 85.0)
+        res["motorGrossScore"] = skillNorms
+        res["motorFineScore"] = skillNorms
+        res["speechScore"] = skillNorms
+        res["cognitiveScore"] = skillNorms
+        res["socialScore"] = skillNorms
+        res["selfCareScore"] = skillNorms
+        res["sensoryScore"] = skillNorms
+
+        return res
+    }
+
+    private fun buildRawNorms(context: ReportContext): Map<String, Map<String, Double>> {
+        val gender = context.childData.gender
+        val ageDays = (context.ageMonths * 30.44 + context.ageDays).toInt()
+
+        val res = mutableMapOf<String, Map<String, Double>>()
+
+        fun addNorms(variable: String, type: ChartType) {
+            percentileCalculator.getParamsForAge(type, gender, ageDays)?.let { p ->
+                res[variable] = mapOf(
+                    "P3" to p.p3, "P15" to p.p15, "P50" to p.p50, "P85" to p.p85, "P97" to p.p97
+                )
+            }
+        }
+
+        addNorms("WFA (kg)", ChartType.WFA)
+        addNorms("HFA (cm)", ChartType.HFA)
+        addNorms("BMI", ChartType.BMI)
+        addNorms("HCFA (cm)", ChartType.HCFA)
+
+        val latest = measurementRepository.findAllByChildOrderByMeasurementDateAsc(childRepository.getReferenceById(context.childId)).lastOrNull()
+        latest?.heightCm?.let { height ->
+            percentileCalculator.getParamsForHeight(gender, height.toDouble())?.let { p ->
+                res["WFH (kg)"] = mapOf(
+                    "P3" to p.p3, "P15" to p.p15, "P50" to p.p50, "P85" to p.p85, "P97" to p.p97
+                )
+            }
+        }
+
+        return res
+    }
 
     private fun loadFuzzyRules(): List<FuzzyRule> = fuzzyRuleRepository.findAllByIsActiveTrue().map {
         FuzzyRule(

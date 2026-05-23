@@ -1,6 +1,6 @@
 package com.misterio.curakid.assessments
 
-import com.misterio.curakid.common.analysis.ReportProvider
+import com.misterio.curakid.core.essential.common.analysis.ReportProvider
 import com.misterio.curakid.core.database.answer.AnswerOption
 import com.misterio.curakid.core.database.answer.AnswerOptionRepository
 import com.misterio.curakid.core.database.assessments.AssessmentAnswer

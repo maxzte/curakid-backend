@@ -1,6 +1,6 @@
 package com.misterio.curakid.event
 
-import com.misterio.curakid.common.events.ChildCreatedEvent
+import com.misterio.curakid.core.essential.common.events.ChildCreatedEvent
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.event.Event

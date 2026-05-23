@@ -1,7 +1,7 @@
 package com.misterio.curakid.feature.children
 
 import com.misterio.curakid.core.database.auth.User
-import com.misterio.curakid.common.events.ChildCreatedEvent
+import com.misterio.curakid.core.essential.common.events.ChildCreatedEvent
 import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository

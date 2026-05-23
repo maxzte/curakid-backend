@@ -1,4 +1,4 @@
-package com.misterio.curakid.common.analysis
+package com.misterio.curakid.core.essential.common.analysis
 
 import java.math.BigDecimal
 import java.util.UUID
@@ -32,7 +32,8 @@ data class IntelligenceRequest(
     val socialScore: BigDecimal?,
     val selfCareScore: BigDecimal?,
     val sensoryScore: BigDecimal?,
-    val rules: List<FuzzyRule>
+    val rules: List<FuzzyRule>,
+    val norms: Map<String, Map<String, Double>> = emptyMap()
 )
 
 data class FuzzyRule(

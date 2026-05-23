@@ -87,6 +87,7 @@ class ReportService(
                 hfaZscore = measurement.hfaZscore,
                 bmiZscore = measurement.bmiZscore,
                 hcfaZscore = measurement.hcfaZscore,
+                wfhZscore = measurement.wfhZscore,
             ),
             domainScores = null,
             rules = loadFuzzyRules(),
@@ -127,6 +128,7 @@ class ReportService(
                     hfaZscore = it.hfaZscore,
                     bmiZscore = it.bmiZscore,
                     hcfaZscore = it.hcfaZscore,
+                    wfhZscore = it.wfhZscore,
                 )
             },
             domainScores = scores,
@@ -146,6 +148,8 @@ class ReportService(
             wfaZscore = context.latestMeasurement?.wfaZscore,
             hfaZscore = context.latestMeasurement?.hfaZscore,
             bmiZscore = context.latestMeasurement?.bmiZscore,
+            hcfaZscore = context.latestMeasurement?.hcfaZscore,
+            wfhZscore = context.latestMeasurement?.wfhZscore,
             motorGrossScore = context.domainScores?.motorGross,
             motorFineScore = context.domainScores?.motorFine,
             speechScore = context.domainScores?.speech,
@@ -318,7 +322,8 @@ class ReportService(
         val wfa = latestMeasurement?.wfaZscore ?: "немає даних"
         val hfa = latestMeasurement?.hfaZscore ?: "немає даних"
         val bmi = latestMeasurement?.bmiZscore ?: "немає даних"
-        val hcfa = latestMeasurement?.hfaZscore ?: "немає даних"
+        val hcfa = latestMeasurement?.hcfaZscore ?: "немає даних"
+        val wfh = latestMeasurement?.wfhZscore ?: "немає даних"
 
         return """
     # ROLE
@@ -341,7 +346,8 @@ class ReportService(
     Вага (WFA): $wfa
     Зріст (HFA): $hfa
     Індекс маси тіла (BMI): $bmi
-    Окружність голови: $hcfa
+    Окружність голови (HCFA): $hcfa
+    Вага-до-зросту (WFH): $wfh
     *(Примітка: 0 — ідеал, від -2 до +2 — норма, поза цими межами — потребує уваги)*
 
     $skillsBlock
@@ -430,6 +436,7 @@ private data class MeasurementSummary(
     val hfaZscore: BigDecimal?,
     val bmiZscore: BigDecimal?,
     val hcfaZscore: BigDecimal?,
+    val wfhZscore: BigDecimal?,
 )
 
 private data class GeneratedReport(

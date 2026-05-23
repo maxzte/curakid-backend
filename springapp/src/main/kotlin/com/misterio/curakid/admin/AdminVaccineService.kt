@@ -13,7 +13,7 @@ class AdminVaccineService(
 ) {
 
     fun getTemplates(): List<AdminVaccineTemplateResponse> =
-        vaccineTemplateRepository.findAll().map { it.toResponse() }
+        vaccineTemplateRepository.findAllByIsActiveTrue().map { it.toResponse() }
 
     @Transactional
     fun createTemplate(request: CreateVaccineTemplateRequest): AdminVaccineTemplateResponse {
@@ -51,7 +51,10 @@ class AdminVaccineService(
 
     @Transactional
     fun deleteTemplate(id: UUID) {
-        vaccineTemplateRepository.deleteById(id)
+        val template = vaccineTemplateRepository.findById(id)
+            .orElseThrow { NoSuchElementException("Template not found") }
+        template.isActive = false
+        vaccineTemplateRepository.save(template)
     }
 
     private fun VaccineTemplate.toResponse() = AdminVaccineTemplateResponse(

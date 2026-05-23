@@ -50,11 +50,6 @@ class AdminController(
         @RequestBody request: CreateLifePeriodRequest
     ) = ResponseEntity.ok(quizService.updateLifePeriod(id, request))
 
-    @DeleteMapping("/quiz/life-periods/{id}")
-    fun deleteLifePeriod(@PathVariable id: UUID): ResponseEntity<Void> {
-        quizService.deleteLifePeriod(id)
-        return ResponseEntity.noContent().build()
-    }
 
     // Quiz — Questions
     @PostMapping("/quiz/life-periods/{lifePeriodId}/questions")
@@ -104,12 +99,27 @@ class AdminController(
 
     // Users
     @GetMapping("/users")
-    fun getUsers(): ResponseEntity<List<AdminUserResponse>> {
-        val users = userService.getUsers()
-            .map {
+    fun getUsers(
+        @RequestParam(required = false) email: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int
+    ): ResponseEntity<AdminPageResponse<AdminUserResponse>> {
+        val pageResult = userService.getUsers(email, page, size)
+        val response = AdminPageResponse(
+            items = pageResult.content.map {
                 AdminUserResponse(it.id!!, it.email, it.name, it.role.name, it.isActive)
-            }
-        return ResponseEntity.ok(users)
+            },
+            totalItems = pageResult.totalElements,
+            totalPages = pageResult.totalPages,
+            currentPage = pageResult.number
+        )
+        return ResponseEntity.ok(response)
+    }
+
+    @DeleteMapping("/users/{id}")
+    fun deleteUser(@PathVariable id: UUID): ResponseEntity<Void> {
+        userService.deleteUser(id)
+        return ResponseEntity.noContent().build()
     }
 
     // Vaccines

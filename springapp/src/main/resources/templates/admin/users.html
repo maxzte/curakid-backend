@@ -16,6 +16,17 @@
             <h2>Користувачі системи</h2>
         </div>
 
+        <div class="card" style="margin-bottom: 1.5rem;">
+            <div class="flex-row" style="gap: 1rem; align-items: flex-end;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="search-email">Пошук за Email</label>
+                    <input type="text" id="search-email" class="form-control" placeholder="Введіть частину email...">
+                </div>
+                <button class="btn" onclick="applySearch()">Пошук</button>
+                <button class="btn btn-secondary" onclick="resetSearch()">Скинути</button>
+            </div>
+        </div>
+
         <div class="card">
             <div style="overflow-x: auto;">
                 <table>
@@ -26,40 +37,55 @@
                             <th>Роль</th>
                             <th>Статус</th>
                             <th>ID</th>
+                            <th>Дії</th>
                         </tr>
                     </thead>
                     <tbody id="users-table-body">
                         <tr>
-                            <td colspan="5" style="text-align: center; color: var(--text-muted);">Завантаження користувачів...</td>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted);">Завантаження користувачів...</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="pagination-container" id="pagination-container" style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 0.5rem;">
+                <!-- Pagination buttons will be here -->
             </div>
         </div>
     </div>
 
     <script>
+        let currentPage = 0;
+        let currentSearch = '';
 
-        async function fetchUsers() {
+        async function fetchUsers(page = 0, email = '') {
+            currentPage = page;
+            currentSearch = email;
+
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/users');
+                const url = `/api/admin/users?page=${page}&size=20&email=${encodeURIComponent(email)}`;
+                const response = await AdminAuth.apiFetch(url);
                 if (!response) return;
                 
                 if (!response.ok) throw new Error("Помилка завантаження користувачів.");
 
-                const users = await response.json();
+                const data = await response.json();
+                const users = data.items;
                 const tbody = document.getElementById('users-table-body');
                 
                 if (users.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Користувачів не знайдено.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Користувачів не знайдено.</td></tr>';
+                    renderPagination(0, 0);
                     return;
                 }
 
                 tbody.innerHTML = users.map(user => {
-                    const roleClass = user.role === 'ADMIN' ? 'user' : 'admin';
-                    const roleName = user.role === 'ADMIN' ? 'Користувач' : 'Адмін';
-                    const statusClass = user.isActive ? 'inactive' : 'active';
-                    const statusText = user.isActive ? 'Неактивний' : 'Активний';
+                    const isActive = user.isActive === true || user.active === true;
+                    const isAdmin = user.role === 'ROLE_ADMIN';
+                    const roleClass = isAdmin ? 'admin' : 'user';
+                    const roleName = isAdmin ? 'Адмін' : 'Користувач';
+                    const statusClass = isActive ? 'active' : 'inactive';
+                    const statusText = isActive ? 'Активний' : 'Неактивний';
                     
                     return `
                     <tr>
@@ -68,9 +94,65 @@
                         <td><span class="badge ${roleClass}">${roleName}</span></td>
                         <td><span class="status-dot ${statusClass}"></span> ${statusText}</td>
                         <td style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">${user.id}</td>
+                        <td>
+                            ${isActive ? `<button class="action-btn delete-btn" onclick="deleteUser('${user.id}')">Видалити</button>` : ''}
+                        </td>
                     </tr>
                 `}).join('');
 
+                renderPagination(data.totalPages, data.currentPage);
+
+            } catch (err) {
+                AdminAuth.showToast(err.message, 'error');
+            }
+        }
+
+        function renderPagination(totalPages, current) {
+            const container = document.getElementById('pagination-container');
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            // Previous
+            html += `<button class="btn btn-sm ${current === 0 ? 'disabled' : ''}" onclick="fetchUsers(${current - 1}, '${currentSearch}')" ${current === 0 ? 'disabled' : ''}>←</button>`;
+
+            // Pages
+            for (let i = 0; i < totalPages; i++) {
+                if (i === current) {
+                    html += `<button class="btn btn-sm" style="background-color: var(--primary); color: white;">${i + 1}</button>`;
+                } else {
+                    html += `<button class="btn btn-sm" onclick="fetchUsers(${i}, '${currentSearch}')">${i + 1}</button>`;
+                }
+            }
+
+            // Next
+            html += `<button class="btn btn-sm ${current === totalPages - 1 ? 'disabled' : ''}" onclick="fetchUsers(${current + 1}, '${currentSearch}')" ${current === totalPages - 1 ? 'disabled' : ''}>→</button>`;
+
+            container.innerHTML = html;
+        }
+
+        function applySearch() {
+            const email = document.getElementById('search-email').value;
+            fetchUsers(0, email);
+        }
+
+        function resetSearch() {
+            document.getElementById('search-email').value = '';
+            fetchUsers(0, '');
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Ви впевнені, що хочете видалити цього користувача? Це призведе до анонімізації всіх його даних та даних його дітей.')) return;
+            try {
+                const response = await AdminAuth.apiFetch('/api/admin/users/' + id, {
+                    method: 'DELETE'
+                });
+                if (response && response.ok) {
+                    AdminAuth.showToast('Користувача видалено та анонімізовано', 'success');
+                    fetchUsers(currentPage, currentSearch);
+                }
             } catch (err) {
                 AdminAuth.showToast(err.message, 'error');
             }

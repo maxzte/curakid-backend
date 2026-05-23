@@ -91,7 +91,7 @@ class VaccineService(
 
     // https://vaccine.org.ua/vakczynacziya-v-ukrayini/vaccinationua-calendar/
     private fun buildVaccineSchedule(child: Child): List<VaccineEvent> {
-        val templates = vaccineTemplateRepository.findAll()
+        val templates = vaccineTemplateRepository.findAllByIsActiveTrue()
         if (templates.isNotEmpty()) {
             return templates.mapNotNull { template ->
                 // Apply gender filtering if needed (specifically for HPV/ВПЛ)

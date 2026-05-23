@@ -104,7 +104,13 @@ class AdminQuizService(
 
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
-    fun deleteQuestion(id: UUID) = questionRepository.deleteById(id)
+    fun deleteQuestion(id: UUID) {
+        val existing = questionRepository.findById(id).orElseThrow {
+            IllegalArgumentException("Question $id not found")
+        }
+        existing.isActive = false
+        questionRepository.save(existing)
+    }
 
     // --- Answer Options ---
 

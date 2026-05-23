@@ -23,6 +23,8 @@ data class IntelligenceRequest(
     val wfaZscore: BigDecimal?,
     val hfaZscore: BigDecimal?,
     val bmiZscore: BigDecimal?,
+    val hcfaZscore: BigDecimal?,
+    val wfhZscore: BigDecimal?,
     val motorGrossScore: BigDecimal?,
     val motorFineScore: BigDecimal?,
     val speechScore: BigDecimal?,

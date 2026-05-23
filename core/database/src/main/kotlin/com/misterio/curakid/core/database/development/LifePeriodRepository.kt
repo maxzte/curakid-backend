@@ -11,13 +11,14 @@ interface LifePeriodRepository : JpaRepository<LifePeriod, UUID> {
     @Query(
         "SELECT DISTINCT lp FROM LifePeriod lp " +
             "LEFT JOIN FETCH lp.questions q " +
-            "WHERE lp.code = :code"
+            "WHERE lp.code = :code AND (q IS NULL OR q.isActive = true)"
     )
     fun findByCodeWithQuestions(code: String): Optional<LifePeriod>
 
     @Query(
         "SELECT DISTINCT lp FROM LifePeriod lp " +
         "LEFT JOIN FETCH lp.questions q " +
+        "WHERE (q IS NULL OR q.isActive = true) " +
         "ORDER BY lp.minMonths"
     )
     fun findAllWithQuestions(): List<LifePeriod>

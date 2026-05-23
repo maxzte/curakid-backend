@@ -9,14 +9,14 @@ interface QuestionRepository : JpaRepository<Question, UUID> {
     @Query(
         "SELECT DISTINCT q FROM Question q " +
             "LEFT JOIN FETCH q.options " +
-            "WHERE q.id IN :ids"
+            "WHERE q.id IN :ids AND q.isActive = true"
     )
     fun findAllWithOptionsByIdIn(ids: Collection<UUID>): List<Question>
 
     @Query(
         "SELECT DISTINCT q FROM Question q " +
             "LEFT JOIN FETCH q.options " +
-            "WHERE q.id IN :ids AND q.domain = :domain"
+            "WHERE q.id IN :ids AND q.domain = :domain AND q.isActive = true"
     )
     fun findAllWithOptionsByIdInAndDomain(ids: Collection<UUID>, domain: AssessmentDomain): List<Question>
 }

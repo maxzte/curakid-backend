@@ -16,37 +16,6 @@
             <h2>Керування опитуваннями</h2>
         </div>
 
-        <!-- Add Life Period Form -->
-        <div class="card">
-            <h3>Додати новий віковий період</h3>
-            <form id="add-period-form">
-                <div class="flex-row">
-                    <div class="form-group">
-                        <label for="period-code">Код періоду</label>
-                        <input type="text" id="period-code" class="form-control" required placeholder="Напр: P0_3M">
-                        <span class="form-hint">Технічний ID (напр: P0_3M для 0-3 міс.)</span>
-                    </div>
-                    <div class="form-group">
-                        <label for="period-label">Назва періоду</label>
-                        <input type="text" id="period-label" class="form-control" required placeholder="Напр: 0–3 місяці">
-                        <span class="form-hint">Як це бачить користувач</span>
-                    </div>
-                </div>
-                <div class="flex-row">
-                    <div class="form-group">
-                        <label for="period-min">Мін. вік (місяці)</label>
-                        <input type="number" id="period-min" class="form-control" required placeholder="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="period-max">Макс. вік (місяці)</label>
-                        <input type="number" id="period-max" class="form-control" required placeholder="3">
-                    </div>
-                </div>
-                <button type="submit" class="btn">Створити період</button>
-                <div id="period-create-status" class="inline-status"></div>
-            </form>
-        </div>
-
         <!-- Life Periods Tree -->
         <div class="card">
             <h3>Вікові періоди та запитання</h3>
@@ -124,7 +93,6 @@
                             <span style="color: var(--text-muted); font-size: 0.85rem;">${p.minMonths}–${p.maxMonths} мiс</span>
                             <span style="color: var(--text-muted); font-size: 0.85rem;">(${p.questions ? p.questions.length : 0} питань)</span>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deletePeriod('${p.id}')">Видалити</button>
                     </div>
                     <div class="period-body">
                         ${renderQuestions(p.questions || [], p.id)}
@@ -296,19 +264,6 @@
         }
 
         // --- Actions ---
-        async function deletePeriod(id) {
-            if (!confirm('Видалити цей віковий період та всі його запитання?')) return;
-            try {
-                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/life-periods/${id}`, {
-                    method: 'DELETE'
-                });
-                if (resp && resp.ok) {
-                    AdminAuth.showToast('Період видалено', 'success');
-                    fetchPeriods();
-                }
-            } catch (err) { AdminAuth.showToast(err.message, 'error'); }
-        }
-
         async function addQuestion(periodId) {
             const text = document.getElementById(`q-text-${periodId}`).value;
             const domain = document.getElementById(`q-domain-${periodId}`).value;
@@ -424,39 +379,6 @@
                 }
             } catch (err) { AdminAuth.showToast(err.message, 'error'); }
         }
-
-        // --- Create Period Form ---
-        document.getElementById('add-period-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const submitButton = e.target.querySelector('button[type="submit"]');
-            submitButton.disabled = true;
-            setPeriodCreateStatus('loading', 'Створення періоду...');
-
-            const payload = {
-                code: document.getElementById('period-code').value,
-                label: document.getElementById('period-label').value,
-                minMonths: parseInt(document.getElementById('period-min').value),
-                maxMonths: parseInt(document.getElementById('period-max').value)
-            };
-
-            try {
-                const resp = await AdminAuth.apiFetch('/api/admin/quiz/life-periods', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-                if (resp && resp.ok) {
-                    AdminAuth.showToast('Період створено!', 'success');
-                    setPeriodCreateStatus('success', `Період "${payload.label}" успішно створено`);
-                    e.target.reset();
-                    await fetchPeriods();
-                }
-            } catch (err) {
-                AdminAuth.showToast(err.message, 'error');
-                setPeriodCreateStatus('error', err.message);
-            } finally {
-                submitButton.disabled = false;
-            }
-        });
 
         // Init
         fetchPeriods();

@@ -10,10 +10,15 @@ data class FisRequest(
     val wfaZscore: BigDecimal?,
     val hfaZscore: BigDecimal?,
     val bmiZscore: BigDecimal?,
-    val motorScore: BigDecimal?,
+    val hcfaZscore: BigDecimal?,
+    val wfhZscore: BigDecimal?,
+    val motorGrossScore: BigDecimal?,
+    val motorFineScore: BigDecimal?,
     val speechScore: BigDecimal?,
     val cognitiveScore: BigDecimal?,
     val socialScore: BigDecimal?,
+    val selfCareScore: BigDecimal?,
+    val sensoryScore: BigDecimal?,
     val rules: List<FuzzyRule>
 )
 

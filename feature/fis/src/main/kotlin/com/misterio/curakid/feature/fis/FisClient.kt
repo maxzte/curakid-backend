@@ -36,10 +36,15 @@ class FisClient(
             wfaZscore = request.wfaZscore,
             hfaZscore = request.hfaZscore,
             bmiZscore = request.bmiZscore,
-            motorScore = request.motorGrossScore,
+            hcfaZscore = request.hcfaZscore,
+            wfhZscore = request.wfhZscore,
+            motorGrossScore = request.motorGrossScore,
+            motorFineScore = request.motorFineScore,
             speechScore = request.speechScore,
             cognitiveScore = request.cognitiveScore,
             socialScore = request.socialScore,
+            selfCareScore = request.selfCareScore,
+            sensoryScore = request.sensoryScore,
             rules = request.rules
         )
 

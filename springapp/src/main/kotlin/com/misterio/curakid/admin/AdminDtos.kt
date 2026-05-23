@@ -1,5 +1,6 @@
 package com.misterio.curakid.admin
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.misterio.curakid.core.database.assessments.AssessmentDomain
 import java.math.BigDecimal
 import java.util.*
@@ -44,11 +45,19 @@ data class UpdateThresholdsRequest(
     val thresholds: Map<String, Any>
 )
 
+data class AdminPageResponse<T>(
+    val items: List<T>,
+    val totalItems: Long,
+    val totalPages: Int,
+    val currentPage: Int
+)
+
 data class AdminUserResponse(
     val id: UUID,
     val email: String,
     val fullName: String,
     val role: String,
+    @get:JsonProperty("isActive")
     val isActive: Boolean
 )
 

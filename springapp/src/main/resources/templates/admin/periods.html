@@ -150,7 +150,6 @@
                     <td>${p.minMonths} – ${p.maxMonths}</td>
                     <td>
                         <button class="action-btn edit-btn" onclick="openEditModal('${p.id}')">Редагувати</button>
-                        <button class="action-btn delete-btn" onclick="deletePeriod('${p.id}')">Видалити</button>
                     </td>
                 </tr>
             `).join('');
@@ -181,20 +180,6 @@
             }
         });
 
-        async function deletePeriod(id) {
-            if (!confirm('Ви впевнені?')) return;
-            try {
-                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods/' + id, {
-                    method: 'DELETE'
-                });
-                if (response && response.ok) {
-                    AdminAuth.showToast('Період видалено', 'success');
-                    fetchPeriods();
-                }
-            } catch (err) {
-                AdminAuth.showToast(err.message, 'error');
-            }
-        }
 
         function openEditModal(id) {
             const p = periods.find(x => x.id === id);

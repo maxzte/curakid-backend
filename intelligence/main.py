@@ -33,6 +33,8 @@ class FisRequest(BaseModel):
     wfaZscore: Optional[float]
     hfaZscore: Optional[float]
     bmiZscore: Optional[float]
+    hcfaZscore: Optional[float]
+    wfhZscore: Optional[float]
     motorGrossScore: Optional[float]
     motorFineScore: Optional[float]
     speechScore: Optional[float]
@@ -61,7 +63,9 @@ async def analyze(request: FisRequest):
         wfa = ctrl.Antecedent(z_range, 'wfaZscore')
         hfa = ctrl.Antecedent(z_range, 'hfaZscore')
         bmi = ctrl.Antecedent(z_range, 'bmiZscore')
-        
+        hcfa = ctrl.Antecedent(z_range, 'hcfaZscore')
+        wfh = ctrl.Antecedent(z_range, 'wfhZscore')
+
         # Skill scores: range 0 to 100
         s_range = np.arange(0, 101, 1)
         motor_gross = ctrl.Antecedent(s_range, 'motorGrossScore')
@@ -78,7 +82,7 @@ async def analyze(request: FisRequest):
 
         # 3. Define Trapezoidal Membership Functions
         # For Z-scores
-        for var in [wfa, hfa, bmi]:
+        for var in [wfa, hfa, bmi, hcfa, wfh]:
             var['VERY_LOW'] = fuzz.trapmf(var.universe, [-4, -4, -3, -2])
             var['LOW'] = fuzz.trapmf(var.universe, [-3, -2, -1, 0])
             var['NORMAL'] = fuzz.trapmf(var.universe, [-1, 0, 0, 1])
@@ -99,6 +103,7 @@ async def analyze(request: FisRequest):
         # 4. Map Variables for dynamic lookup
         vars_map = {
             'wfaZscore': wfa, 'hfaZscore': hfa, 'bmiZscore': bmi,
+            'hcfaZscore': hcfa, 'wfhZscore': wfh,
             'motorGrossScore': motor_gross, 'motorFineScore': motor_fine,
             'speechScore': speech, 'cognitiveScore': cognitive,
             'socialScore': social, 'selfCareScore': self_care,

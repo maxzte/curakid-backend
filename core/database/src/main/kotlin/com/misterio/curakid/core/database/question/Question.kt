@@ -29,7 +29,10 @@ class Question(
 
     @OneToMany(mappedBy = "question", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
     @OrderBy("displayOrder ASC")
-    val options: MutableList<AnswerOption> = mutableListOf()
+    val options: MutableList<AnswerOption> = mutableListOf(),
+
+    @Column(name = "is_active", nullable = false)
+    var isActive: Boolean = true
 
 ) : BaseEntity()
 

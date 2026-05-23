@@ -30,7 +30,10 @@ class VaccineTemplate(
     var scheduledAgeDays: Int? = null,
 
     @Column(columnDefinition = "TEXT")
-    var notes: String? = null
+    var notes: String? = null,
+
+    @Column(name = "is_active", nullable = false)
+    var isActive: Boolean = true
 
 ) : BaseEntity()
 

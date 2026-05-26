@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import reactor.core.publisher.Flux
+import reactor.util.retry.Retry
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.UUID
@@ -47,7 +50,7 @@ class ChatService(
                 childId = it.child!!.id!!,
                 userText = it.userText,
                 aiText = it.aiText,
-                createdAt = it.createdAt ?: java.time.LocalDateTime.now()
+                createdAt = it.createdAt ?: Instant.now()
             )
         }
     }
@@ -74,8 +77,6 @@ class ChatService(
             Flux.just("Вибачте, сталася помилка при зверненні до ШІ. Спробуйте пізніше.")
         }
 
-        // Ми хочемо зберегти повідомлення в БД після завершення генерації.
-        // Зберемо всі чанки в одну стрінгу
         return aiStream
             .collectList()
             .map { chunks ->
@@ -83,9 +84,6 @@ class ChatService(
                 saveMessage(child, userMessage, fullResponse)
             }
             .flatMapMany {
-                // Повертаємо оригінальний стрім клієнту
-                // Але так ми не зможемо стрімити по частинах, бо collectList чекає кінця.
-                // Краще використовувати doOnComplete або щось подібне
                 Flux.empty<String>() // placeholder, see fix below
             }
     }
@@ -108,6 +106,14 @@ class ChatService(
             .user(userMessage)
             .stream()
             .content()
+            .retryWhen(
+                Retry.backoff(3, Duration.ofSeconds(1))
+                    .maxBackoff(Duration.ofSeconds(5))
+                    .filter { it is RuntimeException && it.message?.contains("503") == true }
+            )
+            .onErrorContinue { ex, _ ->
+                log.warn("Skipping chunk that caused error: ${ex.message}")
+            }
             .doOnNext { chunk ->
                 responseBuilder.append(chunk)
                 try {
@@ -131,24 +137,20 @@ class ChatService(
                         "$responseBuilder\n[Помилка генерації]"
                     )
                 }
-                emitter.completeWithError(ex)
+                try {
+                    emitter.send(
+                        SseEmitter.event()
+                            .name("error")
+                            .data("[Помилка генерації відповіді]")
+                    )
+                } catch (e: Exception) {
+                    log.error("Failed to send error event", e)
+                }
+                emitter.complete()
             }
             .subscribe()
 
         return emitter
-    }
-
-    private fun saveMessageAsync(child: Child, userMessage: String, aiResponse: String) {
-        try {
-            val message = ChatMessage(
-                child = child,
-                userText = userMessage,
-                aiText = aiResponse
-            )
-            chatMessageRepository.save(message)
-        } catch (e: Exception) {
-            log.error("Failed to save chat message", e)
-        }
     }
 
     private fun saveMessage(child: Child, userMessage: String, aiResponse: String) {

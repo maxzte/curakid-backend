@@ -5,13 +5,13 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.*
 
 interface MeasurementWithReportProjection {
     val id: UUID
     val childId: UUID
-    val measurementDate: LocalDateTime
+    val measurementDate: Instant
     val aiReportId: UUID?
 
     val weightKg: BigDecimal?
@@ -63,7 +63,7 @@ interface MeasurementRepository : JpaRepository<Measurement, UUID> {
     fun findFirstByChildOrderByMeasurementDateDesc(child: Child): Optional<Measurement>
     fun findByChildAndMeasurementDateBetweenOrderByMeasurementDateDesc(
         child: Child,
-        lookbackDate: LocalDateTime,
-        before: LocalDateTime
+        lookbackDate: Instant,
+        before: Instant
     ): List<Measurement>
 }

@@ -6,7 +6,7 @@ import jakarta.persistence.*
 
 // https://zakon.rada.gov.ua/laws/show/z1936-24#n72
 @Entity
-@Table(name = "life_period")
+@Table(name = "life_periods")
 class LifePeriod(
 
     @Column(nullable = false, unique = true)

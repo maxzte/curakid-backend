@@ -1,6 +1,7 @@
 package com.misterio.curakid.children
 
 import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.children.Gender
@@ -17,10 +18,12 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.ApplicationEventPublisher
 import java.time.LocalDate
-import java.util.*
+import java.util.Optional
+import java.util.UUID
 
 class ChildServiceTest {
 
+    private lateinit var userRepository: UserRepository
     private lateinit var childRepository: ChildRepository
     private lateinit var publisher: ApplicationEventPublisher
     private lateinit var childService: ChildService
@@ -28,9 +31,10 @@ class ChildServiceTest {
 
     @BeforeEach
     fun setUp() {
+        userRepository = mock()
         childRepository = mock()
         publisher = mock()
-        childService = ChildService(childRepository, publisher)
+        childService = ChildService(userRepository, childRepository, publisher)
         user = User(email = "test@test.com", passwordHash = "hash", name = "Test User").apply {
             id = UUID.randomUUID()
         }
@@ -43,10 +47,15 @@ class ChildServiceTest {
             birthDate = LocalDate.of(2022, 1, 1),
             gender = Gender.MALE,
             isPremature = false,
+            allergies = null,
+            chronicDiseases = null,
+            pastDiseases = null,
+            specialFeatures = null
         )
         val savedChild = Child(user, "Ivan", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
             id = UUID.randomUUID()
         }
+        whenever(userRepository.findById(any())).thenReturn(Optional.of(user))
         whenever(childRepository.save(any<Child>())).thenReturn(savedChild)
 
         val result = childService.createChild(user, request)
@@ -67,10 +76,20 @@ class ChildServiceTest {
 
     @Test
     fun `getChildren should return mapped responses`() {
-        val child1 = Child(user, name = "Ivan", birthDate = LocalDate.of(2022, 1, 1), gender = Gender.MALE).apply {
+        val child1 = Child(
+            user,
+            name = "Ivan",
+            birthDate = LocalDate.of(2022, 1, 1),
+            gender = Gender.MALE
+        ).apply {
             id = UUID.randomUUID()
         }
-        val child2 = Child(user, name = "Maria", birthDate = LocalDate.of(2023, 5, 10), gender = Gender.FEMALE).apply {
+        val child2 = Child(
+            user,
+            name = "Maria",
+            birthDate = LocalDate.of(2023, 5, 10),
+            gender = Gender.FEMALE
+        ).apply {
             id = UUID.randomUUID()
         }
         whenever(childRepository.findAllByUser(user)).thenReturn(listOf(child1, child2))
@@ -97,7 +116,11 @@ class ChildServiceTest {
         val existingChild = Child(user, "Old Name", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
             id = childId
         }
-        whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(Optional.of(existingChild))
+        whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(
+            Optional.of(
+                existingChild
+            )
+        )
         whenever(childRepository.save(any<Child>())).thenAnswer { it.arguments[0] }
 
         val request = UpdateChildRequest(
@@ -122,7 +145,11 @@ class ChildServiceTest {
         val existingChild = Child(user, "Ivan", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
             id = childId
         }
-        whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(Optional.of(existingChild))
+        whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(
+            Optional.of(
+                existingChild
+            )
+        )
 
         childService.deleteChild(childId, user)
 

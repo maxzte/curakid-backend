@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.*
 
@@ -56,7 +56,7 @@ class SkillAssessmentService(
                         child = child,
                         domain = domain,
                         lifePeriod = period,
-                        assessmentDate = LocalDateTime.now()
+                        assessmentDate = Instant.now()
                     )
                 }
 
@@ -65,7 +65,7 @@ class SkillAssessmentService(
                 val q = questions[dto.questionId]!!
                 val opt = q.options.firstOrNull { it.id == dto.selectedOptionId }
                     ?: throw IllegalArgumentException("Option not found")
-                AssessmentAnswer(assessment, q, opt, request.assessmentDate ?: LocalDateTime.now())
+                AssessmentAnswer(assessment, q, opt, request.assessmentDate ?: Instant.now())
             }
 
             mapped.forEach { newAnswer ->
@@ -96,7 +96,7 @@ class SkillAssessmentService(
         if (existing != null) {
             if (existing.selectedOption?.id != request.selectedOptionId) {
                 existing.selectedOption = answerOptionRepository.getReferenceById(request.selectedOptionId)
-                existing.answeredAt = request.answeredAt ?: LocalDateTime.now()
+                existing.answeredAt = request.answeredAt ?: Instant.now()
             }
         } else {
             assessment.answers.add(
@@ -158,7 +158,7 @@ class SkillAssessmentService(
             throw IllegalArgumentException("Completion: $completionPercent% < $REQUIRED_COMPLETION_PERCENT%")
         }
 
-        val now = LocalDateTime.now()
+        val now = Instant.now()
         val toUpdate = assessments.filter { it.lifePeriod?.id == period.id }
         toUpdate.forEach {
             it.score = calculateScore(it)
@@ -194,7 +194,7 @@ class SkillAssessmentService(
         assessment: SkillAssessment,
         questionId: UUID,
         optionId: UUID,
-        answeredAt: LocalDateTime
+        answeredAt: Instant
     ) {
         val existing = assessment.answers.find { it.question?.id == questionId }
         if (existing != null) {
@@ -221,7 +221,7 @@ class SkillAssessmentService(
             .groupBy { it.question!!.id }
             .mapValues { entry -> entry.value.maxBy { it.answeredAt } }
             .values
-            .filter { it.selectedOption?.value?.toBigDecimalOrNull() != null && it.question?.weight != null }
+            .filter { it.selectedOption?.value != 0.0 && it.question?.weight != null }
 
         if (latestAnswers.isEmpty()) return null
 
@@ -236,7 +236,7 @@ class SkillAssessmentService(
 
     private data class CompletePeriodAssessmentResult(
         val completionPercent: Int,
-        val completedAt: LocalDateTime,
+        val completedAt: Instant,
         val updatedAssessments: List<AssessmentResponse>,
         val summary: PeriodSummary
     )

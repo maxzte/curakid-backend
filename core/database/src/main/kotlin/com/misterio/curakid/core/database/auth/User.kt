@@ -5,6 +5,7 @@ import jakarta.persistence.*
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.userdetails.UserDetails
+import java.time.Instant
 
 @Entity
 @Table(name = "users")
@@ -33,13 +34,13 @@ class User(
     var verificationCode: String? = null,
 
     @Column(name = "verification_code_expiry")
-    var verificationCodeExpiry: java.time.Instant? = null,
+    var verificationCodeExpiry: Instant? = null,
 
     @Column(name = "reset_code")
     var resetCode: String? = null,
 
     @Column(name = "reset_code_expiry")
-    var resetCodeExpiry: java.time.Instant? = null
+    var resetCodeExpiry: Instant? = null
 
 ) : BaseEntity(), UserDetails {
     override fun getAuthorities(): Collection<GrantedAuthority> = listOf(SimpleGrantedAuthority(role.name))

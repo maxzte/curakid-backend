@@ -1,7 +1,7 @@
 package com.misterio.curakid.measurements
 
 import com.misterio.curakid.core.database.children.Gender
-import com.misterio.curakid.feature.measurements.WhoZScoreCalculator
+import com.misterio.curakid.core.medical.WhoZScoreCalculator
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -23,7 +23,10 @@ class WhoZScoreCalculatorTest {
         val birthDate = LocalDate.now().minusMonths(6)
         // WHO median for 6-month male is ~7.9 kg
         val result = calculator.calculateWfaZscore(BigDecimal("7.9"), birthDate, Gender.MALE)
-        assertTrue(result.abs() < BigDecimal("1.5"), "Z-score should be near 0 for median weight, got $result")
+        assertTrue(
+            result.abs() < BigDecimal("1.5"),
+            "Z-score should be near 0 for median weight, got $result"
+        )
     }
 
     @Test
@@ -31,7 +34,10 @@ class WhoZScoreCalculatorTest {
         val birthDate = LocalDate.now()
         // WHO median for newborn boy is ~3.3 kg
         val result = calculator.calculateWfaZscore(BigDecimal("3.3"), birthDate, Gender.MALE)
-        assertTrue(result.abs() < BigDecimal("1.0"), "Newborn Z-score should be near 0, got $result")
+        assertTrue(
+            result.abs() < BigDecimal("1.0"),
+            "Newborn Z-score should be near 0, got $result"
+        )
     }
 
     @Test
@@ -39,7 +45,10 @@ class WhoZScoreCalculatorTest {
         val birthDate = LocalDate.now().minusDays(1856)
         // WHO median for 5-year male is ~18.3 kg
         val result = calculator.calculateWfaZscore(BigDecimal("18.3"), birthDate, Gender.MALE)
-        assertTrue(result.abs() < BigDecimal("1.0"), "Max age Z-score should be near 0, got $result")
+        assertTrue(
+            result.abs() < BigDecimal("1.0"),
+            "Max age Z-score should be near 0, got $result"
+        )
     }
 
     @Test
@@ -58,21 +67,33 @@ class WhoZScoreCalculatorTest {
         val birthDate = LocalDate.now().minusMonths(12)
         // WHO median for 12-month female is ~74.0 cm
         val result = calculator.calculateHfaZscore(BigDecimal("74.0"), birthDate, Gender.FEMALE)
-        assertTrue(result.abs() < BigDecimal("1.5"), "Z-score should be near 0 for median height, got $result")
+        assertTrue(
+            result.abs() < BigDecimal("1.5"),
+            "Z-score should be near 0 for median height, got $result"
+        )
     }
 
     @Test
     fun `BMI z-score for underweight child should be negative`() {
         val birthDate = LocalDate.now().minusMonths(12)
-        val result = calculator.calculateBmiZscore(BigDecimal("6.0"), BigDecimal("74.0"), birthDate, Gender.MALE)
-        assertTrue(result < BigDecimal.ZERO, "Underweight BMI z-score should be negative, got $result")
+        val result = calculator.calculateBmiZscore(
+            BigDecimal("6.0"),
+            BigDecimal("74.0"),
+            birthDate,
+            Gender.MALE
+        )
+        assertTrue(
+            result < BigDecimal.ZERO,
+            "Underweight BMI z-score should be negative, got $result"
+        )
     }
 
     @Test
     fun `Z-score should be capped at -5 and 5`() {
         val birthDate = LocalDate.now().minusMonths(12)
         val extremelyLow = calculator.calculateWfaZscore(BigDecimal("0.1"), birthDate, Gender.MALE)
-        val extremelyHigh = calculator.calculateWfaZscore(BigDecimal("50.0"), birthDate, Gender.MALE)
+        val extremelyHigh =
+            calculator.calculateWfaZscore(BigDecimal("50.0"), birthDate, Gender.MALE)
 
         assertTrue(extremelyLow >= BigDecimal("-5"), "Should not go below -5")
         assertTrue(extremelyHigh <= BigDecimal("5"), "Should not exceed 5")

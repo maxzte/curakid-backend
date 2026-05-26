@@ -33,7 +33,7 @@ data class CreateQuizQuestionRequest(
 
 data class CreateAnswerOptionRequest(
     val text: String,
-    val value: String,
+    val value: Double,
     val displayOrder: Int
 )
 

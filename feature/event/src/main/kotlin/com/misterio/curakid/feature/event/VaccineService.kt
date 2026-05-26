@@ -7,7 +7,8 @@ import com.misterio.curakid.core.database.children.Gender
 import com.misterio.curakid.core.database.event.*
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
-import java.time.LocalDateTime
+import java.time.Instant
+import java.time.ZoneOffset
 
 @Service
 class VaccineService(
@@ -59,6 +60,7 @@ class VaccineService(
 
     private fun doctorVisit(child: Child, months: Int = 0, days: Int = 0): Event {
         val visitDate = child.birthDate.plusMonths(months.toLong()).plusDays(days.toLong()).atTime(9, 0)
+            .toInstant(ZoneOffset.UTC)
         return Event(
             title = "Обовʼязковий огляд лікаря",
             type = EventType.DOCTOR,
@@ -102,6 +104,7 @@ class VaccineService(
                         .plusMonths(template.scheduledAgeMonths?.toLong() ?: 0L)
                         .plusDays(template.scheduledAgeDays?.toLong() ?: 0L)
                         .atTime(9, 0)
+                        .toInstant(ZoneOffset.UTC)
 
                     VaccineEvent(
                         template = template,
@@ -117,8 +120,8 @@ class VaccineService(
         return emptyList()
     }
 
-    private fun determineStatus(date: LocalDateTime): EventStatus {
-        return if (date.isBefore(LocalDateTime.now())) {
+    private fun determineStatus(date: Instant): EventStatus {
+        return if (date.isBefore(Instant.now())) {
             EventStatus.DONE
         } else {
             EventStatus.PLANNED

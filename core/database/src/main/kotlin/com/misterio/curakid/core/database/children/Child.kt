@@ -28,17 +28,17 @@ class Child(
 
     @ElementCollection
     @CollectionTable(name = "child_allergies", joinColumns = [JoinColumn(name = "child_id")])
-    @Column(name = "allergy")
+    @Column(name = "allergy", columnDefinition = "TEXT")
     var allergies: List<String> = emptyList(),
 
     @ElementCollection
     @CollectionTable(name = "child_chronic_conditions", joinColumns = [JoinColumn(name = "child_id")])
-    @Column(name = "condition")
+    @Column(name = "condition", columnDefinition = "TEXT")
     var chronicConditions: List<String> = emptyList(),
 
     @ElementCollection
     @CollectionTable(name = "child_past_illnesses", joinColumns = [JoinColumn(name = "child_id")])
-    @Column(name = "illness")
+    @Column(name = "illness", columnDefinition = "TEXT")
     var pastIllnesses: List<String> = emptyList(),
 
     @ElementCollection

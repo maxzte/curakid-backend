@@ -4,7 +4,7 @@ import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
 import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.Instant
 
 @Entity
 @Table(name = "measurements")
@@ -70,6 +70,6 @@ class Measurement(
     var wfhPercentile: BigDecimal? = null,
 
     @Column(name = "measurement_date", nullable = false)
-    var measurementDate: LocalDateTime = LocalDateTime.now()
+    var measurementDate: Instant = Instant.now()
 
 ) : BaseEntity()

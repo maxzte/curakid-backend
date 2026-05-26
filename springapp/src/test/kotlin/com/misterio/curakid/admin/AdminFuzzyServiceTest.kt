@@ -1,5 +1,6 @@
 package com.misterio.curakid.admin
 
+import com.misterio.curakid.admin.service.AdminFuzzyService
 import com.misterio.curakid.core.database.knowledge.FuzzyDomain
 import com.misterio.curakid.core.database.knowledge.FuzzyRuleEntity
 import com.misterio.curakid.core.database.knowledge.FuzzyRuleRepository

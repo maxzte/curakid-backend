@@ -15,7 +15,8 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.math.BigDecimal
-import java.util.*
+import java.util.Optional
+import java.util.UUID
 
 class LifePeriodQuestionServiceTest {
 
@@ -48,11 +49,16 @@ class LifePeriodQuestionServiceTest {
     @Test
     fun `getAllPeriodsWithQuestions should map questions and options correctly`() {
         val period = createPeriod("P1M", "1 міс", "lorem ipsum", 1, 1)
-        val question = Question("Can the child see?", AssessmentDomain.MOTOR_GROSS, BigDecimal("2.0"), period).apply {
+        val question = Question(
+            "Can the child see?",
+            AssessmentDomain.MOTOR_GROSS,
+            BigDecimal("2.0"),
+            period
+        ).apply {
             id = UUID.randomUUID()
         }
-        val option1 = AnswerOption(question, "Yes", "1", 1).apply { id = UUID.randomUUID() }
-        val option2 = AnswerOption(question, "No", "0", 2).apply { id = UUID.randomUUID() }
+        val option1 = AnswerOption(question, "Yes", 1.0, 1).apply { id = UUID.randomUUID() }
+        val option2 = AnswerOption(question, "No", 0.0, 2).apply { id = UUID.randomUUID() }
         question.options.addAll(listOf(option2, option1)) // intentionally unordered
         period.questions.add(question)
 
@@ -113,10 +119,16 @@ class LifePeriodQuestionServiceTest {
     fun `questions should be sorted by weight`() {
         val period = createPeriod("P1M", "1 міс", "lorem ipsum", 1, 1)
 
-        val q1 = Question("Heavy question", AssessmentDomain.SPEECH, BigDecimal("3.0"), period).apply {
-            id = UUID.randomUUID()
-        }
-        val q2 = Question("Light question", AssessmentDomain.MOTOR_GROSS, BigDecimal("1.0"), period).apply {
+        val q1 =
+            Question("Heavy question", AssessmentDomain.SPEECH, BigDecimal("3.0"), period).apply {
+                id = UUID.randomUUID()
+            }
+        val q2 = Question(
+            "Light question",
+            AssessmentDomain.MOTOR_GROSS,
+            BigDecimal("1.0"),
+            period
+        ).apply {
             id = UUID.randomUUID()
         }
         period.questions.addAll(listOf(q1, q2)) // heavy first
@@ -131,7 +143,13 @@ class LifePeriodQuestionServiceTest {
         assertEquals("Heavy question", questions[1].text)
     }
 
-    private fun createPeriod(code: String, label: String, about: String, min: Int, max: Int): LifePeriod {
+    private fun createPeriod(
+        code: String,
+        label: String,
+        about: String,
+        min: Int,
+        max: Int
+    ): LifePeriod {
         return LifePeriod(code, label, about, min, max).apply {
             id = UUID.randomUUID()
         }

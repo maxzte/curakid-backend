@@ -7,7 +7,7 @@ import jakarta.persistence.*
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.Instant
 
 @Entity
 @Table(name = "skill_assessments")
@@ -32,7 +32,7 @@ class SkillAssessment(
     var lifePeriod: LifePeriod? = null,
 
     @Column(name = "assessment_date", nullable = false)
-    var assessmentDate: LocalDateTime = LocalDateTime.now()
+    var assessmentDate: Instant = Instant.now()
 
 ) : BaseEntity()
 

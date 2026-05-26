@@ -6,16 +6,13 @@ import com.misterio.curakid.core.database.event.EventType
 import com.misterio.curakid.core.database.event.VaccineEvent
 import com.misterio.curakid.core.database.event.VaccineType
 import jakarta.validation.constraints.NotNull
-import jdk.javadoc.internal.doclets.formats.html.markup.HtmlStyle
-import java.time.LocalDate
-
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 data class EventRequest(
     val title: String,
     val type: EventType,
-    val date: LocalDateTime,
+    val date: Instant,
     val location: String? = null,
     val description: String? = null,
     val status: EventStatus = EventStatus.PLANNED,
@@ -25,7 +22,7 @@ data class EventRequest(
 data class UpdateEventRequest(
     val title: String? = null,
     val type: EventType? = null,
-    val date: LocalDateTime? = null,
+    val date: Instant? = null,
     val location: String? = null,
     val description: String? = null,
     val status: EventStatus? = null
@@ -35,7 +32,7 @@ data class EventResponse(
     val childId: UUID,
     val id: UUID,
     val type: EventType,
-    val date: LocalDateTime,
+    val date: Instant,
 
     val title: String,
     val location: String?,
@@ -47,7 +44,7 @@ data class VaccineEventResponse(
     val childId: UUID,
     val id: UUID,
     val type: EventType,
-    val date: LocalDateTime,
+    val date: Instant,
     val status: EventStatus,
     val description: String?,
 

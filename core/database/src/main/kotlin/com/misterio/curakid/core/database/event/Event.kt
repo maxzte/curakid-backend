@@ -3,7 +3,7 @@ package com.misterio.curakid.core.database.event
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
-import java.time.LocalDateTime
+import java.time.Instant
 
 @Entity
 @Table(name = "events")
@@ -18,7 +18,7 @@ open class Event(
     open var type: EventType = EventType.USER,
 
     @Column(nullable = false)
-    open var date: LocalDateTime = LocalDateTime.now(),
+    open var date: Instant = Instant.now(),
 
     @Column(nullable = true)
     open var location: String? = null,

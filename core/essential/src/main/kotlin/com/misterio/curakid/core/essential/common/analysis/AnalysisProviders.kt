@@ -50,6 +50,7 @@ data class FuzzyCondition(
 data class IntelligenceResponse(
     val urgencyScore: BigDecimal,
     val breakdown: Map<String, BigDecimal>,
+    val linguisticInterpretations: List<String> = emptyList(),
     val isFallback: Boolean
 )
 

@@ -31,7 +31,7 @@ class AssessmentController(
         return ResponseEntity.ok(assessmentService.getAssessmentsByChild(child))
     }
 
-    @PostMapping
+    @PostMapping("/{periodId}")
     fun saveAnswers(
         @PathVariable childId: UUID,
         @PathVariable periodId: UUID,

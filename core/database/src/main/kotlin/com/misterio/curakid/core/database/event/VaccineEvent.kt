@@ -2,7 +2,7 @@ package com.misterio.curakid.core.database.event
 
 import com.misterio.curakid.core.database.children.Child
 import jakarta.persistence.*
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 @Entity
@@ -16,7 +16,7 @@ class VaccineEvent(
     status: EventStatus = EventStatus.PLANNED,
 
     child: Child? = null,
-    date: LocalDateTime = LocalDateTime.now(),
+    date: Instant = Instant.now(),
     title: String = "",
     description: String = ""
 

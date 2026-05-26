@@ -1,5 +1,7 @@
-package com.misterio.curakid.admin
+package com.misterio.curakid.admin.service
 
+import com.misterio.curakid.admin.AdminVaccineTemplateResponse
+import com.misterio.curakid.admin.CreateVaccineTemplateRequest
 import com.misterio.curakid.core.database.event.VaccineType
 import com.misterio.curakid.core.database.event.VaccineTemplate
 import com.misterio.curakid.core.database.event.VaccineTemplateRepository

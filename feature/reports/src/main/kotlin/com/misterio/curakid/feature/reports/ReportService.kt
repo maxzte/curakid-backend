@@ -185,7 +185,7 @@ class ReportService(
             context.ageMonths,
             context.ageDays,
             urgencyScore,
-            intelligenceResponse.breakdown
+            intelligenceResponse.linguisticInterpretations
         )
         log.debug("searchQuery: {}", searchQuery)
         val knowledgeChunks = knowledgeProvider.search(searchQuery, urgencyScore)
@@ -297,18 +297,19 @@ class ReportService(
         ageMonths: Int,
         ageDays: Int,
         urgencyScore: BigDecimal,
-        breakdown: Map<String, BigDecimal>
+        linguisticInterpretations: List<String>
     ): String {
-        val urgencyLevel = when {
-            urgencyScore >= BigDecimal("0.75") -> "критичний стан"
-            urgencyScore >= BigDecimal("0.5") -> "помірна тривожність"
-            else -> "норма розвитку"
+        val status = if (urgencyScore >= BigDecimal("0.7")) {
+            "критичні відхилення та патології"
+        } else {
+            "загальний розвиток та вправи"
         }
-        val concernedDomains = breakdown.entries
-            .filter { it.value >= BigDecimal("0.6") }
-            .joinToString(", ") { it.key }
-        return "Дитина $ageMonths місяців та $ageDays днів, ${gender.name}, " +
-                "стан: $urgencyLevel. Проблемні домени: $concernedDomains"
+
+        val category = linguisticInterpretations.joinToString(", ")
+        val age = "вік $ageMonths міс. та $ageDays дн."
+        val childInfo = "${gender.name}, $age"
+
+        return "$status, $category, $childInfo"
     }
 
     private fun buildPrompt(

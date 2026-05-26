@@ -20,6 +20,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Optional
 import java.util.UUID
 
@@ -70,13 +71,13 @@ class VaccineServiceTest {
         val firstVisit = visits[0]
         Assertions.assertEquals("Обовʼязковий огляд лікаря", firstVisit.title)
         Assertions.assertEquals(EventType.DOCTOR, firstVisit.type)
-        Assertions.assertEquals(birthDate.plusMonths(1).atTime(9, 0), firstVisit.date)
+        Assertions.assertEquals(birthDate.plusMonths(1).atTime(9, 0).toInstant(ZoneOffset.UTC), firstVisit.date)
 
         val secondVisit = visits[1]
-        Assertions.assertEquals(birthDate.plusMonths(1).plusDays(15).atTime(9, 0), secondVisit.date)
+        Assertions.assertEquals(birthDate.plusMonths(1).plusDays(15).atTime(9, 0).toInstant(ZoneOffset.UTC), secondVisit.date)
 
         val lastVisit = visits.last()
-        Assertions.assertEquals(birthDate.plusMonths(72).atTime(9, 0), lastVisit.date)
+        Assertions.assertEquals(birthDate.plusMonths(72).atTime(9, 0).toInstant(ZoneOffset.UTC), lastVisit.date)
         Assertions.assertEquals("Плановий профілактичний огляд дитини у віці 6 років", lastVisit.description)
 
         // Verify vaccines (fallback schedule)

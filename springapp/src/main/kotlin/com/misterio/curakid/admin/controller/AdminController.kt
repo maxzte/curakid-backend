@@ -1,6 +1,11 @@
 package com.misterio.curakid.admin.controller
 
 import com.misterio.curakid.admin.*
+import com.misterio.curakid.admin.service.AdminFuzzyService
+import com.misterio.curakid.admin.service.AdminKnowledgeService
+import com.misterio.curakid.admin.service.AdminQuizService
+import com.misterio.curakid.admin.service.AdminUserService
+import com.misterio.curakid.admin.service.AdminVaccineService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.*

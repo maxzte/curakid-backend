@@ -42,8 +42,8 @@ class DevelopmentControllerTest {
                         domain = "MOTOR",
                         weight = BigDecimal("1.0"),
                         options = listOf(
-                            OptionResponse(UUID.randomUUID(), "Yes", "1", 1),
-                            OptionResponse(UUID.randomUUID(), "No", "0", 2)
+                            OptionResponse(UUID.randomUUID(), "Yes", 1.0, 1),
+                            OptionResponse(UUID.randomUUID(), "No", 0.0, 2)
                         )
                     )
                 )

@@ -2,7 +2,7 @@ package com.misterio.curakid.feature.reports
 
 import com.misterio.curakid.core.database.reports.AiReport
 import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.*
 
 // --- Responses ---
@@ -15,7 +15,7 @@ data class ReportResponse(
     val reportText: String?,
     val recommendations: String?,
     val isFallback: Boolean,
-    val createdAt: LocalDateTime
+    val createdAt: Instant
 ) {
     companion object {
         fun from(report: AiReport): ReportResponse = ReportResponse(

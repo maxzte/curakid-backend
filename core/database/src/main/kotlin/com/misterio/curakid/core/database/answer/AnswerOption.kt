@@ -18,7 +18,7 @@ class AnswerOption(
     var text: String = "",
 
     @Column(nullable = false)
-    var value: String = "",
+    var value: Double = 0.0,
 
     @Column(name = "display_order", nullable = false)
     var displayOrder: Int = 0

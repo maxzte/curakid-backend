@@ -10,6 +10,7 @@ dependencies {
     implementation(projects.core.essential)
     implementation(projects.core.security)
     implementation(projects.core.database)
+    implementation(projects.core.medical)
 
     implementation(projects.feature.auth)
     implementation(projects.feature.children)
@@ -30,6 +31,7 @@ dependencies {
     implementation(libs.spring.boot.starter.security)
 
     implementation(libs.spring.ai.google.gemini)
+    testImplementation(libs.jjwt.api)
 
     implementation(libs.kotlin.reflect)
     developmentOnly("org.springframework.boot:spring-boot-devtools")
@@ -39,5 +41,6 @@ dependencies {
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.spring.security.test)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation(libs.jjwt.api)
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
+
 }

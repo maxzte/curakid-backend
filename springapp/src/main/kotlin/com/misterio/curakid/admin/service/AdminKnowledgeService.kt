@@ -1,5 +1,6 @@
-package com.misterio.curakid.admin
+package com.misterio.curakid.admin.service
 
+import com.misterio.curakid.admin.CreateCategoryRequest
 import com.misterio.curakid.core.essential.common.analysis.EmbeddingProvider
 import com.misterio.curakid.core.database.knowledge.MedicalKnowledge
 import com.misterio.curakid.core.database.knowledge.MedicalKnowledgeRepository

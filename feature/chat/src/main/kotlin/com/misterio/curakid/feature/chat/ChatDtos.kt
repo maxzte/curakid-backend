@@ -2,7 +2,7 @@ package com.misterio.curakid.feature.chat
 
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 data class ChatRequest(
@@ -18,5 +18,5 @@ data class ChatMessageResponse(
     val childId: UUID,
     val userText: String,
     val aiText: String,
-    val createdAt: LocalDateTime
+    val createdAt: Instant
 )

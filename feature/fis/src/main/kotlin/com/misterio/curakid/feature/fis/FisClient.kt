@@ -68,6 +68,7 @@ class FisClient(
             IntelligenceResponse(
                 urgencyScore = fisResponse.urgencyScore,
                 breakdown = fisResponse.breakdown,
+                linguisticInterpretations = fisResponse.linguisticInterpretations,
                 isFallback = fisResponse.isFallback
             )
         } catch (ex: Exception) {
@@ -76,6 +77,7 @@ class FisClient(
             IntelligenceResponse(
                 urgencyScore = fallback.urgencyScore,
                 breakdown = fallback.breakdown,
+                linguisticInterpretations = fallback.linguisticInterpretations,
                 isFallback = fallback.isFallback
             )
         }
@@ -100,7 +102,8 @@ class FisClient(
     private fun fallbackFisResponse() = FisResponse(
         urgencyScore = BigDecimal("0.5"),
         isFallback = true,
-        breakdown = emptyMap()
+        breakdown = emptyMap(),
+        linguisticInterpretations = emptyList()
     )
 }
 

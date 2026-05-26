@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.time.LocalDateTime
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 
 @Service
@@ -28,9 +30,10 @@ class MeasurementService(
 
     @Transactional
     fun addMeasurement(child: Child, request: AddMeasurementRequest): MeasurementResponse {
-        val ageDays = ChronoUnit.DAYS.between(child.birthDate, request.measurementDate).toInt()
+        val measurementLocalDate = LocalDate.ofInstant(request.measurementDate, ZoneOffset.UTC)
+        val ageDays = ChronoUnit.DAYS.between(child.birthDate, measurementLocalDate).toInt()
         val lookbackDays = AgeWindows.maxLookbackDays(ageDays)
-        val lookbackDate = request.measurementDate.minusDays(lookbackDays)
+        val lookbackDate = request.measurementDate.minus(lookbackDays, ChronoUnit.DAYS)
         val prev = findPreviousScores(child, request.measurementDate, lookbackDate)
 
         val measurement = Measurement(
@@ -116,12 +119,12 @@ class MeasurementService(
 
     private fun findPreviousScores(
         child: Child,
-        before: LocalDateTime,
-        lookbackDate: LocalDateTime,
+        before: Instant,
+        lookbackDate: Instant,
     ): PreviousScores {
         val candidates =
             measurementRepository.findByChildAndMeasurementDateBetweenOrderByMeasurementDateDesc(
-                child, lookbackDate, before.minusDays(1)
+                child, lookbackDate, before.minus(1, ChronoUnit.DAYS)
             )
         log.debug("findPrevScores = {}", candidates)
         // Для кожного показника беремо найсвіжіший замір де він є

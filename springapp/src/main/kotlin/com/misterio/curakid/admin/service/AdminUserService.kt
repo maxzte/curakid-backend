@@ -1,4 +1,4 @@
-package com.misterio.curakid.admin
+package com.misterio.curakid.admin.service
 
 import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.auth.UserRepository

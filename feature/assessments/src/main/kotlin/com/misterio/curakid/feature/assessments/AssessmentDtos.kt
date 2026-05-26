@@ -3,19 +3,19 @@ package com.misterio.curakid.feature.assessments
 import com.misterio.curakid.core.database.assessments.SkillAssessment
 import jakarta.validation.constraints.NotNull
 import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 // --- Requests ---
 data class SaveAnswersRequest(
     val answers: List<AnswerRequest>,
-    val assessmentDate: LocalDateTime? = null
+    val assessmentDate: Instant? = null
 )
 
 data class AnswerRequest(
     val questionId: UUID,
     val selectedOptionId: UUID,
-    val answeredAt: LocalDateTime? = null
+    val answeredAt: Instant? = null
 )
 
 data class CompletePeriodAssessmentRequest(
@@ -28,7 +28,7 @@ data class AssessmentResponse(
     val assessmentId: UUID,
     val childId: UUID,
     val answers: List<AssessmentAnswerResponse> = emptyList(),
-    val assessmentDate: LocalDateTime
+    val assessmentDate: Instant
 )
 
 fun SkillAssessment.toAssessmentResponse() = AssessmentResponse(
@@ -67,7 +67,7 @@ data class AssessmentAnswerResponse(
     val assessmentAnswerId: UUID,
     var question: QuestionResponse?,
     var selectedOption: OptionResponse?,
-    var answeredAt: LocalDateTime,
+    var answeredAt: Instant,
 )
 
 data class QuestionResponse(
@@ -81,7 +81,7 @@ data class QuestionResponse(
 data class OptionResponse(
     val optionId: UUID,
     val text: String,
-    val value: String,
+    val value: Double,
     val displayOrder: Int,
 )
 
@@ -89,7 +89,7 @@ data class CompletePeriodAssessmentResponse(
     val periodCode: String,
     val completionPercent: Int,
     val requiredPercent: Int,
-    val completedAt: LocalDateTime,
+    val completedAt: Instant,
     val assessments: List<AssessmentResponse>,
     val reportId: UUID? = null
 )

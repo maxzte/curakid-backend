@@ -10,7 +10,7 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
-import java.time.LocalDateTime
+import java.time.Instant
 
 @Entity
 @Table(name = "assessment_answers")
@@ -30,6 +30,6 @@ class AssessmentAnswer(
     var selectedOption: AnswerOption? = null,
 
     @Column(name = "answered_at", nullable = false)
-    var answeredAt: LocalDateTime = LocalDateTime.now()
+    var answeredAt: Instant = Instant.now()
 
 ) : BaseEntity()

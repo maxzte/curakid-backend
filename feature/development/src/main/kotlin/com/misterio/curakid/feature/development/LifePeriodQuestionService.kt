@@ -77,6 +77,6 @@ data class QuestionResponse(
 data class OptionResponse(
     val optionId: UUID,
     val text: String,
-    val value: String,
+    val value: Double,
     val displayOrder: Int,
 )

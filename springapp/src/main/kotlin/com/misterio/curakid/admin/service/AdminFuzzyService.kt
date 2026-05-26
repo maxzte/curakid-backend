@@ -1,4 +1,4 @@
-package com.misterio.curakid.admin
+package com.misterio.curakid.admin.service
 
 import com.misterio.curakid.core.database.knowledge.FuzzyConditionData
 import com.misterio.curakid.core.database.knowledge.FuzzyDomain

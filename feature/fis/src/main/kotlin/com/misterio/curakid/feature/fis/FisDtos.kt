@@ -26,5 +26,6 @@ data class FisRequest(
 data class FisResponse(
     val urgencyScore: BigDecimal,
     val isFallback: Boolean = false,
-    val breakdown: Map<String, BigDecimal> = emptyMap()
+    val breakdown: Map<String, BigDecimal> = emptyMap(),
+    val linguisticInterpretations: List<String> = emptyList()
 )

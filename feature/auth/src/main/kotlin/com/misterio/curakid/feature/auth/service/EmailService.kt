@@ -1,5 +1,6 @@
-package com.misterio.curakid.feature.auth
+package com.misterio.curakid.feature.auth.service
 
+import org.slf4j.LoggerFactory
 import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.mail.javamail.MimeMessageHelper
 import org.springframework.stereotype.Service
@@ -11,6 +12,7 @@ class EmailService(
     private val mailSender: JavaMailSender,
     private val templateEngine: SpringTemplateEngine,
 ) {
+    private val logger = LoggerFactory.getLogger(EmailService::class.java)
 
     fun sendVerificationEmail(to: String, name: String, code: String) {
         val context = Context().apply {
@@ -31,6 +33,11 @@ class EmailService(
     }
 
     private fun sendHtml(to: String, subject: String, html: String) {
+        if (to.endsWith("@gatling.local")) {
+            logger.info("Mocking email to $to: Subject: $subject")
+            return
+        }
+
         val message = mailSender.createMimeMessage()
         MimeMessageHelper(message, true, "UTF-8").apply {
             setTo(to)

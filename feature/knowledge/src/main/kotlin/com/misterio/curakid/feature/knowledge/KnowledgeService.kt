@@ -33,8 +33,8 @@ class KnowledgeService(
      * 3. Викликає нативний SQL-запит через MedicalKnowledgeRepository.
      * 4. При недоступності FIS-модуля повертає порожній список (fallback).
      */
-    override fun search(query: String, urgencyScore: BigDecimal): List<KnowledgeChunkDto> {
-        log.debug("KnowledgeService.search: query='{}', urgencyScore={}", query, urgencyScore)
+    override fun search(query: String, urgencyScore: BigDecimal, ageMonths: Int?): List<KnowledgeChunkDto> {
+        log.debug("KnowledgeService.search: query='{}', urgencyScore={}, ageMonths={}", query, urgencyScore, ageMonths)
 
         val embedding = embeddingProvider.generateEmbedding(query)
         if (embedding == null) {
@@ -47,10 +47,18 @@ class KnowledgeService(
 
         val topK = if (urgencyScore >= BigDecimal("0.5")) TOP_K_URGENT else TOP_K_DEFAULT
 
-        val results = medicalKnowledgeRepository.findTopNByEmbeddingSimilarity(
-            embedding = pgvectorLiteral,
-            limit = topK
-        )
+        val results = if (ageMonths != null) {
+            medicalKnowledgeRepository.findTopNWithAgeFilter(
+                embedding = pgvectorLiteral,
+                ageMonths = ageMonths.toDouble(),
+                limit = topK
+            )
+        } else {
+            medicalKnowledgeRepository.findTopNByEmbeddingSimilarity(
+                embedding = pgvectorLiteral,
+                limit = topK
+            )
+        }
 
         log.debug("Found {} knowledge chunks for urgencyScore={}", results.size, urgencyScore)
 

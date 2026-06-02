@@ -1,4 +1,4 @@
-package com.misterio.curakid.feature.auth
+package com.misterio.curakid.feature.auth.service
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -8,6 +8,9 @@ import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.token.RefreshToken
 import com.misterio.curakid.core.database.token.RefreshTokenRepository
 import com.misterio.curakid.core.security.JwtService
+import com.misterio.curakid.feature.auth.AuthResponse
+import com.misterio.curakid.feature.auth.OAuthProvider
+import com.misterio.curakid.feature.auth.OAuthProviderRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

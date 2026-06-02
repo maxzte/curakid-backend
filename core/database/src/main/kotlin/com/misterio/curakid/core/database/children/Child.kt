@@ -3,10 +3,12 @@ package com.misterio.curakid.core.database.children
 import com.misterio.curakid.core.database.BaseEntity
 import com.misterio.curakid.core.database.auth.User
 import jakarta.persistence.*
+import org.hibernate.annotations.SQLRestriction
 import java.time.LocalDate
 
 @Entity
 @Table(name = "children")
+@SQLRestriction("is_active = true")
 class Child(
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -45,6 +47,9 @@ class Child(
     @CollectionTable(name = "child_notes", joinColumns = [JoinColumn(name = "child_id")])
     @Column(name = "notes", columnDefinition = "TEXT")
     var notes: List<String> = emptyList(),
+
+    @Column(name = "is_active", nullable = false)
+    var isActive: Boolean = true,
 
 ) : BaseEntity()
 

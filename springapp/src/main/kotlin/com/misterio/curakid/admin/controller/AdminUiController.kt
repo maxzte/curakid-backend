@@ -47,4 +47,9 @@ class AdminUiController {
     fun vaccinesPage(): String {
         return "admin/vaccines"
     }
+
+    @GetMapping("/policies")
+    fun policiesPage(): String {
+        return "admin/policies"
+    }
 }

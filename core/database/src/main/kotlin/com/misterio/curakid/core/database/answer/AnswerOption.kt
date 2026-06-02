@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.misterio.curakid.core.database.BaseEntity
 import com.misterio.curakid.core.database.question.Question
 import jakarta.persistence.*
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 
 @Entity
 @Table(name = "answer_option")
@@ -18,6 +20,8 @@ class AnswerOption(
     var text: String = "",
 
     @Column(nullable = false)
+    @Min(0)
+    @Max(100)
     var value: Double = 0.0,
 
     @Column(name = "display_order", nullable = false)

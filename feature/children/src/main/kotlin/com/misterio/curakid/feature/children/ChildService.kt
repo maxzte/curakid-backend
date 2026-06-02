@@ -67,6 +67,8 @@ class ChildService(
     fun deleteChild(childId: UUID, user: User) {
         val child = childRepository.findByIdAndUser(childId, user)
             .orElseThrow { NoSuchElementException("Child not found") }
-        childRepository.delete(child)
+        child.isActive = false
+        child.name = "Deleted Child"
+        childRepository.save(child)
     }
 }

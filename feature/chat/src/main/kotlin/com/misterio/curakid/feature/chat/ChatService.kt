@@ -5,7 +5,12 @@ import com.misterio.curakid.core.database.chat.ChatMessage
 import com.misterio.curakid.core.database.chat.ChatMessageRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
+import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
+import com.misterio.curakid.core.essential.STYLE_SECTION
+import com.misterio.curakid.core.essential.appendAnthropometry
+import com.misterio.curakid.core.essential.appendNorms
+import com.misterio.curakid.core.essential.appendSection
 import com.misterio.curakid.core.medical.ChartType
 import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import org.slf4j.LoggerFactory
@@ -165,7 +170,7 @@ class ChatService(
     private fun buildNorms(
         child: Child,
         ageDays: Int,
-        latestMeasurement: com.misterio.curakid.core.database.measurements.Measurement?
+        latestMeasurement: Measurement?
     ): Map<String, Map<String, Double>> {
         val res = mutableMapOf<String, Map<String, Double>>()
 
@@ -208,68 +213,79 @@ class ChatService(
             measurementRepository.findFirstByChildOrderByMeasurementDateDesc(child).orElse(null)
 
         val norms = buildNorms(child, totalAgeDays, latestMeasurement)
-        val normsContext = if (norms.isNotEmpty()) {
-            val sections = norms.map { (variable, points) ->
-                val pointsStr = points.entries.sortedBy {
-                    it.key.filter { c -> c.isDigit() }.toIntOrNull() ?: 0
-                }
-                    .joinToString(", ") { "${it.key}=${it.value}" }
-                "- $variable: $pointsStr"
-            }.joinToString("\n")
-            "\n## NORMATIVE DATA (WHO Standards for this age/height):\n$sections"
-        } else ""
 
-        val anthropometry = latestMeasurement?.let {
-            """
-            Вага (WFA): ${it.wfaZscore ?: "немає даних"}
-            Зріст (HFA): ${it.hfaZscore ?: "немає даних"}
-            Індекс маси тіла (BMI): ${it.bmiZscore ?: "немає даних"}
-            Окружність голови (HCFA): ${it.hcfaZscore ?: "немає даних"}
-            Вага-до-зросту (WFH): ${it.wfhZscore ?: "немає даних"}
-            (Z-scores за стандартами ВООЗ: 0 — ідеал, від -2 до +2 — норма)
-            """.trimIndent()
-        } ?: "Дані антропометрії відсутні."
 
-        val medicalHistory = buildString {
-            if (child.isPremature) append("- Передчасне народження\n")
-            if (child.allergies.isNotEmpty()) append("- Алергії: ${child.allergies.joinToString(", ")}\n")
-            if (child.chronicConditions.isNotEmpty()) append(
-                "- Хронічні захворювання: ${
-                    child.chronicConditions.joinToString(
-                        ", "
-                    )
-                }\n"
-            )
-            if (child.pastIllnesses.isNotEmpty()) append(
-                "- Перенесені хвороби: ${
-                    child.pastIllnesses.joinToString(
-                        ", "
-                    )
-                }\n"
-            )
-        }.ifEmpty { "Відсутній" }
-
-        return """
-            # РОЛЬ
-            Ти — висококваліфікований педіатр-консультант у додатку CuraKid. Твоя мета — надавати батькам точну, науково обґрунтовану, але доступну інформацію про розвиток та здоров'я їхньої дитини.
-            
-            # КОНТЕКСТ ДИТИНИ:
-            Вік: $totalMonths міс. та $remainingDays дн.
-            Стать: ${child.gender.name}
-            
-            ## МЕДИЧНИЙ АНАМНЕЗ:
-            $medicalHistory
-            
-            ## АНТРОПОМЕТРІЯ (Останні показники):
-            $anthropometry
-            $normsContext
-            
-            # ІНСТРУКЦІЇ:
-            - Відповідай емпатично, професійно та зрозуміло. Уникай надмірної паніки, але будь серйозним у важливих питаннях.
-            - Якщо запитання стосується встановлення діагнозів або призначення лікування, ОБОВ'ЯЗКОВО наголоси на необхідності очної консультації з педіатром.
-            - Використовуй дані антропометрії для оцінки фізичного стану (порівнюй із нормами ВООЗ, де 0 — медіана).
-            - Відповідай виключно українською мовою.
-            - Використовуй Markdown для структурування відповіді (заголовки, списки).
+        return buildString {
+            appendLine(
+                value = """
+        # ROLE
+        Ти — висококваліфікований педіатр та експерт із раннього розвитку дитини.
+        Твоя мета: скласти персоналізований, заспокійливий, але професійний звіт для батьків.
+        Не став діагнозів.
+        Не вигадуй інформацію.
         """.trimIndent()
+            )
+
+            appendSection(
+                title = "HARD RULES",
+                items = listOf(
+                    "Не повторюй дані з контексту без аналізу.",
+                    "Не пояснюй FIS або внутрішні метрики.",
+                    "Не згадуй нормальні показники без причини.",
+                    "Кожне речення має додавати нову інформацію.",
+                    "Максимум 4 речення у summary.",
+                    "Уникай загальних фраз."
+                )
+            )
+
+            appendLine(
+                value = """
+        # CONTEXT & DATA
+        Вік дитини: $ageMonths міс. та $ageDaysNum дн.
+        Стать: ${child.gender}
+        """.trimIndent()
+            )
+
+            appendSection(
+                title = "МЕДИЧНИЙ АНАМНЕЗ",
+                items = listOf(
+                    "Передчасне народження: ${if (child.isPremature) "ТАК" else "Ні"}",
+                    "Алергії: ${child.allergies}",
+                    "Хронічні захворювання: ${child.chronicConditions}",
+                    "Перенесені хвороби: ${child.pastIllnesses}",
+                    "Додаткові особливості: ${child.notes}"
+                ),
+                footer = "*(Важливо: якщо дитина народилася передчасно, зважай на це при оцінці моторних навичок)*"
+            )
+
+            appendAnthropometry(
+                wfaZscore = latestMeasurement?.wfaZscore,
+                hfaZscore = latestMeasurement?.hfaZscore,
+                bmiZscore = latestMeasurement?.bmiZscore,
+                hcfaZscore = latestMeasurement?.hcfaZscore,
+                wfhZscore = latestMeasurement?.wfhZscore,
+            )
+
+            if (norms.isNotEmpty()) {
+                appendNorms(
+                    norms
+                )
+            }
+
+            appendLine(STYLE_SECTION)
+            appendLine(INSTRUCTIONS_SECTION)
+        }.trimIndent()
     }
 }
+
+private val INSTRUCTIONS_SECTION = """
+# ІНСТРУКЦІЇ:
+- Відповідай емпатично, професійно та зрозуміло.
+- Уникай надмірної паніки, але будь серйозним у важливих питаннях.
+- Якщо запитання стосується встановлення діагнозів або призначення лікування,
+  ОБОВ'ЯЗКОВО наголоси на необхідності очної консультації з педіатром.
+- Використовуй дані антропометрії для оцінки фізичного стану.
+- Порівнюй показники із нормами ВООЗ, де 0 — медіана.
+- Відповідай виключно українською мовою.
+- Використовуй Markdown для структурування відповіді.
+""".trimIndent()

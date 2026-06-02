@@ -140,7 +140,7 @@ class ChildServiceTest {
     }
 
     @Test
-    fun `deleteChild should call repository delete`() {
+    fun `deleteChild should set isActive to false, anonymize name and save`() {
         val childId = UUID.randomUUID()
         val existingChild = Child(user, "Ivan", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
             id = childId
@@ -153,6 +153,8 @@ class ChildServiceTest {
 
         childService.deleteChild(childId, user)
 
-        verify(childRepository).delete(existingChild)
+        Assertions.assertFalse(existingChild.isActive)
+        Assertions.assertEquals("Deleted Child", existingChild.name)
+        verify(childRepository).save(existingChild)
     }
 }

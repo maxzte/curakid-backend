@@ -1,4 +1,4 @@
-package com.misterio.curakid.feature.auth
+package com.misterio.curakid.feature.auth.service
 
 import com.misterio.curakid.core.database.auth.UserRepository
 import org.springframework.security.core.userdetails.UserDetails

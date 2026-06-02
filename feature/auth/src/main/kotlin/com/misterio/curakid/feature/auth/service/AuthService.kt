@@ -1,11 +1,24 @@
-package com.misterio.curakid.feature.auth
+package com.misterio.curakid.feature.auth.service
 
+import com.misterio.curakid.core.database.auth.ConsentType
 import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.auth.UserConsent
+import com.misterio.curakid.core.database.auth.UserConsentRepository
 import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.token.RefreshToken
 import com.misterio.curakid.core.database.token.RefreshTokenRepository
 import com.misterio.curakid.core.security.JwtService
 import com.misterio.curakid.core.security.TokenBlacklistService
+import com.misterio.curakid.feature.auth.AuthResponse
+import com.misterio.curakid.feature.auth.ConsentRequiredException
+import com.misterio.curakid.feature.auth.ForgotPasswordRequest
+import com.misterio.curakid.feature.auth.LoginRequest
+import com.misterio.curakid.feature.auth.MessageResponse
+import com.misterio.curakid.feature.auth.RefreshTokenRequest
+import com.misterio.curakid.feature.auth.RegisterRequest
+import com.misterio.curakid.feature.auth.ResetPasswordRequest
+import com.misterio.curakid.feature.auth.VerifyEmailRequest
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.security.authentication.AuthenticationManager
@@ -14,11 +27,14 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
+import java.time.Duration
 import java.time.Instant
+import java.util.UUID
 
 @Service
 class AuthService(
     private val userRepository: UserRepository,
+    private val userConsentRepository: UserConsentRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val passwordEncoder: PasswordEncoder,
     private val jwtService: JwtService,
@@ -28,10 +44,21 @@ class AuthService(
     @Value("\${jwt.refresh-token-expiration:604800000}") private val refreshExpiration: Long, // 7 days
 ) {
     @Transactional
-    fun register(request: RegisterRequest): MessageResponse {
+    fun register(request: RegisterRequest, httpRequest: HttpServletRequest): MessageResponse {
         if (userRepository.existsByEmail(request.email)) {
             throw RuntimeException("Email already exists")
         }
+
+        require(request.consent.termsAccepted) {
+            throw ConsentRequiredException("Необхідно прийняти умови використання")
+        }
+        require(request.consent.privacyAccepted) {
+            throw ConsentRequiredException("Необхідно прийняти політику конфіденційності")
+        }
+
+        val timestamp = Instant.now()
+        val ip = httpRequest.remoteAddr
+        val userAgent = httpRequest.getHeader("User-Agent")
 
         val verificationCode = (100000..999999).random().toString()
         val user = User(
@@ -39,12 +66,35 @@ class AuthService(
             passwordHash = passwordEncoder.encode(request.password)
                 ?: throw IllegalStateException("Password encoding failed"),
             name = request.name,
-            isActive = false
+            isActive = request.email.endsWith("@gatling.local") // Auto-activate for load tests
         ).apply {
             this.verificationCode = verificationCode
-            this.verificationCodeExpiry = Instant.now().plus(java.time.Duration.ofMinutes(15))
+            this.verificationCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
         }
-        userRepository.save(user)
+
+        val u = userRepository.save(user)
+        userConsentRepository.saveAll(listOf(
+            UserConsent(
+                userId = u.id!!,
+                consentType = ConsentType.TERMS,
+                accepted = true,
+                consentVersion = request.consent.consentVersion,
+                acceptedAt = timestamp,
+                ipAddress = ip,
+                userAgent = userAgent,
+                appVersion = request.consent.appVersion
+            ),
+            UserConsent(
+                userId = u.id!!,
+                consentType = ConsentType.PRIVACY_POLICY,
+                accepted = true,
+                consentVersion = request.consent.consentVersion,
+                acceptedAt = timestamp,
+                ipAddress = ip,
+                userAgent = userAgent,
+                appVersion = request.consent.appVersion
+            )
+        ))
 
         emailService.sendVerificationEmail(user.email, user.name, verificationCode)
 
@@ -82,7 +132,7 @@ class AuthService(
 
         val resetCode = (100000..999999).random().toString()
         user.resetCode = resetCode
-        user.resetCodeExpiry = Instant.now().plus(java.time.Duration.ofMinutes(15))
+        user.resetCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
         userRepository.save(user)
 
         emailService.sendPasswordResetEmail(user.email, user.name, resetCode)
@@ -160,6 +210,11 @@ class AuthService(
         refreshTokenRepository.findByToken(refreshToken).ifPresent {
             refreshTokenRepository.delete(it)
         }
+    }
+
+    fun deleteMe(userId: UUID) {
+        userRepository.deleteById(userId)
+        userConsentRepository.revokeAllByUserId(userId, Instant.now())
     }
 
     private fun generateAndSaveRefreshToken(user: User): String {

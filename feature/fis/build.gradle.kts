@@ -8,4 +8,5 @@ dependencies {
     implementation(projects.core.essential)
 
     implementation(libs.spring.boot.starter.webflux)
+    implementation(libs.spring.boot.starter.google.genai.embedding)
 }

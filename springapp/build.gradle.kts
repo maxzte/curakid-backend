@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.curakid.spring.app)
+    id("io.gatling.gradle") version "3.15.1"
 }
 
 group = "com.misterio.curakid"
@@ -31,6 +32,7 @@ dependencies {
     implementation(libs.spring.boot.starter.security)
 
     implementation(libs.spring.ai.google.gemini)
+    implementation(libs.pdfbox)
     testImplementation(libs.jjwt.api)
 
     implementation(libs.kotlin.reflect)
@@ -42,5 +44,4 @@ dependencies {
     testImplementation(libs.spring.security.test)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
-
 }

@@ -1,12 +1,12 @@
-from fastapi import FastAPI, Header, HTTPException, Depends
-from pydantic import BaseModel
+import logging
+import os
 from typing import List, Optional, Dict, Any
+
 import numpy as np
 import skfuzzy as fuzz
+from fastapi import FastAPI, Header, HTTPException, Depends
+from pydantic import BaseModel
 from skfuzzy import control as ctrl
-from sentence_transformers import SentenceTransformer
-import os
-import logging
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -24,38 +24,37 @@ async def verify_internal_key(x_internal_key: str = Header(...)):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
-# Embedding Model (Lazy Load or on start)
-logger.info("Loading SentenceTransformer model: intfloat/multilingual-e5-large")
-model = SentenceTransformer('intfloat/multilingual-e5-large')
-
-
 class FisRequest(BaseModel):
     childId: str
     ageMonths: int
-    gender: Optional[str]
-    wfaZscore: Optional[float]
-    hfaZscore: Optional[float]
-    bmiZscore: Optional[float]
-    hcfaZscore: Optional[float]
-    wfhZscore: Optional[float]
-    motorGrossScore: Optional[float]
-    motorFineScore: Optional[float]
-    speechScore: Optional[float]
-    cognitiveScore: Optional[float]
-    socialScore: Optional[float]
-    selfCareScore: Optional[float]
-    sensoryScore: Optional[float]
+    gender: Optional[str] = None
+    wfaZscore: Optional[float] = None
+    hfaZscore: Optional[float] = None
+    bmiZscore: Optional[float] = None
+    hcfaZscore: Optional[float] = None
+    wfhZscore: Optional[float] = None
+    motorGrossScore: Optional[float] = None
+    motorFineScore: Optional[float] = None
+    speechScore: Optional[float] = None
+    cognitiveScore: Optional[float] = None
+    socialScore: Optional[float] = None
+    selfCareScore: Optional[float] = None
+    sensoryScore: Optional[float] = None
     rules: List[Dict[str, Any]]
-    norms: Optional[Dict[str, Dict[str, float]]] = {}
+    norms: Optional[Dict[str, Dict[str, float]]] = None
 
-
-class EmbeddingRequest(BaseModel):
-    text: str
+    # Trend analysis
+    wfaVelocity: Optional[float] = None
+    hfaVelocity: Optional[float] = None
+    bmiVelocity: Optional[float] = None
+    hcfaVelocity: Optional[float] = None
+    wfhVelocity: Optional[float] = None
+    regressions: Dict[str, bool] = {}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model": "multilingual-e5-large"}
+    return {"status": "ok"}
 
 
 @app.post("/analyze", dependencies=[Depends(verify_internal_key)])
@@ -73,6 +72,18 @@ async def analyze(request: FisRequest):
         hcfa = ctrl.Antecedent(z_range, 'hcfaZscore')
         wfh = ctrl.Antecedent(z_range, 'wfhZscore')
 
+        # Velocity: range -1.0 to 1.0 (change per month)
+        v_range = np.arange(-1, 1.1, 0.1)
+        wfa_v = ctrl.Antecedent(v_range, 'wfaVelocity')
+        hfa_v = ctrl.Antecedent(v_range, 'hfaVelocity')
+        bmi_v = ctrl.Antecedent(v_range, 'bmiVelocity')
+        hcfa_v = ctrl.Antecedent(v_range, 'hcfaVelocity')
+        wfh_v = ctrl.Antecedent(v_range, 'wfhVelocity')
+
+        # Regression: binary 0 or 1
+        reg_range = np.arange(0, 2, 1)
+        regression = ctrl.Antecedent(reg_range, 'is_regression')
+
         # Skill scores: range 0 to 100
         s_range = np.arange(0, 101, 1)
         motor_gross = ctrl.Antecedent(s_range, 'motorGrossScore')
@@ -88,7 +99,6 @@ async def analyze(request: FisRequest):
         urgency = ctrl.Consequent(u_range, 'urgency')
 
         # 3. Define Trapezoidal Membership Functions
-        # For Z-scores (твій код вже добре працює)
         for var_name, var in [('wfaZscore', wfa), ('hfaZscore', hfa),
                               ('bmiZscore', bmi), ('hcfaZscore', hcfa),
                               ('wfhZscore', wfh)]:
@@ -104,6 +114,17 @@ async def analyze(request: FisRequest):
             var['NORMAL'] = fuzz.trapmf(var.universe, [p15, p50, p50, p85])
             var['HIGH'] = fuzz.trapmf(var.universe, [p50, (p50 + p85) / 2, p85, p97])
             var['VERY_HIGH'] = fuzz.trapmf(var.universe, [p85, p97, 4, 4])
+
+        # For Velocity
+        for var in [wfa_v, hfa_v, bmi_v, hcfa_v, wfh_v]:
+            var['FALLING_FAST'] = fuzz.trapmf(var.universe, [-1, -1, -0.6, -0.4])
+            var['FALLING'] = fuzz.trimf(var.universe, [-0.5, -0.3, 0])
+            var['STABLE'] = fuzz.trimf(var.universe, [-0.1, 0, 0.1])
+            var['RISING'] = fuzz.trimf(var.universe, [0, 0.3, 0.6])
+
+        # For Regression
+        regression['FALSE'] = fuzz.trimf(regression.universe, [0, 0, 0])
+        regression['TRUE'] = fuzz.trimf(regression.universe, [1, 1, 1])
 
         # For Skill scores - ДИНАМІЧНО з нормами
         for var_name, var in [('motorGrossScore', motor_gross),
@@ -150,7 +171,10 @@ async def analyze(request: FisRequest):
             'motorGrossScore': motor_gross, 'motorFineScore': motor_fine,
             'speechScore': speech, 'cognitiveScore': cognitive,
             'socialScore': social, 'selfCareScore': self_care,
-            'sensoryScore': sensory
+            'sensoryScore': sensory,
+            'wfaVelocity': wfa_v, 'hfaVelocity': hfa_v, 'bmiVelocity': bmi_v,
+            'hcfaVelocity': hcfa_v, 'wfhVelocity': wfh_v,
+            'is_regression': regression
         }
 
         # 5. Build Rules dynamically
@@ -159,12 +183,28 @@ async def analyze(request: FisRequest):
             try:
                 # Build IF part (AND conditions)
                 cond_objs = []
+                skip_rule = False
+
                 for c in r['conditions']:
-                    var_obj = vars_map.get(c['variable'])
+                    var_name = c['variable']
+
+                    # ПЕРЕВІРКА: Якщо значення вхідної змінної для правила немає,
+                    # ми пропускаємо все правило, щоб skfuzzy не падав
+                    val = None
+                    if var_name == 'is_regression':
+                        val = 1.0 if any(request.regressions.values()) else 0.0
+                    else:
+                        val = getattr(request, var_name, None)
+
+                    if val is None:
+                        skip_rule = True
+                        break
+
+                    var_obj = vars_map.get(var_name)
                     if var_obj:
                         cond_objs.append(var_obj[c['term']])
 
-                if not cond_objs:
+                if skip_rule or not cond_objs:
                     continue
 
                 if len(cond_objs) == 1:
@@ -182,7 +222,7 @@ async def analyze(request: FisRequest):
                 logger.warning(f"Skipping invalid rule: {r}, error: {rule_err}")
 
         if not rules_list:
-            # Fallback to default heuristic if no rules defined
+            # Якщо немає жодного правила з доступними даними — йдемо у фолбек
             return await analyze_fallback(request)
 
         # 6. Computation
@@ -191,9 +231,16 @@ async def analyze(request: FisRequest):
 
         # Set inputs
         inputs_provided = False
+        active_antecedents = {a.label for a in fis_ctrl.antecedents}
         for key, var in vars_map.items():
+            if key == 'is_regression':
+                if key in active_antecedents:
+                    fis_sim.input[key] = 1.0 if any(request.regressions.values()) else 0.0
+                    inputs_provided = True
+                continue
+
             val = getattr(request, key, None)
-            if val is not None:
+            if val is not None and key in active_antecedents:
                 fis_sim.input[key] = float(val)
                 inputs_provided = True
 
@@ -217,11 +264,23 @@ async def analyze(request: FisRequest):
             'socialScore': 'Соціальні навички', 'selfCareScore': 'Самообслуговування',
             'sensoryScore': 'Сенсорика', 'wfaZscore': 'Вага до віку',
             'hfaZscore': 'Ріст до віку', 'bmiZscore': 'ІМТ',
-            'hcfaZscore': 'Окружність голови', 'wfhZscore': 'Вага до росту'
+            'hcfaZscore': 'Окружність голови', 'wfhZscore': 'Вага до росту',
+            'wfaVelocity': 'Динаміка ваги', 'hfaVelocity': 'Динаміка росту',
+            'is_regression': 'Регрес розвитку'
         }
 
+        term_translation.update({
+            'FALLING_FAST': 'Стрімке падіння', 'FALLING': 'Уповільнення',
+            'STABLE': 'Стабільно', 'RISING': 'Покращення',
+            'TRUE': 'Виявлено', 'FALSE': 'Відсутній'
+        })
+
         for key, var in vars_map.items():
-            val = getattr(request, key, None)
+            if key == 'is_regression':
+                val = 1.0 if any(request.regressions.values()) else 0.0
+            else:
+                val = getattr(request, key, None)
+
             if val is not None:
                 # Find the term with highest membership
                 best_term = None
@@ -235,13 +294,22 @@ async def analyze(request: FisRequest):
                 if best_term and max_membership > 0.5:
                     label = var_translation.get(key, key)
                     term_label = term_translation.get(best_term, best_term)
+                    # For boolean/regression, don't show "Регрес: Відсутній" unless it's TRUE
+                    if key == 'is_regression' and best_term == 'FALSE':
+                        continue
                     interpretations.append(f"{label}: {term_label}")
 
         # Build breakdown (simplified for now)
-        breakdown = {
-            k: round(float(fuzz.interp_membership(v.universe, v[list(v.terms.keys())[0]].mf, getattr(request, k) or 0)),
-                     2)
-            for k, v in vars_map.items() if getattr(request, k) is not None}
+        breakdown = {}
+        for k, v in vars_map.items():
+            if k == 'is_regression':
+                val = 1.0 if any(request.regressions.values()) else 0.0
+            else:
+                val = getattr(request, k, None)
+
+            if val is not None:
+                m_val = round(float(fuzz.interp_membership(v.universe, v[list(v.terms.keys())[0]].mf, float(val))), 2)
+                breakdown[k] = m_val
 
         return {
             "urgencyScore": round(float(res_urgency), 2),
@@ -263,34 +331,34 @@ def get_default_skill_thresholds(age_months: int) -> Dict[str, float]:
     if age_months <= 12:  # Немовлята 0-12 місяців
         return {
             'critical_low': 15.0,
-            'critical_high': 30.0,
-            'below_low': 25.0,
-            'below_high': 50.0,
-            'normal_low': 60.0
+            'critical_high': 25.0,
+            'below_low': 40.0,
+            'below_high': 55.0,
+            'normal_low': 70.0
         }
     elif age_months <= 24:  # 1-2 роки
         return {
             'critical_low': 20.0,
-            'critical_high': 35.0,
-            'below_low': 30.0,
-            'below_high': 55.0,
-            'normal_low': 70.0
+            'critical_high': 30.0,
+            'below_low': 45.0,
+            'below_high': 60.0,
+            'normal_low': 75.0
         }
     elif age_months <= 36:  # 2-3 роки
         return {
             'critical_low': 25.0,
-            'critical_high': 40.0,
-            'below_low': 35.0,
-            'below_high': 60.0,
-            'normal_low': 75.0
+            'critical_high': 35.0,
+            'below_low': 50.0,
+            'below_high': 65.0,
+            'normal_low': 80.0
         }
     else:  # 3-6 років
         return {
             'critical_low': 30.0,
-            'critical_high': 45.0,
-            'below_low': 40.0,
-            'below_high': 65.0,
-            'normal_low': 80.0
+            'critical_high': 40.0,
+            'below_low': 55.0,
+            'below_high': 70.0,
+            'normal_low': 85.0
         }
 
 
@@ -320,18 +388,6 @@ async def analyze_fallback(request: FisRequest):
         "breakdown": breakdown,
         "linguisticInterpretations": []
     }
-
-
-@app.post("/embed", dependencies=[Depends(verify_internal_key)])
-async def embed(request: EmbeddingRequest):
-    try:
-        # e5 models expect "query: " prefix for retrieval tasks
-        text = f"query: {request.text}"
-        embedding = model.encode(text)
-        return {"embedding": embedding.tolist()}
-    except Exception as e:
-        logger.error(f"Error during embedding generation: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

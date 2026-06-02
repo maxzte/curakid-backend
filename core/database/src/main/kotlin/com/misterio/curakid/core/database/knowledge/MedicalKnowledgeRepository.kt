@@ -27,6 +27,27 @@ interface MedicalKnowledgeRepository : JpaRepository<MedicalKnowledge, UUID> {
 
     @Query(
         value = """
+            SELECT * FROM medical_knowledge mk
+            WHERE (
+                mk.metadata->'age' IS NULL OR 
+                (
+                  (mk.metadata->'age'->>'min')::float <= :ageMonths AND 
+                  (mk.metadata->'age'->>'max')::float >= :ageMonths
+                )
+            )
+            ORDER BY mk.embedding <=> CAST(:embedding AS vector)
+            LIMIT :limit
+        """,
+        nativeQuery = true
+    )
+    fun findTopNWithAgeFilter(
+        @Param("embedding") embedding: String,
+        @Param("ageMonths") ageMonths: Double,
+        @Param("limit") limit: Int
+    ): List<MedicalKnowledge>
+
+    @Query(
+        value = """
             SELECT * FROM medical_knowledge
             WHERE category_id = :categoryId
             ORDER BY embedding <=> CAST(:embedding AS vector)
@@ -39,6 +60,7 @@ interface MedicalKnowledgeRepository : JpaRepository<MedicalKnowledge, UUID> {
         @Param("categoryId") categoryId: UUID,
         @Param("limit") limit: Int
     ): List<MedicalKnowledge>
+
     @Query(
         value = """
             SELECT * FROM medical_knowledge mk
@@ -58,5 +80,5 @@ interface MedicalKnowledgeRepository : JpaRepository<MedicalKnowledge, UUID> {
         @Param("embedding") embedding: String,
         @Param("limit") limit: Int
     ): List<MedicalKnowledge>
-    
-    }
+
+}

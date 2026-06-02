@@ -20,7 +20,15 @@ data class FisRequest(
     val selfCareScore: BigDecimal?,
     val sensoryScore: BigDecimal?,
     val rules: List<FuzzyRule>,
-    val norms: Map<String, Map<String, Double>> = emptyMap()
+    val norms: Map<String, Map<String, Double>> = emptyMap(),
+    
+    // Trend analysis
+    val wfaVelocity: BigDecimal? = null,
+    val hfaVelocity: BigDecimal? = null,
+    val bmiVelocity: BigDecimal? = null,
+    val hcfaVelocity: BigDecimal? = null,
+    val wfhVelocity: BigDecimal? = null,
+    val regressions: Map<String, Boolean> = emptyMap()
 )
 
 data class FisResponse(

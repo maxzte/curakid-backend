@@ -1,0 +1,156 @@
+import pytest
+from fastapi.testclient import TestClient
+
+from src.main.main import app
+
+client = TestClient(app)
+API_KEY = "test-secret-key"
+
+
+@pytest.fixture(autouse=True)
+def setup_env(monkeypatch):
+    """Автоматично виставляє тестовий API-ключ для кожного тесту"""
+    monkeypatch.setenv("INTERNAL_API_KEY", API_KEY)
+    import src.main.main
+    monkeypatch.setattr(src.main.main, "INTERNAL_API_KEY", API_KEY)
+
+
+# --- ТЕСТИ БЕЗПЕКИ ТА HEALTH ---
+
+def test_health_endpoint():
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_secured_endpoint_without_header():
+    valid_payload = {"childId": "test-child", "ageMonths": 12, "rules": []}
+    response = client.post("/analyze", json=valid_payload)
+    assert response.status_code == 422
+
+
+def test_secured_endpoint_with_invalid_header():
+    valid_payload = {
+        "childId": "test-child",
+        "ageMonths": 12,
+        "rules": []
+    }
+    headers = {"X-Internal-Key": "wrong-key"}
+    response = client.post("/analyze", headers=headers, json=valid_payload)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Forbidden"
+
+
+# --- ТЕСТИ ЕНДПОЇНТУ /analyze (Fuzzy Inference System) ---
+
+def test_analyze_with_valid_rules_and_data():
+    headers = {"X-Internal-Key": API_KEY}
+
+    payload = {
+        "childId": "child-123",
+        "ageMonths": 14,
+        "gender": "MALE",
+        "wfaZscore": -1.5,
+        "speechScore": 45.0,
+        "rules": [
+            {
+                "conditions": [
+                    {"variable": "wfaZscore", "term": "LOW"},
+                    {"variable": "speechScore", "term": "BELOW_NORMAL"}
+                ],
+                "consequent": "MEDIUM"
+            }
+        ],
+        "norms": {
+            "wfaZscore": {"P3": -3.0, "P15": -2.0, "P50": 0.0, "P85": 2.0, "P97": 3.0}
+        }
+    }
+
+    response = client.post("/analyze", headers=headers, json=payload)
+
+    assert response.status_code == 200
+    json_data = response.json()
+
+    assert "urgencyScore" in json_data
+    assert "isFallback" in json_data
+    assert "breakdown" in json_data
+    assert "linguisticInterpretations" in json_data
+    assert json_data["isFallback"] is False
+
+
+def test_analyze_fallback_trigger():
+    headers = {"X-Internal-Key": API_KEY}
+
+    payload = {
+        "childId": "child-789",
+        "ageMonths": 6,
+        "motorGrossScore": 50.0,
+        "rules": []
+    }
+
+    response = client.post("/analyze", headers=headers, json=payload)
+
+    assert response.status_code == 200
+    json_data = response.json()
+    assert json_data["isFallback"] is True
+    assert "motor_gross" in json_data["breakdown"]
+
+
+def test_analyze_with_unused_inputs():
+    headers = {"X-Internal-Key": API_KEY}
+
+    payload = {
+        "childId": "child-456",
+        "ageMonths": 14,
+        "gender": "MALE",
+        "wfaZscore": -1.5,
+        "hcfaZscore": 0.5, # hcfaZscore is provided but NOT used in the rule
+        "rules": [
+            {
+                "conditions": [
+                    {"variable": "wfaZscore", "term": "LOW"}
+                ],
+                "consequent": "MEDIUM"
+            }
+        ],
+        "norms": {
+            "wfaZscore": {"P3": -3.0, "P15": -2.0, "P50": 0.0, "P85": 2.0, "P97": 3.0}
+        }
+    }
+
+    response = client.post("/analyze", headers=headers, json=payload)
+
+    assert response.status_code == 200
+    json_data = response.json()
+    assert json_data["isFallback"] is False
+    assert "urgencyScore" in json_data
+
+def test_analyze_with_trends_and_regression():
+    headers = {"X-Internal-Key": API_KEY}
+
+    payload = {
+        "childId": "child-trend",
+        "ageMonths": 14,
+        "wfaZscore": -2.1,
+        "wfaVelocity": -0.3,
+        "regressions": {"MOTOR_GROSS": True},
+        "rules": [
+            {
+                "conditions": [
+                    {"variable": "wfaZscore", "term": "LOW"},
+                    {"variable": "wfaVelocity", "term": "FALLING"},
+                    {"variable": "is_regression", "term": "TRUE"}
+                ],
+                "consequent": "HIGH"
+            }
+        ]
+    }
+
+    response = client.post("/analyze", headers=headers, json=payload)
+
+    assert response.status_code == 200
+    json_data = response.json()
+    assert json_data["isFallback"] is False
+    assert json_data["urgencyScore"] >= 0.7  # Should be high
+    assert "Динаміка ваги: Уповільнення" in json_data["linguisticInterpretations"]
+    assert "Регрес розвитку: Виявлено" in json_data["linguisticInterpretations"]

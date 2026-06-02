@@ -28,7 +28,7 @@
 
          Defuzzification: Розрахунок підсумкового показника критичності стану (Urgency Score) та повернення його в оркестратор.
 
-         Embeddings Generation: Локальна генерація векторних представлень (ембедингів) для медичних текстів за допомогою моделі `intfloat/multilingual-e5-large` (1024-dim).
+         Embeddings Generation: Генерація векторних представлень (ембедингів) через Google Gemini API (model: text-embedding-004, 768-dim).
 
 3.  Data Storage Layer (Віддалений рівень даних)
 
@@ -46,7 +46,7 @@
 
          Relational Data: Таблиці користувачів, дітей, логів та налаштувань.
 
-         Vector Data: Медична база знань (фрагменти тексту + вектори 1024-dim, згенеровані через `intfloat/multilingual-e5-large`).
+         Vector Data: Медична база знань (фрагменти тексту + вектори 768-dim, згенеровані через Google Gemini API).
 
          Hybrid Logic: Зберігання нечітких правил у форматі JSONB для динамічного оновлення без зміни коду (Spring Boot завантажує їх з БД і передає у FIS-модуль під час запиту).
 
@@ -97,7 +97,7 @@
 
     Processing: Запит надходить до Spring Boot.
 
-    Embedding: Spring Boot відправляє текст статті до Python-модуля. Python-модуль локально генерує ембедінг за допомогою `intfloat/multilingual-e5-large` та повертає його в Spring Boot.
+    Embedding: Spring Boot генерує ембедінг статті за допомогою Google Gemini API.
 
     Storage: Spring Boot зберігає отриманий ембедінг та оригінальний текст у Supabase (pgvector).
 

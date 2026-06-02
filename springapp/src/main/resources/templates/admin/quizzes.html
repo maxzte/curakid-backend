@@ -128,17 +128,17 @@
                                 <div id="q-options-container-${p.id}" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
                                     <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
                                         <input type="text" class="q-opt-text" value="Так" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
-                                        <input type="text" class="q-opt-value" value="1.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <input type="number" step="any" min="0" max="100" class="q-opt-value" value="100.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
                                         <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
                                     </div>
                                     <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
                                         <input type="text" class="q-opt-text" value="Іноді / Частково" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
-                                        <input type="text" class="q-opt-value" value="0.5" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <input type="number" step="any" min="0" max="100" class="q-opt-value" value="50.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
                                         <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
                                     </div>
                                     <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
                                         <input type="text" class="q-opt-text" value="Ще ні" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
-                                        <input type="text" class="q-opt-value" value="0.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <input type="number" step="any" min="0" max="100" class="q-opt-value" value="0.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
                                         <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
                                     </div>
                                 </div>
@@ -206,7 +206,7 @@
                         ${(q.options || []).map(o => `
                             <div class="option-item" style="gap: 0.5rem;">
                                 <input type="text" id="o-text-edit-${o.id}" value="${o.text}" style="flex: 1; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.9rem;">
-                                <input type="text" id="o-value-edit-${o.id}" value="${o.value}" style="width: 60px; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.8rem; color: var(--text-muted);">
+                                <input type="number" step="any" min="0" max="100" id="o-value-edit-${o.id}" value="${o.value}" style="width: 60px; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.8rem; color: var(--text-muted);">
                                 <input type="number" id="o-order-edit-${o.id}" value="${o.order}" style="width: 40px; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.8rem; color: var(--text-muted);">
                                 <button class="btn btn-sm btn-success" onclick="updateOption('${o.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">✓</button>
                                 <button class="btn btn-sm btn-danger" onclick="deleteOption('${o.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">×</button>
@@ -220,7 +220,7 @@
                             </div>
                             <div class="inline-field">
                                 <label>Значення</label>
-                                <input type="text" placeholder="1.0" id="o-value-${q.id}" style="width: 80px;">
+                                <input type="number" step="any" min="0" max="100" placeholder="100.0" id="o-value-${q.id}" style="width: 80px;">
                             </div>
                             <div class="inline-field">
                                 <label>Порядок</label>
@@ -257,7 +257,7 @@
             div.style.gap = '0.5rem';
             div.innerHTML = `
                 <input type="text" class="q-opt-text" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
-                <input type="text" class="q-opt-value" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                <input type="number" step="any" min="0" max="100" class="q-opt-value" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
                 <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
             `;
             container.appendChild(div);
@@ -275,8 +275,9 @@
             
             optionRows.forEach((row, index) => {
                 const optText = row.querySelector('.q-opt-text').value;
-                const optValue = row.querySelector('.q-opt-value').value;
-                if (optText && optValue) {
+                const optValStr = row.querySelector('.q-opt-value').value;
+                const optValue = parseFloat(optValStr);
+                if (optText && !isNaN(optValue)) {
                     options.push({
                         text: optText,
                         value: optValue,
@@ -284,6 +285,11 @@
                     });
                 }
             });
+
+            if (options.some(o => o.value < 0 || o.value > 100)) {
+                AdminAuth.showToast('Значення варіантів мають бути від 0 до 100', 'error');
+                return;
+            }
 
             if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
 
@@ -336,12 +342,18 @@
             const value = document.getElementById(`o-value-${questionId}`).value;
             const displayOrder = parseInt(document.getElementById(`o-order-${questionId}`).value) || 1;
 
-            if (!text || !value) { AdminAuth.showToast('Текст та значення варіанту обов’язкові', 'error'); return; }
+            const valueFloat = parseFloat(value);
+            if (isNaN(valueFloat) || valueFloat < 0 || valueFloat > 100) {
+                AdminAuth.showToast('Значення має бути числом від 0 до 100', 'error');
+                return;
+            }
+
+            if (!text) { AdminAuth.showToast('Текст варіанту обов’язковий', 'error'); return; }
 
             try {
                 const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${questionId}/options`, {
                     method: 'POST',
-                    body: JSON.stringify({ text, value, displayOrder })
+                    body: JSON.stringify({ text, value: valueFloat, displayOrder })
                 });
                 if (resp && resp.ok) {
                     AdminAuth.showToast('Варіант додано', 'success');
@@ -355,10 +367,16 @@
             const value = document.getElementById(`o-value-edit-${id}`).value;
             const displayOrder = parseInt(document.getElementById(`o-order-edit-${id}`).value) || 0;
 
+            const valueFloat = parseFloat(value);
+            if (isNaN(valueFloat) || valueFloat < 0 || valueFloat > 100) {
+                AdminAuth.showToast('Значення має бути числом від 0 до 100', 'error');
+                return;
+            }
+
             try {
                 const resp = await AdminAuth.apiFetch(`/api/admin/quiz/options/${id}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ text, value, displayOrder })
+                    body: JSON.stringify({ text, value: valueFloat, displayOrder })
                 });
                 if (resp && resp.ok) {
                     AdminAuth.showToast('Варіант оновлено', 'success');

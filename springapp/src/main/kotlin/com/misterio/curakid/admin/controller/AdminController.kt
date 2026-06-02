@@ -1,13 +1,14 @@
 package com.misterio.curakid.admin.controller
 
 import com.misterio.curakid.admin.*
-import com.misterio.curakid.admin.service.AdminFuzzyService
-import com.misterio.curakid.admin.service.AdminKnowledgeService
-import com.misterio.curakid.admin.service.AdminQuizService
-import com.misterio.curakid.admin.service.AdminUserService
-import com.misterio.curakid.admin.service.AdminVaccineService
+import com.misterio.curakid.admin.service.*
+import com.misterio.curakid.core.database.knowledge.MedicalKnowledge
+import com.misterio.curakid.feature.development.LifePeriodQuestionService
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
+import tools.jackson.databind.ObjectMapper
 import java.util.*
 
 @RestController
@@ -17,13 +18,34 @@ class AdminController(
     private val quizService: AdminQuizService,
     private val fuzzyService: AdminFuzzyService,
     private val userService: AdminUserService,
-    private val vaccineService: AdminVaccineService
+    private val vaccineService: AdminVaccineService,
+    private val legalService: AdminLegalService,
+    private val objectMapper: ObjectMapper
 ) {
 
     // Knowledge
     @PostMapping("/knowledge")
     fun uploadArticle(@RequestBody request: CreateArticleRequest) =
         ResponseEntity.ok(knowledgeService.uploadArticle(request.title, request.content, request.categoryId))
+
+    @PostMapping("/knowledge/upload", consumes = ["multipart/form-data"])
+    fun uploadArticleFile(
+        @RequestParam("title") title: String,
+        @RequestParam("categoryId") categoryId: UUID,
+        @RequestParam("file") file: MultipartFile,
+        @RequestParam("minAge", required = false) minAge: Int?,
+        @RequestParam("maxAge", required = false) maxAge: Int?
+    ): ResponseEntity<MedicalKnowledge> {
+        val metadata = mutableMapOf<String, Any>()
+        if (minAge != null || maxAge != null) {
+            val ageMap = mutableMapOf<String, Int>()
+            minAge?.let { ageMap["min"] = it }
+            maxAge?.let { ageMap["max"] = it }
+            metadata["age"] = ageMap
+        }
+        
+        return ResponseEntity.ok(knowledgeService.uploadArticleFromFile(title, file.bytes, file.originalFilename ?: "unknown", categoryId, metadata))
+    }
 
     @GetMapping("/knowledge")
     fun getArticles() = ResponseEntity.ok(knowledgeService.getArticles())
@@ -43,7 +65,19 @@ class AdminController(
 
     // Quiz — Life Periods
     @GetMapping("/quiz/life-periods")
-    fun getLifePeriods() = ResponseEntity.ok(quizService.getLifePeriods())
+    fun getLifePeriods(): ResponseEntity<List<AdminLifePeriodResponse>> {
+        val response = quizService.getLifePeriods().map {
+            AdminLifePeriodResponse(
+                id = it.id!!,
+                code = it.code,
+                label = it.label,
+                description = LifePeriodQuestionService.parseDescription(objectMapper, it.description),
+                minMonths = it.minMonths,
+                maxMonths = it.maxMonths
+            )
+        }
+        return ResponseEntity.ok(response)
+    }
 
     @PostMapping("/quiz/life-periods")
     fun createLifePeriod(@RequestBody request: CreateLifePeriodRequest) =
@@ -60,13 +94,13 @@ class AdminController(
     @PostMapping("/quiz/life-periods/{lifePeriodId}/questions")
     fun createQuestion(
         @PathVariable lifePeriodId: UUID,
-        @RequestBody request: CreateQuizQuestionRequest
+        @Valid @RequestBody request: CreateQuizQuestionRequest
     ) = ResponseEntity.ok(quizService.createQuestion(lifePeriodId, request))
 
     @PutMapping("/quiz/questions/{id}")
     fun updateQuestion(
         @PathVariable id: UUID,
-        @RequestBody request: CreateQuizQuestionRequest
+        @Valid @RequestBody request: CreateQuizQuestionRequest
     ) = ResponseEntity.ok(quizService.updateQuestion(id, request))
 
     @DeleteMapping("/quiz/questions/{id}")
@@ -79,13 +113,13 @@ class AdminController(
     @PostMapping("/quiz/questions/{questionId}/options")
     fun createAnswerOption(
         @PathVariable questionId: UUID,
-        @RequestBody request: CreateAnswerOptionRequest
+        @Valid @RequestBody request: CreateAnswerOptionRequest
     ) = ResponseEntity.ok(quizService.createAnswerOption(questionId, request))
 
     @PutMapping("/quiz/options/{id}")
     fun updateAnswerOption(
         @PathVariable id: UUID,
-        @RequestBody request: CreateAnswerOptionRequest
+        @Valid @RequestBody request: CreateAnswerOptionRequest
     ) = ResponseEntity.ok(quizService.updateAnswerOption(id, request))
 
     @DeleteMapping("/quiz/options/{id}")
@@ -146,4 +180,20 @@ class AdminController(
         vaccineService.deleteTemplate(id)
         return ResponseEntity.noContent().build()
     }
+
+    // Legal Documents (Policies)
+    @GetMapping("/legal")
+    fun getLegalDocuments() = ResponseEntity.ok(legalService.getAllDocuments())
+
+    @PostMapping("/legal")
+    fun createLegalDocument(@RequestBody request: CreateLegalDocumentRequest) =
+        ResponseEntity.ok(legalService.uploadDocument(request))
+
+    @PostMapping("/legal/{id}/activate")
+    fun activateLegalDocument(@PathVariable id: UUID) =
+        ResponseEntity.ok(legalService.activateDocument(id))
+
+    @PostMapping("/legal/{id}/deactivate")
+    fun deactivateLegalDocument(@PathVariable id: UUID) =
+        ResponseEntity.ok(legalService.deactivateDocument(id))
 }

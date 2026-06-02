@@ -1,13 +1,18 @@
 package com.misterio.curakid.reports
 
+import com.misterio.curakid.core.database.assessments.AssessmentDomain
+import com.misterio.curakid.core.database.assessments.SkillAssessment
 import com.misterio.curakid.core.database.assessments.SkillAssessmentRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
+import com.misterio.curakid.core.database.development.LifePeriod
+import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.knowledge.FuzzyRuleRepository
 import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.database.reports.AiReport
 import com.misterio.curakid.core.database.reports.AiReportRepository
+import com.misterio.curakid.core.database.reports.PeriodSummary
 import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
 import com.misterio.curakid.core.essential.common.analysis.IntelligenceProvider
 import com.misterio.curakid.core.essential.common.analysis.KnowledgeProvider
@@ -37,6 +42,7 @@ class ReportServiceTest {
     private lateinit var periodSummaryRepository: PeriodSummaryRepository
     private lateinit var measurementRepository: MeasurementRepository
     private lateinit var assessmentRepository: SkillAssessmentRepository
+    private lateinit var lifePeriodRepository: LifePeriodRepository
     private lateinit var fuzzyRuleRepository: FuzzyRuleRepository
     private lateinit var childRepository: ChildRepository
     private lateinit var intelligenceProvider: IntelligenceProvider
@@ -52,6 +58,7 @@ class ReportServiceTest {
         periodSummaryRepository = mock()
         measurementRepository = mock()
         assessmentRepository = mock()
+        lifePeriodRepository = mock()
         chatClient = mock()
         fuzzyRuleRepository = mock()
         intelligenceProvider = mock()
@@ -70,6 +77,7 @@ class ReportServiceTest {
             periodSummaryRepository = periodSummaryRepository,
             measurementRepository = measurementRepository,
             assessmentRepository = assessmentRepository,
+            lifePeriodRepository = lifePeriodRepository,
             intelligenceProvider = intelligenceProvider,
             knowledgeProvider = knowledgeProvider,
             chatClient = chatClient,
@@ -92,6 +100,7 @@ class ReportServiceTest {
 
         whenever(childRepository.findById(childId)).thenReturn(Optional.of(child))
         whenever(measurementRepository.findById(measurementId)).thenReturn(Optional.of(measurement))
+        whenever(measurementRepository.findTop5ByChildOrderByMeasurementDateDesc(any())).thenReturn(emptyList())
         whenever(aiReportRepository.save(any())).thenAnswer {
             (it.arguments[0] as AiReport).apply { id = UUID.randomUUID() }
         }
@@ -111,7 +120,7 @@ class ReportServiceTest {
         val periodId = UUID.randomUUID()
         val child =
             Child(name = "Ivan", birthDate = LocalDate.now().minusMonths(12)).apply { id = childId }
-        val summary = com.misterio.curakid.core.database.reports.PeriodSummary(child = child)
+        val summary = PeriodSummary(child = child)
             .apply { id = periodId }
 
         whenever(childRepository.findById(childId)).thenReturn(Optional.of(child))
@@ -150,36 +159,47 @@ class ReportServiceTest {
     }
 
     @Test
-    fun `buildSearchQuery should use correct template based on urgency score`() {
-        val buildSearchQueryMethod = reportService.javaClass.getDeclaredMethod(
-            "buildSearchQuery",
-            com.misterio.curakid.core.database.children.Gender::class.java,
-            Int::class.java,
-            Int::class.java,
-            java.math.BigDecimal::class.java,
-            List::class.java
-        ).apply { isAccessible = true }
+    fun `preparePeriodReportContext should detect skill regression`() {
+        val childId = UUID.randomUUID()
+        val periodId = UUID.randomUUID()
+        val child = Child(name = "Ivan", birthDate = LocalDate.now().minusMonths(12)).apply { id = childId }
 
-        // Test low urgency
-        val lowUrgencyQuery = buildSearchQueryMethod.invoke(
-            reportService,
-            com.misterio.curakid.core.database.children.Gender.MALE,
-            12,
-            5,
-            java.math.BigDecimal("0.5"),
-            listOf("Норма ваги: 0.9")
-        ) as String
-        assertEquals("загальний розвиток та вправи, Норма ваги: 0.9, MALE, вік 12 міс. та 5 дн.", lowUrgencyQuery)
+        val prevPeriod = LifePeriod(code = "6-12m", minMonths = 6, maxMonths = 12).apply { id = UUID.randomUUID() }
+        val currPeriod = LifePeriod(code = "12-18m", minMonths = 12, maxMonths = 18).apply { id = UUID.randomUUID() }
 
-        // Test high urgency
-        val highUrgencyQuery = buildSearchQueryMethod.invoke(
-            reportService,
-            com.misterio.curakid.core.database.children.Gender.FEMALE,
-            24,
-            0,
-            java.math.BigDecimal("0.8"),
-            listOf("Затримка моторики: 0.8")
-        ) as String
-        assertEquals("критичні відхилення та патології, Затримка моторики: 0.8, FEMALE, вік 24 міс. та 0 дн.", highUrgencyQuery)
+        val summary = PeriodSummary(child = child, lifePeriod = currPeriod).apply { id = periodId }
+
+        // Previous assessment: score 0.8
+        val prevAssessment = SkillAssessment(
+            child = child,
+            domain = AssessmentDomain.MOTOR_GROSS,
+            lifePeriod = prevPeriod,
+            score = java.math.BigDecimal("0.8")
+        )
+
+        // Current assessment: score 0.6 (Regression! 0.6 < 0.8 * 0.9 = 0.72)
+        val currAssessment = SkillAssessment(
+            child = child,
+            domain = AssessmentDomain.MOTOR_GROSS,
+            lifePeriod = currPeriod,
+            score = java.math.BigDecimal("0.6")
+        )
+
+        whenever(childRepository.findById(childId)).thenReturn(Optional.of(child))
+        whenever(periodSummaryRepository.findById(periodId)).thenReturn(Optional.of(summary))
+        whenever(lifePeriodRepository.findAll()).thenReturn(listOf(prevPeriod, currPeriod))
+        whenever(assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)).thenReturn(listOf(currAssessment, prevAssessment))
+
+        val prepareMethod = reportService.javaClass.getDeclaredMethod("preparePeriodReportContext", UUID::class.java, UUID::class.java).apply { isAccessible = true }
+        val context = prepareMethod.invoke(reportService, childId, periodId) ?: throw IllegalStateException("Context is null")
+
+        // Reflection to access private fields of ReportContext and DomainScores
+        val domainScoresField = context.javaClass.getDeclaredField("domainScores").apply { isAccessible = true }
+        val domainScores = domainScoresField.get(context) ?: throw IllegalStateException("domainScores is null")
+        val regressionsField = domainScores.javaClass.getDeclaredField("regressions").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val regressions = regressionsField.get(domainScores) as Map<String, Boolean>
+
+        assertEquals(true, regressions["MOTOR_GROSS"])
     }
 }

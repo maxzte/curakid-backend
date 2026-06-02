@@ -26,6 +26,10 @@
            th:classappend="${activePage == 'vaccines' ? 'active' : ''}" 
            class="nav-item"><i class="fas fa-syringe"></i> Календар щеплень</a>
            
+        <a href="/admin/ui/policies" 
+           th:classappend="${activePage == 'policies' ? 'active' : ''}" 
+           class="nav-item"><i class="fas fa-file-contract"></i> Політики</a>
+           
         <a href="/admin/ui/rules" 
            th:classappend="${activePage == 'rules' ? 'active' : ''}" 
            class="nav-item"><i class="fas fa-brain"></i> Нечіткі правила</a>
@@ -67,6 +71,13 @@
 
             apiFetch: async (url, options = {}) => {
                 const headers = AdminAuth.getHeaders();
+
+                // If body is FormData, don't set Content-Type header manually
+                // Fetch will automatically set it with the correct boundary
+                if (options.body instanceof FormData) {
+                    delete headers['Content-Type'];
+                }
+
                 const config = {
                     ...options,
                     headers: {

@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Lazy
+import org.springframework.http.HttpMethod
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.AuthenticationProvider
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider
@@ -54,6 +55,7 @@ class SecurityConfig(
                 }
             }
             .authorizeHttpRequests { auth ->
+                auth.requestMatchers(HttpMethod.GET, "/api/legal", "/api/legal/**").permitAll()
                 auth.requestMatchers(
                     "/v3/api-docs/**",
                     "/swagger-ui/**",

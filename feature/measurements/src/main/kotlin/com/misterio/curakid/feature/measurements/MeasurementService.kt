@@ -36,6 +36,8 @@ class MeasurementService(
         val lookbackDate = request.measurementDate.minus(lookbackDays, ChronoUnit.DAYS)
         val prev = findPreviousScores(child, request.measurementDate, lookbackDate)
 
+        val history = measurementRepository.findTop5ByChildOrderByMeasurementDateDesc(child)
+
         val measurement = Measurement(
             child = child,
             measurementDate = request.measurementDate
@@ -88,7 +90,15 @@ class MeasurementService(
         measurementRepository.flush()
         log.debug("saved measurement{}", saved)
 
-        val reportId = checkTriggers(saved)?.let {
+        val velocityContext = VelocityContext(
+            wfaVelocity = calculateVelocity(history, measurement, Measurement::wfaZscore),
+            hfaVelocity = calculateVelocity(history, measurement, Measurement::hfaZscore),
+            bmiVelocity = calculateVelocity(history, measurement, Measurement::bmiZscore),
+            hcfaVelocity = calculateVelocity(history, measurement, Measurement::hcfaZscore),
+            wfhVelocity = calculateVelocity(history, measurement, Measurement::wfhZscore)
+        )
+
+        val reportId = checkTriggers(saved, velocityContext)?.let {
             log.debug("we have triggers {}", it)
             reportProvider.generateEmergencyReport(child.id!!, saved.id!!)
         }
@@ -150,26 +160,62 @@ class MeasurementService(
         return (current - previous).setScale(2, RoundingMode.HALF_UP)
     }
 
-    private fun checkTriggers(m: Measurement): TriggerContext? {
+    private fun calculateVelocity(
+        history: List<Measurement>,
+        current: Measurement,
+        metric: (Measurement) -> BigDecimal?
+    ): BigDecimal? {
+        val currentValue = metric(current) ?: return null
+        val points = history.filter { metric(it) != null }
+        if (points.isEmpty()) return null
+
+        val oldest = points.last()
+        val oldestValue = metric(oldest)!!
+        
+        val days = ChronoUnit.DAYS.between(oldest.measurementDate, current.measurementDate)
+        if (days <= 0) return null
+        
+        // Velocity = change in Z-score per month (30 days)
+        val delta = currentValue - oldestValue
+        return delta.multiply(BigDecimal("30"))
+            .divide(BigDecimal(days), 2, RoundingMode.HALF_UP)
+    }
+
+    private fun checkTriggers(m: Measurement, v: VelocityContext): TriggerContext? {
         val triggers = buildList {
             m.wfaZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.WFA_OUT_OF_RANGE) }
             m.hfaZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.HFA_OUT_OF_RANGE) }
             m.hcfaZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.HCFA_OUT_OF_RANGE) }
             m.bmiZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.BMI_OUT_OF_RANGE) }
             m.wfhZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.WFH_OUT_OF_RANGE) }
+            
             m.wfaDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.WFA_RAPID_CHANGE) }
             m.hfaDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.HFA_RAPID_CHANGE) }
-            m.hcfaDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.HCFA_RAPID_CHANGE) }
-            m.bmiDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.BMI_RAPID_CHANGE) }
-            m.wfhDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.WFH_RAPID_CHANGE) }
+            
+            // Velocity triggers
+            v.wfaVelocity?.let { if (it < BigDecimal("-0.3")) add(Trigger.WFA_PERSISTENT_DECLINE) }
+            v.hfaVelocity?.let { if (it < BigDecimal("-0.2")) add(Trigger.HFA_STUNTING_RISK) }
+
+            // Outlier detection (> 3 sigma jump in delta)
+            m.wfaDeltaZ?.let { if (it.abs() > BigDecimal("2.5")) add(Trigger.POTENTIAL_OUTLIER) }
+            m.hfaDeltaZ?.let { if (it.abs() > BigDecimal("2.5")) add(Trigger.POTENTIAL_OUTLIER) }
         }
         return if (triggers.isEmpty()) null else TriggerContext(triggers)
     }
 
     enum class Trigger {
         WFA_OUT_OF_RANGE, HFA_OUT_OF_RANGE, HCFA_OUT_OF_RANGE, BMI_OUT_OF_RANGE, WFH_OUT_OF_RANGE,
-        WFA_RAPID_CHANGE, HFA_RAPID_CHANGE, HCFA_RAPID_CHANGE, BMI_RAPID_CHANGE, WFH_RAPID_CHANGE
+        WFA_RAPID_CHANGE, HFA_RAPID_CHANGE, HCFA_RAPID_CHANGE, BMI_RAPID_CHANGE, WFH_RAPID_CHANGE,
+        WFA_PERSISTENT_DECLINE, HFA_STUNTING_RISK, POTENTIAL_OUTLIER
     }
+
+    data class VelocityContext(
+        val wfaVelocity: BigDecimal? = null,
+        val hfaVelocity: BigDecimal? = null,
+        val bmiVelocity: BigDecimal? = null,
+        val hcfaVelocity: BigDecimal? = null,
+        val wfhVelocity: BigDecimal? = null
+    )
 
     data class TriggerContext(val triggers: List<Trigger>)
 

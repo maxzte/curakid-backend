@@ -1,6 +1,5 @@
 package com.misterio.curakid.feature.fis
 
-import com.misterio.curakid.core.essential.common.analysis.EmbeddingProvider
 import com.misterio.curakid.core.essential.common.analysis.IntelligenceProvider
 import com.misterio.curakid.core.essential.common.analysis.IntelligenceRequest
 import com.misterio.curakid.core.essential.common.analysis.IntelligenceResponse
@@ -19,7 +18,7 @@ class FisClient(
     @Value("\${fis.base-url:http://intelligence:8000}") private val baseUrl: String,
     @Value("\${fis.internal-api-key:change-me}") private val internalApiKey: String,
     @Value("\${fis.timeout-seconds:30}") private val timeoutSeconds: Long
-) : IntelligenceProvider, EmbeddingProvider {
+) : IntelligenceProvider {
     private val log = LoggerFactory.getLogger(FisClient::class.java)
 
     private val webClient: WebClient = WebClient.builder()
@@ -46,7 +45,13 @@ class FisClient(
             selfCareScore = request.selfCareScore,
             sensoryScore = request.sensoryScore,
             rules = request.rules,
-            norms = request.norms
+            norms = request.norms,
+            wfaVelocity = request.wfaVelocity,
+            hfaVelocity = request.hfaVelocity,
+            bmiVelocity = request.bmiVelocity,
+            hcfaVelocity = request.hcfaVelocity,
+            wfhVelocity = request.wfhVelocity,
+            regressions = request.regressions
         )
 
         return try {
@@ -83,22 +88,6 @@ class FisClient(
         }
     }
 
-    override fun generateEmbedding(text: String): List<Float>? {
-        return try {
-            val response = webClient.post()
-                .uri("/embed")
-                .bodyValue(mapOf("text" to text))
-                .retrieve()
-                .bodyToMono(EmbeddingResponse::class.java)
-                .timeout(Duration.ofSeconds(timeoutSeconds * 2))
-                .block()
-            response?.embedding
-        } catch (ex: Exception) {
-            log.error("Failed to generate embedding: {}", ex.message)
-            null
-        }
-    }
-
     private fun fallbackFisResponse() = FisResponse(
         urgencyScore = BigDecimal("0.5"),
         isFallback = true,
@@ -106,5 +95,3 @@ class FisClient(
         linguisticInterpretations = emptyList()
     )
 }
-
-data class EmbeddingResponse(val embedding: List<Float>)

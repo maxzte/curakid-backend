@@ -122,7 +122,7 @@ class SkillAssessmentService(
     ): CompletePeriodAssessmentResponse {
         val result = transactionTemplate.execute {
             completePeriodAssessmentTransaction(child, request)
-        }
+        } ?: throw IllegalStateException("Period assessment transaction failed or was rolled back")
 
         val reportId = reportProvider.generatePeriodReport(child.id!!, result.summary.id!!)
 
@@ -153,7 +153,9 @@ class SkillAssessmentService(
             .filter { it in periodQuestionIds }
             .toSet()
 
-        val completionPercent = (answeredQuestionIds.size * 100) / period.questions.size
+        val totalQuestions = period.questions.size
+        if (totalQuestions == 0) throw IllegalArgumentException("Period '${request.periodCode}' has no questions")
+        val completionPercent = (answeredQuestionIds.size * 100) / totalQuestions
         if (completionPercent < REQUIRED_COMPLETION_PERCENT) {
             throw IllegalArgumentException("Completion: $completionPercent% < $REQUIRED_COMPLETION_PERCENT%")
         }
@@ -190,38 +192,13 @@ class SkillAssessmentService(
         )
     }
 
-    private fun upsertAnswer(
-        assessment: SkillAssessment,
-        questionId: UUID,
-        optionId: UUID,
-        answeredAt: Instant
-    ) {
-        val existing = assessment.answers.find { it.question?.id == questionId }
-        if (existing != null) {
-            if (existing.selectedOption?.id != optionId) {
-                existing.selectedOption = answerOptionRepository.getReferenceById(optionId)
-                existing.answeredAt = answeredAt
-            }
-        } else {
-            assessment.answers.add(
-                AssessmentAnswer(
-                    assessment = assessment,
-                    question = questionRepository.getReferenceById(questionId),
-                    selectedOption = answerOptionRepository.getReferenceById(optionId),
-                    answeredAt = answeredAt
-                )
-            )
-        }
-    }
-
     private fun calculateScore(assessment: SkillAssessment): BigDecimal? {
-        // Pick only the LATEST answer for each question
         val latestAnswers = assessment.answers
             .filter { it.question?.id != null }
             .groupBy { it.question!!.id }
             .mapValues { entry -> entry.value.maxBy { it.answeredAt } }
             .values
-            .filter { it.selectedOption?.value != 0.0 && it.question?.weight != null }
+            .filter { it.selectedOption != null && it.question?.weight != null }
 
         if (latestAnswers.isEmpty()) return null
 
@@ -243,8 +220,12 @@ class SkillAssessmentService(
 
     private fun validatePeriodAccess(child: Child, min: Int, max: Int, early: Boolean) {
         val age = ChronoUnit.MONTHS.between(child.birthDate, LocalDate.now()).toInt()
+        // age in range  → normal access
+        // age > max     → child already exceeded this period; completing it is always allowed
+        //                 (catch-up scenario), no early-transition checks needed
         if (age in min..max || age > max) return
 
+        // age < min — early transition; requires explicit flag and Z-score signal
         if (!early || (min - age) > MAX_EARLY_MONTH_GAP) {
             throw IllegalArgumentException("Early transition denied for age $age")
         }

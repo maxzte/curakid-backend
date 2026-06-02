@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS measurements (
 CREATE TABLE IF NOT EXISTS skill_assessments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     child_id UUID REFERENCES children(id) ON DELETE CASCADE,
-    domain VARCHAR(50), -- motor, speech, cognitive, social
+    domain VARCHAR(50), -- MOTOR_GROSS, MOTOR_FINE, SPEECH, COGNITIVE, SOCIAL_EMOTIONAL, SELF_CARE, SENSORY
     score DECIMAL(5,2),
     raw_data JSONB, -- Відповіді на конкретні питання
     assessment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -57,8 +57,7 @@ CREATE TABLE IF NOT EXISTS medical_knowledge (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
-    category VARCHAR(100),
-    embedding vector(1024), -- Вектор на 1024 виміри (multilingual-e5-large)
+    embedding vector(768), -- Вектор на 768 виміри (google text-embedding-004)
     metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

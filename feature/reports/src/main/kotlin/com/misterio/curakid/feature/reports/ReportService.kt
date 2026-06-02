@@ -6,18 +6,15 @@ import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.children.Gender
+import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.knowledge.FuzzyRuleRepository
+import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.database.reports.AiReport
 import com.misterio.curakid.core.database.reports.AiReportRepository
 import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
-import com.misterio.curakid.core.essential.common.analysis.FuzzyCondition
-import com.misterio.curakid.core.essential.common.analysis.FuzzyRule
-import com.misterio.curakid.core.essential.common.analysis.IntelligenceProvider
-import com.misterio.curakid.core.essential.common.analysis.IntelligenceRequest
-import com.misterio.curakid.core.essential.common.analysis.KnowledgeChunkDto
-import com.misterio.curakid.core.essential.common.analysis.KnowledgeProvider
-import com.misterio.curakid.core.essential.common.analysis.ReportProvider
+import com.misterio.curakid.core.essential.*
+import com.misterio.curakid.core.essential.common.analysis.*
 import com.misterio.curakid.core.medical.ChartType
 import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import org.slf4j.LoggerFactory
@@ -29,7 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.CompletableFuture
 import kotlin.jvm.optionals.getOrNull
 
@@ -39,6 +36,7 @@ class ReportService(
     private val periodSummaryRepository: PeriodSummaryRepository,
     private val measurementRepository: MeasurementRepository,
     private val assessmentRepository: SkillAssessmentRepository,
+    private val lifePeriodRepository: LifePeriodRepository,
     private val intelligenceProvider: IntelligenceProvider,
     private val knowledgeProvider: KnowledgeProvider,
     private val chatClient: ChatClient,
@@ -89,6 +87,9 @@ class ReportService(
         val birthDatePlusMonths = birthDate.plusMonths(ageMonths.toLong())
         val ageDays = ChronoUnit.DAYS.between(birthDatePlusMonths, today).toInt()
 
+        val history = measurementRepository.findTop5ByChildOrderByMeasurementDateDesc(child)
+            .filter { it.id != measurement.id }
+
         return ReportContext(
             childId = child.id!!,
             ageMonths = ageMonths,
@@ -100,6 +101,8 @@ class ReportService(
                 bmiZscore = measurement.bmiZscore,
                 hcfaZscore = measurement.hcfaZscore,
                 wfhZscore = measurement.wfhZscore,
+                wfaVelocity = calculateVelocity(history, measurement.wfaZscore, measurement.measurementDate, { it.wfaZscore }),
+                hfaVelocity = calculateVelocity(history, measurement.hfaZscore, measurement.measurementDate, { it.hfaZscore }),
             ),
             domainScores = null,
             rules = loadFuzzyRules(),
@@ -120,16 +123,40 @@ class ReportService(
         val ageDays = ChronoUnit.DAYS.between(birthDatePlusMonths, today).toInt()
 
         val latestMeasurement = measurementRepository.findAllByChildOrderByMeasurementDateAsc(child).lastOrNull()
+        val history = if (latestMeasurement != null) {
+            measurementRepository.findTop5ByChildOrderByMeasurementDateDesc(child)
+                .filter { it.id != latestMeasurement.id }
+        } else emptyList()
+
         val assessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
+        
+        // Regression logic
+        val currentLifePeriod = periodSummary.lifePeriod
+        val minMonths = currentLifePeriod?.minMonths
+        val previousLifePeriod = if (minMonths != null) {
+            lifePeriodRepository.findAll().find { it.maxMonths == minMonths }
+        } else null
+
+        val regressions = mutableMapOf<String, Boolean>()
+        
+        fun checkRegression(domain: AssessmentDomain, currentScore: BigDecimal?): BigDecimal? {
+            if (currentScore == null || previousLifePeriod == null) return currentScore
+            val prevScore = assessments.find { it.domain == domain && it.lifePeriod?.id == previousLifePeriod.id }?.score
+            if (prevScore != null && currentScore < prevScore.multiply(BigDecimal("0.9"))) {
+                regressions[domain.name] = true
+            }
+            return currentScore
+        }
 
         val scores = DomainScores(
-            motorGross = assessments.firstOrNull { it.domain == AssessmentDomain.MOTOR_GROSS }?.score,
-            motorFine = assessments.firstOrNull { it.domain == AssessmentDomain.MOTOR_FINE }?.score,
-            speech = assessments.firstOrNull { it.domain == AssessmentDomain.SPEECH }?.score,
-            cognitive = assessments.firstOrNull { it.domain == AssessmentDomain.COGNITIVE }?.score,
-            social = assessments.firstOrNull { it.domain == AssessmentDomain.SOCIAL_EMOTIONAL }?.score,
-            selfCare = assessments.firstOrNull { it.domain == AssessmentDomain.SELF_CARE }?.score,
-            sensory = assessments.firstOrNull { it.domain == AssessmentDomain.SENSORY }?.score,
+            motorGross = checkRegression(AssessmentDomain.MOTOR_GROSS, assessments.firstOrNull { it.domain == AssessmentDomain.MOTOR_GROSS && it.lifePeriod?.id == currentLifePeriod?.id }?.score),
+            motorFine = checkRegression(AssessmentDomain.MOTOR_FINE, assessments.firstOrNull { it.domain == AssessmentDomain.MOTOR_FINE && it.lifePeriod?.id == currentLifePeriod?.id }?.score),
+            speech = checkRegression(AssessmentDomain.SPEECH, assessments.firstOrNull { it.domain == AssessmentDomain.SPEECH && it.lifePeriod?.id == currentLifePeriod?.id }?.score),
+            cognitive = checkRegression(AssessmentDomain.COGNITIVE, assessments.firstOrNull { it.domain == AssessmentDomain.COGNITIVE && it.lifePeriod?.id == currentLifePeriod?.id }?.score),
+            social = checkRegression(AssessmentDomain.SOCIAL_EMOTIONAL, assessments.firstOrNull { it.domain == AssessmentDomain.SOCIAL_EMOTIONAL && it.lifePeriod?.id == currentLifePeriod?.id }?.score),
+            selfCare = checkRegression(AssessmentDomain.SELF_CARE, assessments.firstOrNull { it.domain == AssessmentDomain.SELF_CARE && it.lifePeriod?.id == currentLifePeriod?.id }?.score),
+            sensory = checkRegression(AssessmentDomain.SENSORY, assessments.firstOrNull { it.domain == AssessmentDomain.SENSORY && it.lifePeriod?.id == currentLifePeriod?.id }?.score),
+            regressions = regressions
         )
 
         return ReportContext(
@@ -144,6 +171,8 @@ class ReportService(
                     bmiZscore = it.bmiZscore,
                     hcfaZscore = it.hcfaZscore,
                     wfhZscore = it.wfhZscore,
+                    wfaVelocity = calculateVelocity(history, it.wfaZscore, it.measurementDate, { m -> m.wfaZscore }),
+                    hfaVelocity = calculateVelocity(history, it.hfaZscore, it.measurementDate, { m -> m.hfaZscore }),
                 )
             },
             domainScores = scores,
@@ -151,6 +180,27 @@ class ReportService(
             periodSummaryId = periodSummary.id,
             overrideMeasurementId = null
         )
+    }
+
+    private fun calculateVelocity(
+        history: List<Measurement>,
+        currentValue: BigDecimal?,
+        currentDate: java.time.Instant,
+        metric: (Measurement) -> BigDecimal?
+    ): BigDecimal? {
+        if (currentValue == null) return null
+        val points = history.filter { metric(it) != null }
+        if (points.isEmpty()) return null
+
+        val oldest = points.last()
+        val oldestValue = metric(oldest)!!
+
+        val days = ChronoUnit.DAYS.between(oldest.measurementDate, currentDate)
+        if (days <= 0) return null
+
+        val delta = currentValue - oldestValue
+        return delta.multiply(BigDecimal("30"))
+            .divide(BigDecimal(days), 2, java.math.RoundingMode.HALF_UP)
     }
 
     private fun generateReport(context: ReportContext): GeneratedReport {
@@ -173,7 +223,15 @@ class ReportService(
             selfCareScore = context.domainScores?.selfCare,
             sensoryScore = context.domainScores?.sensory,
             rules = context.rules,
-            norms = buildFisNorms(context)
+            norms = buildFisNorms(context),
+
+            // History & Trends
+            wfaVelocity = context.latestMeasurement?.wfaVelocity,
+            hfaVelocity = context.latestMeasurement?.hfaVelocity,
+            bmiVelocity = context.latestMeasurement?.bmiVelocity,
+            hcfaVelocity = context.latestMeasurement?.hcfaVelocity,
+            wfhVelocity = context.latestMeasurement?.wfhVelocity,
+            regressions = context.domainScores?.regressions ?: emptyMap()
         )
 
         val intelligenceResponse = intelligenceProvider.analyze(intelligenceRequest)
@@ -181,14 +239,12 @@ class ReportService(
         val urgencyScore = intelligenceResponse.urgencyScore
 
         val searchQuery = buildSearchQuery(
-            context.childData.gender,
-            context.ageMonths,
-            context.ageDays,
+            context,
             urgencyScore,
             intelligenceResponse.linguisticInterpretations
         )
         log.debug("searchQuery: {}", searchQuery)
-        val knowledgeChunks = knowledgeProvider.search(searchQuery, urgencyScore)
+        val knowledgeChunks = knowledgeProvider.search(searchQuery, urgencyScore, context.ageMonths)
         log.debug("knowledgeChunks: {}", knowledgeChunks)
 
         val prompt = buildPrompt(
@@ -293,23 +349,43 @@ class ReportService(
     }
 
     private fun buildSearchQuery(
-        gender: Gender,
-        ageMonths: Int,
-        ageDays: Int,
+        context: ReportContext,
         urgencyScore: BigDecimal,
         linguisticInterpretations: List<String>
     ): String {
-        val status = if (urgencyScore >= BigDecimal("0.7")) {
-            "критичні відхилення та патології"
+        val queryParts = mutableListOf<String>()
+
+        // 1. Core Status (Clinical vs Developmental)
+        if (urgencyScore >= BigDecimal("0.7")) {
+            queryParts.add("критичні відхилення, патології та медичні протоколи")
         } else {
-            "загальний розвиток та вправи"
+            queryParts.add("загальний розвиток дитини та стимулюючі вправи")
         }
 
-        val category = linguisticInterpretations.joinToString(", ")
-        val age = "вік $ageMonths міс. та $ageDays дн."
-        val childInfo = "${gender.name}, $age"
+        // 2. Age context is crucial for embedding accuracy
+        queryParts.add("вік ${context.ageMonths} місяців")
 
-        return "$status, $category, $childInfo"
+        // 3. Trends - Physical Growth
+        context.latestMeasurement?.wfaVelocity?.let {
+            if (it < BigDecimal("-0.3")) {
+                queryParts.add("стійке падіння ваги, зупинка фізичного розвитку, гіпотрофія")
+            }
+        }
+        context.latestMeasurement?.hfaVelocity?.let {
+            if (it < BigDecimal("-0.2")) {
+                queryParts.add("сповільнення росту, ризики низькорослості")
+            }
+        }
+
+        // 4. Trends - Skill Regression
+        if (context.domainScores?.regressions?.isNotEmpty() == true) {
+            queryParts.add("червоні прапорці: регрес розвитку, втрата навичок")
+        }
+
+        // 5. FIS Interpretations (Specific symptoms)
+        queryParts.addAll(linguisticInterpretations)
+
+        return queryParts.joinToString(", ")
     }
 
     private fun buildPrompt(
@@ -321,90 +397,110 @@ class ReportService(
         urgencyScore: BigDecimal,
         chunks: List<KnowledgeChunkDto>,
         norms: Map<String, Map<String, Double>> = emptyMap()
-    ): String {
-        val knowledgeContext = chunks.joinToString("\n---\n") { "[${it.title}]\n${it.content}" }
-
-        val normsContext = if (norms.isNotEmpty()) {
-            val sections = norms.map { (variable, points) ->
-                val pointsStr = points.entries.sortedBy { it.key.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
-                    .joinToString(", ") { "${it.key}=${it.value}" }
-                "- $variable: $pointsStr"
-            }.joinToString("\n")
-            "## NORMATIVE DATA (WHO Standards for this age/height):\n$sections"
-        } else ""
-
-        // Формуємо блок оцінки навичок тільки якщо є дані
-        val skillsBlock = domainScores?.let {
+    ): String = buildString {
+        appendLine(
             """
-        === ОЦІНКА НАВИЧОК (0-100%) ===
-        - Груба моторика: ${it.motorGross ?: "не оцінено"}
-        - Дрібна моторика: ${it.motorFine ?: "не оцінено"}
-        - Мовлення: ${it.speech ?: "не оцінено"}
-        - Когніція: ${it.cognitive ?: "не оцінено"}
-        - Соціалізація: ${it.social ?: "не оцінено"}
-        - Самостійність: ${it.selfCare ?: "не оцінено"}
-        - Сенсорна обробка: ${it.sensory ?: "не оцінено"}
+        # ROLE
+        Ти — висококваліфікований педіатр та експерт із раннього розвитку дитини.
+        Твоя мета: скласти персоналізований, заспокійливий, але професійний звіт для батьків.
+        Не став діагнозів.
+        Не вигадуй інформацію.
         """.trimIndent()
-        } ?: "Дані щодо розвитку навичок наразі відсутні."
+        )
 
-        val wfa = latestMeasurement?.wfaZscore ?: "немає даних"
-        val hfa = latestMeasurement?.hfaZscore ?: "немає даних"
-        val bmi = latestMeasurement?.bmiZscore ?: "немає даних"
-        val hcfa = latestMeasurement?.hcfaZscore ?: "немає даних"
-        val wfh = latestMeasurement?.wfhZscore ?: "немає даних"
+        appendSection(
+            title = "HARD RULES",
+            items = listOf(
+                "Не повторюй дані з контексту без аналізу.",
+                "Не пояснюй FIS або внутрішні метрики.",
+                "Не згадуй нормальні показники без причини.",
+                "Кожне речення має додавати нову інформацію.",
+                "Максимум 4 речення у summary.",
+                "Уникай загальних фраз."
+            )
+        )
 
-        return """
-    # ROLE
-    Ти — висококваліфікований педіатр та експерт із раннього розвитку дитини. 
-    Твоя мета: скласти персоналізований, заспокійливий, але професійний звіт для батьків.
-    
-    # CONTEXT & DATA
-    Вік дитини: $ageMonths міс. та $ageDays дн.
-    Стать: ${childData.gender.name}
-    
-    ## МЕДИЧНИЙ АНАМНЕЗ:
-    - Передчасне народження: ${if (childData.isPremature) "ТАК" else "Ні"}
-    - Алергії: ${childData.allergies.toBulletPoints()}
-    - Хронічні захворювання: ${childData.chronicConditions.toBulletPoints()}
-    - Перенесені хвороби: ${childData.pastIllnesses.toBulletPoints()}
-    - Додаткові особливості: ${childData.notes.toBulletPoints()}
-    *(Важливо: якщо дитина народилася передчасно, зважай на це при оцінці моторних навичок)*
-    
-    ## АНТРОПОМЕТРІЯ (Z-scores за стандартами ВООЗ):
-    Вага (WFA): $wfa
-    Зріст (HFA): $hfa
-    Індекс маси тіла (BMI): $bmi
-    Окружність голови (HCFA): $hcfa
-    Вага-до-зросту (WFH): $wfh
-    *(Примітка: 0 — ідеал, від -2 до +2 — норма, поза цими межами — потребує уваги)*
+        appendLine(
+            value = """
+        # CONTEXT & DATA
+        Вік дитини: $ageMonths міс. та $ageDays дн.
+        Стать: ${childData.gender.name}
+        """.trimIndent()
+        )
 
-    $normsContext
+        appendSection(
+            title = "МЕДИЧНИЙ АНАМНЕЗ",
+            items = listOf(
+                "Передчасне народження: ${if (childData.isPremature) "ТАК" else "Ні"}",
+                "Алергії: ${childData.allergies}",
+                "Хронічні захворювання: ${childData.chronicConditions}",
+                "Перенесені хвороби: ${childData.pastIllnesses}",
+                "Додаткові особливості: ${childData.notes}"
+            ),
+            footer = "*(Важливо: якщо дитина народилася передчасно, зважай на це при оцінці моторних навичок)*"
+        )
 
-    $skillsBlock
+        appendAnthropometry(
+            wfaZscore = latestMeasurement?.wfaZscore,
+            hfaZscore = latestMeasurement?.hfaZscore,
+            bmiZscore = latestMeasurement?.bmiZscore,
+            hcfaZscore = latestMeasurement?.hcfaZscore,
+            wfhZscore = latestMeasurement?.wfhZscore,
+        )
 
-    ## АНАЛІЗ ТРИВОЖНОСТІ (FIS):
-    Рівень: $urgencyScore (де 0 — повний спокій, 1 — критична потреба у втручанні).
-    *Якщо рівень > 0.7, будь максимально підтримуючим, але серйозним.*
+        // Trends in prompt
+        if (latestMeasurement?.hasVelocity() == true) {
+            appendLine("## ТРЕНДИ ФІЗИЧНОГО РОЗВИТКУ")
+            latestMeasurement.wfaVelocity?.let { appendLine("- Швидкість зміни ваги: ${it.toPlainString()} Z-одиниць/міс") }
+            latestMeasurement.hfaVelocity?.let { appendLine("- Швидкість росту: ${it.toPlainString()} Z-одиниць/міс") }
+            appendLine("*(Негативні значення менше -0.2 можуть свідчити про уповільнення темпів розвитку)*")
+        }
 
-    # KNOWLEDGE BASE
-    Використовуй ТІЛЬКИ наведені нижче медичні факти для формування рекомендацій:
-    $knowledgeContext
+        if (norms.isNotEmpty()) {
+            appendNorms(
+                norms
+            )
+        }
 
-    # TASK
-    На основі даних вище, напиши відповідь ВИКЛЮЧНО українською мовою у форматі:
+        appendSkills(
+            motorGross = domainScores?.motorGross,
+            motorFine = domainScores?.motorFine,
+            speech = domainScores?.speech,
+            cognitive = domainScores?.cognitive,
+            social = domainScores?.social,
+            selfCare = domainScores?.selfCare,
+            sensory = domainScores?.sensory,
+        )
 
-    ### ЗВІТ:
-    (Напиши 3-5 речень. Оціни загальний стан: чи відповідає розвиток та антропометрія віковим нормам. Уникай складних медичних термінів, пояснюй їх "людською" мовою.)
+        // Regression in prompt
+        domainScores?.regressions?.filterValues { it }?.keys?.let { regDomains ->
+            if (regDomains.isNotEmpty()) {
+                appendLine("## ЗАУВАЖЕННЯ ЩОДО РОЗВИТКУ")
+                appendLine("- Помічено регрес (втрату навичок) у доменах: ${regDomains.joinToString(", ")}")
+                appendLine("*(Увага: регрес у навичках потребує детального обговорення з педіатром)*")
+            }
+        }
 
-    ### РЕКОМЕНДАЦІЇ:
-    (Склади 3-5 конкретних, практичних кроків. Кожна порада має бути дієвою: у що пограти, на що звернути увагу, чи варто звернутися до профільного спеціаліста. Базуйся на блоці KNOWLEDGE BASE.)
+        appendLine(
+            value = """
+        ## INTERNAL PRIORITY SCORE
+        Priority: $urgencyScore
+        """.trimIndent()
+        )
 
-    # CONSTRAINTS:
-    - Не став діагнозів (використовуй фрази "варто звернути увагу", "рекомендовано проконсультуватися").
-    - Тон: емпатичний, професійний, без зайвої паніки.
-    - Вихідні дані: Тільки Markdown текст.
-    """.trimIndent()
+        appendLine(
+            value = """
+        # KNOWLEDGE BASE
+        Використовуй ТІЛЬКИ наведені нижче медичні факти для формування рекомендацій:
+        ${chunks.joinToString("\n---\n") { "[${it.title}]\n${it.content}" }}
+        """.trimIndent()
+        )
+
+        appendLine(value = TASK_SECTION)
+        appendLine(value = STYLE_SECTION)
+        appendLine(value = CONSTRAINTS_SECTION)
     }
+
 
     private fun buildChildData(child: Child): ChildData = ChildData(
         gender = child.gender,
@@ -461,7 +557,9 @@ class ReportService(
         addNorms("BMI", ChartType.BMI)
         addNorms("HCFA (cm)", ChartType.HCFA)
 
-        val latest = measurementRepository.findAllByChildOrderByMeasurementDateAsc(childRepository.getReferenceById(context.childId)).lastOrNull()
+        val latest =
+            measurementRepository.findAllByChildOrderByMeasurementDateAsc(childRepository.getReferenceById(context.childId))
+                .lastOrNull()
         latest?.heightCm?.let { height ->
             percentileCalculator.getParamsForHeight(gender, height.toDouble())?.let { p ->
                 res["WFH (kg)"] = mapOf(
@@ -508,6 +606,7 @@ private data class DomainScores(
     val social: BigDecimal? = null,
     val selfCare: BigDecimal? = null,
     val sensory: BigDecimal? = null,
+    val regressions: Map<String, Boolean> = emptyMap()
 )
 
 private data class ChildData(
@@ -525,7 +624,14 @@ private data class MeasurementSummary(
     val bmiZscore: BigDecimal?,
     val hcfaZscore: BigDecimal?,
     val wfhZscore: BigDecimal?,
-)
+    val wfaVelocity: BigDecimal? = null,
+    val hfaVelocity: BigDecimal? = null,
+    val bmiVelocity: BigDecimal? = null,
+    val hcfaVelocity: BigDecimal? = null,
+    val wfhVelocity: BigDecimal? = null,
+) {
+    fun hasVelocity() = wfaVelocity != null || hfaVelocity != null || bmiVelocity != null || hcfaVelocity != null || wfhVelocity != null
+}
 
 private data class GeneratedReport(
     val urgencyScore: BigDecimal,

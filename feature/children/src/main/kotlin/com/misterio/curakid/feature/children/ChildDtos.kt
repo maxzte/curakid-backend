@@ -13,8 +13,8 @@ import java.util.UUID
 data class CreateChildRequest(
     @field:NotNull @field:NotBlank val name: String,
     @field:NotNull @field:PastOrPresent val birthDate: LocalDate,
-    val gender: Gender,
-    val isPremature: Boolean,
+    @field:NotNull val gender: Gender,
+    @field:NotNull val isPremature: Boolean,
     val allergies: List<String>?,
     val chronicDiseases: List<String>?,
     val pastDiseases: List<String>?,

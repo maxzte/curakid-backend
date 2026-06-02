@@ -1,17 +1,20 @@
 package com.misterio.curakid
 
 import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.auth.UserConsentRepository
 import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.token.RefreshToken
 import com.misterio.curakid.core.database.token.RefreshTokenRepository
 import com.misterio.curakid.core.security.JwtService
 import com.misterio.curakid.core.security.TokenBlacklistService
-import com.misterio.curakid.feature.auth.AuthService
-import com.misterio.curakid.feature.auth.EmailService
+import com.misterio.curakid.feature.auth.service.AuthService
+import com.misterio.curakid.feature.auth.service.EmailService
+import com.misterio.curakid.feature.auth.ConsentRequest
 import com.misterio.curakid.feature.auth.LoginRequest
 import com.misterio.curakid.feature.auth.RefreshTokenRequest
 import com.misterio.curakid.feature.auth.RegisterRequest
 import io.jsonwebtoken.Claims
+import jakarta.servlet.http.HttpServletRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -33,6 +36,7 @@ import java.util.UUID
 class AuthServiceTest {
 
     private lateinit var userRepository: UserRepository
+    private lateinit var userConsentRepository: UserConsentRepository
     private lateinit var refreshTokenRepository: RefreshTokenRepository
     private lateinit var jwtService: JwtService
     private lateinit var passwordEncoder: PasswordEncoder
@@ -44,6 +48,7 @@ class AuthServiceTest {
     @BeforeEach
     fun setUp() {
         userRepository = mock()
+        userConsentRepository = mock()
         refreshTokenRepository = mock()
         jwtService = mock()
         passwordEncoder = mock()
@@ -52,6 +57,7 @@ class AuthServiceTest {
         emailService = mock()
         authService = AuthService(
             userRepository = userRepository,
+            userConsentRepository = userConsentRepository,
             refreshTokenRepository = refreshTokenRepository,
             passwordEncoder = passwordEncoder,
             jwtService = jwtService,
@@ -64,11 +70,11 @@ class AuthServiceTest {
 
     @Test
     fun `register should throw if email already exists`() {
-        val request = RegisterRequest("test@test.com", "pass", "Name")
+        val request = RegisterRequest("test@test.com", "pass", "Name", ConsentRequest(true, true, Instant.now().toString(), "1.0", "1.0.0", "uk-UA"))
         whenever(userRepository.existsByEmail(any())).thenReturn(true)
 
         assertThrows<RuntimeException> {
-            authService.register(request)
+            authService.register(request, mock<HttpServletRequest>())
         }
     }
 

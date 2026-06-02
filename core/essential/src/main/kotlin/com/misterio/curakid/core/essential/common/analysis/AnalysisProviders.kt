@@ -4,7 +4,7 @@ import java.math.BigDecimal
 import java.util.UUID
 
 interface KnowledgeProvider {
-    fun search(query: String, urgencyScore: BigDecimal): List<KnowledgeChunkDto>
+    fun search(query: String, urgencyScore: BigDecimal, ageMonths: Int? = null): List<KnowledgeChunkDto>
 }
 
 data class KnowledgeChunkDto(
@@ -33,7 +33,17 @@ data class IntelligenceRequest(
     val selfCareScore: BigDecimal?,
     val sensoryScore: BigDecimal?,
     val rules: List<FuzzyRule>,
-    val norms: Map<String, Map<String, Double>> = emptyMap()
+    val norms: Map<String, Map<String, Double>> = emptyMap(),
+
+    // Trend analysis (Growth Velocity)
+    val wfaVelocity: BigDecimal? = null,
+    val hfaVelocity: BigDecimal? = null,
+    val bmiVelocity: BigDecimal? = null,
+    val hcfaVelocity: BigDecimal? = null,
+    val wfhVelocity: BigDecimal? = null,
+
+    // Development regression flags (per domain)
+    val regressions: Map<String, Boolean> = emptyMap()
 )
 
 data class FuzzyRule(
@@ -54,8 +64,14 @@ data class IntelligenceResponse(
     val isFallback: Boolean
 )
 
+data class KnowledgeDocument(
+    val content: String,
+    val metadata: Map<String, Any> = emptyMap()
+)
+
 interface EmbeddingProvider {
     fun generateEmbedding(text: String): List<Float>?
+    fun embed(document: KnowledgeDocument): List<Float>?
 }
 
 interface ReportProvider {

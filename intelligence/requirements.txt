@@ -1,7 +1,15 @@
-fastapi
-uvicorn
-pydantic
-sentence-transformers
-scikit-fuzzy
-numpy
-torch --index-url https://download.pytorch.org/whl/cpu
+# torch torchvision --extra-index-url https://download.pytorch.org/whl/cpu
+# ---------- API ----------
+
+networkx==3.4.2
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+packaging==24.2
+
+# ---------- Math ----------
+
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.5.2
+scikit-fuzzy==0.5.0

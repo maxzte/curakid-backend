@@ -5,6 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curakid Admin - Вікові періоди</title>
     <th:block th:replace="admin/fragments :: head-links"></th:block>
+    <style>
+        .tips-list {
+            margin-top: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .tip-item {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .tip-item input {
+            flex: 1;
+        }
+        .add-tip-btn {
+            background-color: var(--success);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+        .remove-tip-btn {
+            background-color: var(--error);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        .section-header {
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.25rem;
+        }
+    </style>
 </head>
 <body>
 
@@ -40,12 +77,42 @@
                     </div>
                 </div>
 
+                <div class="section-header">Опис (JSON)</div>
                 <div class="form-group">
-                    <label for="description">Опис періоду</label>
-                    <textarea id="description" class="form-control" required placeholder="Короткий опис особливостей розвитку в цей період..."></textarea>
+                    <label for="title">Заголовок періоду</label>
+                    <input type="text" id="title" class="form-control" required placeholder="Напр: Час перших відкриттів">
+                </div>
+                <div class="form-group">
+                    <label for="subtitle">Підзаголовок/Суть</label>
+                    <textarea id="subtitle" class="form-control" required placeholder="Короткий опис особливостей..."></textarea>
                 </div>
 
-                <button type="submit" class="btn" id="submit-btn">Зберегти період</button>
+                <div class="section-header">Ключові досягнення (Milestones)</div>
+                <div class="form-group">
+                    <label for="milestone-movement">Рухова активність</label>
+                    <input type="text" id="milestone-movement" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="milestone-speech">Мовлення</label>
+                    <input type="text" id="milestone-speech" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="milestone-cognition">Пізнання</label>
+                    <input type="text" id="milestone-cognition" class="form-control" required>
+                </div>
+
+                <div class="section-header">Поради для батьків (Tips)</div>
+                <div id="add-tips-list" class="tips-list">
+                    <div class="tip-item">
+                        <input type="text" class="form-control tip-input" placeholder="Порада...">
+                        <button type="button" class="btn remove-tip-btn" onclick="removeTip(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn add-tip-btn" onclick="addTip('add-tips-list')">+ Додати пораду</button>
+
+                <div style="margin-top: 2rem;">
+                    <button type="submit" class="btn" id="submit-btn">Зберегти період</button>
+                </div>
             </form>
         </div>
 
@@ -73,7 +140,7 @@
 
     <!-- Edit Modal -->
     <div id="edit-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
                 <h3>Редагувати період</h3>
                 <span class="close-modal" onclick="closeModal()">&times;</span>
@@ -102,12 +169,35 @@
                     </div>
                 </div>
 
+                <div class="section-header">Опис (JSON)</div>
                 <div class="form-group">
-                    <label for="edit-description">Опис періоду</label>
-                    <textarea id="edit-description" class="form-control" required></textarea>
+                    <label for="edit-title">Заголовок періоду</label>
+                    <input type="text" id="edit-title" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-subtitle">Підзаголовок/Суть</label>
+                    <textarea id="edit-subtitle" class="form-control" required></textarea>
                 </div>
 
-                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <div class="section-header">Ключові досягнення (Milestones)</div>
+                <div class="form-group">
+                    <label for="edit-milestone-movement">Рухова активність</label>
+                    <input type="text" id="edit-milestone-movement" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-milestone-speech">Мовлення</label>
+                    <input type="text" id="edit-milestone-speech" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-milestone-cognition">Пізнання</label>
+                    <input type="text" id="edit-milestone-cognition" class="form-control" required>
+                </div>
+
+                <div class="section-header">Поради для батьків (Tips)</div>
+                <div id="edit-tips-list" class="tips-list"></div>
+                <button type="button" class="btn add-tip-btn" onclick="addTip('edit-tips-list')">+ Додати пораду</button>
+
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">Скасувати</button>
                     <button type="submit" class="btn">Оновити</button>
                 </div>
@@ -121,6 +211,41 @@
         let periods = [];
         fetchPeriods();
 
+        function addTip(containerId, value = '') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = 'tip-item';
+            div.innerHTML = `
+                <input type="text" class="form-control tip-input" placeholder="Порада..." value="${value}">
+                <button type="button" class="btn remove-tip-btn" onclick="removeTip(this)">×</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeTip(btn) {
+            btn.parentElement.remove();
+        }
+
+        function collectTips(containerId) {
+            const inputs = document.querySelectorAll(`#${containerId} .tip-input`);
+            return Array.from(inputs).map(i => i.value).filter(v => v.trim() !== '');
+        }
+
+        function constructDescription(prefix) {
+            const tips = collectTips(prefix + 'tips-list');
+            return JSON.stringify({
+                ua: {
+                    title: document.getElementById(prefix + 'title').value,
+                    subtitle: document.getElementById(prefix + 'subtitle').value,
+                    milestones: {
+                        movement: document.getElementById(prefix + 'milestone-movement').value,
+                        speech: document.getElementById(prefix + 'milestone-speech').value,
+                        cognition: document.getElementById(prefix + 'milestone-cognition').value
+                    },
+                    tips: tips
+                }
+            });
+        }
 
         async function fetchPeriods() {
             try {
@@ -162,7 +287,7 @@
                 label: document.getElementById('label').value,
                 minMonths: parseInt(document.getElementById('minMonths').value),
                 maxMonths: parseInt(document.getElementById('maxMonths').value),
-                description: document.getElementById('description').value
+                description: constructDescription('')
             };
 
             try {
@@ -173,6 +298,8 @@
                 if (response && response.ok) {
                     AdminAuth.showToast('Період успішно додано!', 'success');
                     e.target.reset();
+                    document.getElementById('add-tips-list').innerHTML = '';
+                    addTip('add-tips-list');
                     fetchPeriods();
                 }
             } catch (err) {
@@ -189,7 +316,37 @@
             document.getElementById('edit-label').value = p.label;
             document.getElementById('edit-minMonths').value = p.minMonths;
             document.getElementById('edit-maxMonths').value = p.maxMonths;
-            document.getElementById('edit-description').value = p.description || '';
+
+            // Parse description JSON
+            let desc = { ua: { title: '', subtitle: '', milestones: { movement: '', speech: '', cognition: '' }, tips: [] } };
+            try {
+                if (p.description) {
+                    desc = JSON.parse(p.description);
+                }
+            } catch (e) {
+                console.error("Failed to parse description", e);
+                desc.ua.subtitle = p.description; // fallback if not JSON
+            }
+
+            const data = desc.ua || desc;
+            document.getElementById('edit-title').value = data.title || '';
+            document.getElementById('edit-subtitle').value = data.subtitle || '';
+            document.getElementById('edit-milestone-movement').value = data.milestones?.movement || '';
+            document.getElementById('edit-milestone-speech').value = data.milestones?.speech || '';
+            document.getElementById('edit-milestone-cognition').value = data.milestones?.cognition || '';
+
+            // Tips
+            const tipsContainer = document.getElementById('edit-tips-list');
+            tipsContainer.innerHTML = '';
+            if (data.tips && Array.isArray(data.tips)) {
+                data.tips.forEach(t => addTip('edit-tips-list', t));
+            } else if (data.tip) { // legacy single tip
+                addTip('edit-tips-list', data.tip);
+            }
+            if (tipsContainer.children.length === 0) {
+                addTip('edit-tips-list');
+            }
+
             document.getElementById('edit-modal').classList.add('open');
         }
 
@@ -205,7 +362,7 @@
                 label: document.getElementById('edit-label').value,
                 minMonths: parseInt(document.getElementById('edit-minMonths').value),
                 maxMonths: parseInt(document.getElementById('edit-maxMonths').value),
-                description: document.getElementById('edit-description').value
+                description: constructDescription('edit-')
             };
 
             try {

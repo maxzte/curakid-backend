@@ -23,6 +23,7 @@ class JwtAuthenticationFilter(
         filterChain: FilterChain
     ) {
         val authHeader = request.getHeader("Authorization")
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response)
             return
@@ -40,8 +41,14 @@ class JwtAuthenticationFilter(
             val jti = jwtService.extractJti(jwt)
 
             if (userEmail != null && SecurityContextHolder.getContext().authentication == null) {
+                val blacklisted = try {
+                    jti != null && tokenBlacklistService.isBlacklisted(jti)
+                } catch (e: Exception) {
+                    logger.error("Blacklist check failed: ${e.message}", e)
+                    false
+                }
 
-                if (jti != null && tokenBlacklistService.isBlacklisted(jti)) {
+                if (blacklisted) {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token revoked")
                     return
                 }
@@ -53,19 +60,17 @@ class JwtAuthenticationFilter(
                 }
 
                 val authToken = UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    userDetails.authorities
+                    userDetails, null, userDetails.authorities
                 )
-
                 authToken.details = WebAuthenticationDetailsSource().buildDetails(request)
                 SecurityContextHolder.getContext().authentication = authToken
             }
         } catch (e: Exception) {
-            logger.debug("Authentication failed: ${e.message}")
+            logger.error("Authentication failed: ${e.message}", e)
             if (!response.isCommitted) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token")
             }
+            return
         }
 
         filterChain.doFilter(request, response)

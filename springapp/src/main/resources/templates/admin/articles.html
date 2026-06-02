@@ -35,32 +35,74 @@
         </div>
 
         <div class="card fade-in">
-            <h3>Додати нову статтю</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0;">Додати нову статтю</h3>
+                <div style="display: flex; background: var(--bg-color); border-radius: 8px; padding: 4px;">
+                    <button id="toggle-manual" class="btn-toggle active" onclick="setUploadMode('manual')">Текст</button>
+                    <button id="toggle-file" class="btn-toggle" onclick="setUploadMode('file')">Файл</button>
+                </div>
+            </div>
             <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Контент буде векторизовано та збережено для інтелектуального пошуку (RAG).</p>
             
             <form id="add-article-form">
-                <div class="form-group">
-                    <label for="title">Заголовок</label>
-                    <input type="text" id="title" class="form-control" required placeholder="Напр: Ознаки аутизму у малюків">
-                </div>
-                
-                <div class="form-group">
-                    <label for="category">Категорія</label>
-                    <select id="category" class="form-control" required>
-                        <option value="">Завантаження категорій...</option>
-                    </select>
+                <div class="form-row" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="form-group" style="flex: 2;">
+                        <label for="title">Заголовок</label>
+                        <input type="text" id="title" class="form-control" required placeholder="Напр: Ознаки аутизму у малюків">
+                    </div>
+
+                    <div class="form-group" style="flex: 1;">
+                        <label for="category">Категорія</label>
+                        <select id="category" class="form-control" required>
+                            <option value="">Завантаження категорій...</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-row" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="minAge">Мін. вік (міс)</label>
+                        <input type="number" id="minAge" class="form-control" placeholder="0">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="maxAge">Макс. вік (міс)</label>
+                        <input type="number" id="maxAge" class="form-control" placeholder="72">
+                    </div>
+                </div>
+
+                <div id="manual-input-section" class="form-group">
                     <label for="content">Текст статті</label>
-                    <textarea id="content" class="form-control" required placeholder="Вставте повний текст медичного протоколу або статті тут..."></textarea>
+                    <textarea id="content" class="form-control" placeholder="Вставте повний текст медичного протоколу або статті тут..."></textarea>
                 </div>
 
-                <button type="submit" class="btn" id="submit-btn">
+                <div id="file-input-section" class="form-group" style="display: none;">
+                    <label for="file">Виберіть файл (.txt, .pdf)</label>
+                    <input type="file" id="file" class="form-control" accept=".txt,.pdf">
+                </div>
+
+                <button type="submit" class="btn" id="submit-btn" style="width: 100%; margin-top: 1rem;">
                     <span>Зберегти та згенерувати вектори</span>
                 </button>
             </form>
         </div>
+
+        <style>
+            .btn-toggle {
+                border: none;
+                background: transparent;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                color: var(--text-muted);
+                transition: all 0.2s;
+            }
+            .btn-toggle.active {
+                background: white;
+                color: var(--primary);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+        </style>
 
         <div class="card fade-in" style="margin-top: 2rem;">
             <h3>Існуючі статті</h3>
@@ -93,6 +135,18 @@
 
 
         let categories = [];
+        let uploadMode = 'manual';
+
+        function setUploadMode(mode) {
+            uploadMode = mode;
+            document.getElementById('toggle-manual').classList.toggle('active', mode === 'manual');
+            document.getElementById('toggle-file').classList.toggle('active', mode === 'file');
+            document.getElementById('manual-input-section').style.display = mode === 'manual' ? 'block' : 'none';
+            document.getElementById('file-input-section').style.display = mode === 'file' ? 'block' : 'none';
+
+            document.getElementById('content').required = mode === 'manual';
+            document.getElementById('file').required = mode === 'file';
+        }
 
         async function fetchCategories() {
             try {
@@ -149,25 +203,46 @@
         document.getElementById('add-article-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
-            
-            const payload = {
-                title: document.getElementById('title').value,
-                categoryId: document.getElementById('category').value,
-                content: document.getElementById('content').value
-            };
+            const title = document.getElementById('title').value;
+            const categoryId = document.getElementById('category').value;
+            const minAge = document.getElementById('minAge').value;
+            const maxAge = document.getElementById('maxAge').value;
 
             try {
                 btn.disabled = true;
                 btn.textContent = 'Обробка...';
 
-                const response = await AdminAuth.apiFetch('/api/admin/knowledge', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
+                let response;
+                if (uploadMode === 'manual') {
+                    const payload = {
+                        title: title,
+                        categoryId: categoryId,
+                        content: document.getElementById('content').value,
+                        // Note: Backend JSON endpoint might need update to support age,
+                        // but for now we focus on the file upload which we just added.
+                    };
+                    response = await AdminAuth.apiFetch('/api/admin/knowledge', {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    const formData = new FormData();
+                    formData.append('title', title);
+                    formData.append('categoryId', categoryId);
+                    formData.append('file', document.getElementById('file').files[0]);
+                    if (minAge) formData.append('minAge', minAge);
+                    if (maxAge) formData.append('maxAge', maxAge);
+
+                    response = await AdminAuth.apiFetch('/api/admin/knowledge/upload', {
+                        method: 'POST',
+                        body: formData // AdminAuth.apiFetch needs to handle FormData correctly (no JSON stringify)
+                    });
+                }
 
                 if (response && response.ok) {
                     AdminAuth.showToast('Статтю збережено та векторизовано успішно!', 'success');
                     e.target.reset();
+                    setUploadMode('manual');
                     await fetchArticles();
                 }
 

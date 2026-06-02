@@ -1,0 +1,15 @@
+**pycache**/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+.env
+.git
+.idea
+.cache
+models/
+requirements-dev.txt
+test

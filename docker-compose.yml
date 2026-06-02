@@ -8,11 +8,24 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_MAIL_HOST=${SPRING_MAIL_HOST}
+      - SPRING_MAIL_PORT=${SPRING_MAIL_PORT}
+      - SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD}
+#      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
-      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - SPRING_AI_GOOGLE_GENAI_EMBEDDING_MODEL=text-embedding-004
+      - SPRING_MAIN_LAZY_INITIALIZATION=true
+      - SPRING_JMX_ENABLED=false
+      - SPRING_JPA_PROPERTIES_HIBERNATE_QUERY_PLAN_CACHE_MAX_SIZE=64
+      - JAVA_OPTS=-Xmx96m -Xms64m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=192m -XX:TieredStopAtLevel=1 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+#      - JAVA_OPTS=-Xmx256M -Xms128M -XX:+ExitOnOutOfMemoryError -XX:TieredStopAtLevel=1 -Xss256k -XX:MaxMetaspaceSize=128M -XX:MaxRAMPercentage=75
+    deploy:
+      resources:
+        limits:
+          memory: 350M
     networks:
       - curakid-network
     depends_on:
@@ -47,6 +60,12 @@ services:
           path: ./build-logic
 
   intelligence:
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     build:
       context: ./intelligence
       dockerfile: Dockerfile
@@ -54,9 +73,9 @@ services:
       - "8000:8000"
     environment:
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
-      - TRANSFORMERS_CACHE=/cache/huggingface
-    volumes:
-      - hf-cache:/cache/huggingface
+      - HF_HOME=/app/hf_cache
+      - HF_HUB_OFFLINE=0
+      - TRANSFORMERS_OFFLINE=0
     networks:
       - curakid-network
     develop:
@@ -66,12 +85,14 @@ services:
           target: /app
           ignore:
             - __pycache__/
+            - .venv/
             - venv/
         - action: rebuild
           path: ./intelligence/requirements.txt
-
-volumes:
-  hf-cache:
+    deploy:
+      resources:
+        limits:
+          memory: 150M
 
 networks:
   curakid-network:

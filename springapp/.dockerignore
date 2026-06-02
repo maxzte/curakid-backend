@@ -1,0 +1,14 @@
+# Gradle artifacts
+.gradle/
+build/
+*/build/
+bin/
+
+# Documentation & Design
+*.md
+.git/
+
+# Docker related
+Dockerfile
+docker-compose*
+.dockerignore

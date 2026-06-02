@@ -12,24 +12,29 @@ COPY build-logic/ build-logic/
 
 # Module configs
 COPY springapp/build.gradle.kts springapp/
-COPY core/essential/build.gradle.kts core/essential/
-COPY core/security/build.gradle.kts core/security/
+
 COPY core/database/build.gradle.kts core/database/
+COPY core/essential/build.gradle.kts core/essential/
+COPY core/medical/build.gradle.kts core/medical/
+COPY core/security/build.gradle.kts core/security/
+
+COPY feature/assessments/build.gradle.kts feature/assessments/
 COPY feature/auth/build.gradle.kts feature/auth/
+COPY feature/chat/build.gradle.kts feature/chat/
 COPY feature/children/build.gradle.kts feature/children/
 COPY feature/development/build.gradle.kts feature/development/
-COPY feature/measurements/build.gradle.kts feature/measurements/
-COPY feature/knowledge/build.gradle.kts feature/knowledge/
-COPY feature/reports/build.gradle.kts feature/reports/
+COPY feature/event/build.gradle.kts feature/event/
 COPY feature/fis/build.gradle.kts feature/fis/
-COPY feature/vaccine/build.gradle.kts feature/vaccine/
+COPY feature/knowledge/build.gradle.kts feature/knowledge/
+COPY feature/measurements/build.gradle.kts feature/measurements/
+COPY feature/reports/build.gradle.kts feature/reports/
 
 # Pre-fetch dependencies (кешується як окремий шар)
-RUN ./gradlew :springapp:dependencies --no-daemon || true
+RUN --mount=type=cache,target=/root/.gradle ./gradlew :springapp:dependencies --no-daemon
 
 # Copy all source code and build
 COPY . .
-RUN ./gradlew :springapp:bootJar --no-daemon
+RUN --mount=type=cache,target=/root/.gradle ./gradlew :springapp:bootJar --no-daemon
 
 # Stage 2: Extract layers
 FROM eclipse-temurin:21-jre-jammy AS extract
@@ -41,6 +46,9 @@ RUN java -Djarmode=layertools -jar app.jar extract
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
+RUN useradd -m springuser
+USER springuser
+
 COPY --from=extract /app/dependencies/ ./
 COPY --from=extract /app/spring-boot-loader/ ./
 COPY --from=extract /app/snapshot-dependencies/ ./
@@ -48,4 +56,4 @@ COPY --from=extract /app/application/ ./
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Djava.security.egd=file:/dev/./urandom org.springframework.boot.loader.launch.JarLauncher"]

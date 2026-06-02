@@ -1,0 +1,37 @@
+# --- Global ---
+.git/
+.idea/
+.vscode/
+*.md
+.agents/
+.artifacts/
+.kotlin/
+example/
+examplefeature/
+docs/
+
+# --- Java/Gradle ---
+.gradle/
+**/build/
+!springapp/build/libs/*.jar
+bin/
+out/
+
+# --- Python (Intelligence) ---
+# Оскільки контекст бекенду - весь корінь,
+# ігноруємо все важке від Python-сервісу
+intelligence/venv/
+intelligence/__pycache__/
+intelligence/.cache/
+**/models/cache/
+.pytest_cache/
+*.pyc
+*.pyo
+
+# --- Docker ---
+Dockerfile
+.dockerignore
+docker-compose*
+
+.env
+.env.*

@@ -1,5 +1,6 @@
 HELP.md
 PLAN.md
+.DS_Store
 .artifacts
 .gradle
 build/

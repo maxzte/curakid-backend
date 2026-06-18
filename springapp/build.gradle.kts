@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.spring.boot.starter.cache)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.mail)
 
     implementation(libs.spring.ai.google.gemini)
     implementation(libs.pdfbox)
@@ -42,6 +43,8 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.spring.security.test)
+
+    testImplementation(libs.google.api.client)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
 }

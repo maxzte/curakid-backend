@@ -35,7 +35,7 @@ class LifePeriodQuestionService(
                         speech = ua.get("milestones")?.get("speech")?.asString() ?: "",
                         cognition = ua.get("milestones")?.get("cognition")?.asString() ?: ""
                     ),
-                    tips = ua.get("tips")?.map { it.asText() } ?: emptyList()
+                    tips = ua.get("tips")?.map { it.asString() } ?: emptyList()
                 )
             } catch (e: Exception) {
                 LifePeriodDescription("", json, LifePeriodMilestones("", "", ""), emptyList())

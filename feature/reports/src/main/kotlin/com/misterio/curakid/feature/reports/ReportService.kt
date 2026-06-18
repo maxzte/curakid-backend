@@ -157,7 +157,7 @@ class ReportService(
     }
 
     @Transactional(readOnly = true)
-    private fun preparePeriodReportContext(childId: UUID, periodId: UUID): ReportContext? {
+    internal fun preparePeriodReportContext(childId: UUID, periodId: UUID): ReportContext? {
         val child = childRepository.findById(childId).getOrNull() ?: return null
         val periodSummary = periodSummaryRepository.findById(periodId).getOrNull() ?: return null
 
@@ -560,7 +560,7 @@ class ReportService(
         return queryParts.joinToString(", ")
     }
 
-    private fun buildPrompt(
+    internal fun buildPrompt(
         childData: ChildData,
         ageMonths: Int,
         ageDays: Int = 0,
@@ -793,7 +793,7 @@ class ReportService(
     }
 }
 
-private data class DomainScores(
+internal data class DomainScores(
     val motorGross: BigDecimal? = null,
     val motorFine: BigDecimal? = null,
     val speech: BigDecimal? = null,
@@ -804,7 +804,7 @@ private data class DomainScores(
     val regressions: Map<String, Boolean> = emptyMap()
 )
 
-private data class ChildData(
+internal data class ChildData(
     val gender: Gender,
     val isPremature: Boolean,
     val allergies: List<String>,
@@ -813,7 +813,7 @@ private data class ChildData(
     val notes: List<String>,
 )
 
-private data class MeasurementSummary(
+internal data class MeasurementSummary(
     val wfaZscore: BigDecimal?,
     val hfaZscore: BigDecimal?,
     val bmiZscore: BigDecimal?,
@@ -837,7 +837,7 @@ private data class GeneratedReport(
     val isFallback: Boolean
 )
 
-private data class ReportContext(
+internal data class ReportContext(
     val childId: UUID,
     val ageMonths: Int,
     val ageDays: Int,

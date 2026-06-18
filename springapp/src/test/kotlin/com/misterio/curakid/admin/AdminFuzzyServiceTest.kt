@@ -4,43 +4,43 @@ import com.misterio.curakid.admin.service.AdminFuzzyService
 import com.misterio.curakid.core.database.knowledge.FuzzyDomain
 import com.misterio.curakid.core.database.knowledge.FuzzyRuleEntity
 import com.misterio.curakid.core.database.knowledge.FuzzyRuleRepository
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.*
-import java.util.*
+import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.Mock
+import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import java.util.Optional
+import java.util.UUID
 
+@ExtendWith(MockitoExtension::class)
 class AdminFuzzyServiceTest {
 
-    private lateinit var repository: FuzzyRuleRepository
+    @Mock lateinit var repository: FuzzyRuleRepository
     private lateinit var service: AdminFuzzyService
 
     @BeforeEach
     fun setUp() {
-        repository = mock()
         service = AdminFuzzyService(repository)
     }
 
     @Test
     fun `getRules should call repository findAll`() {
         whenever(repository.findAll()).thenReturn(listOf(FuzzyRuleEntity(domain = FuzzyDomain.GENERAL)))
-        
+
         val result = service.getRules()
-        
+
         assertEquals(1, result.size)
         verify(repository).findAll()
     }
 
     @Test
     fun `updateRules should clear old rules and save new ones`() {
-        val newRules = listOf(
-            mapOf(
-                "domain" to "PHYSICAL",
-                "conditions" to listOf(mapOf("variable" to "zscore", "term" to "low")),
-                "consequent" to "HIGH",
-                "isActive" to true
-            )
-        )
+        val newRules = listOf(mapOf("domain" to "PHYSICAL", "conditions" to listOf(mapOf("variable" to "zscore", "term" to "low")), "consequent" to "HIGH", "isActive" to true))
         whenever(repository.saveAll(any<List<FuzzyRuleEntity>>())).thenAnswer { it.arguments[0] }
 
         val result = service.updateRules(newRules)
@@ -54,10 +54,7 @@ class AdminFuzzyServiceTest {
     @Test
     fun `toggleRule should flip isActive flag`() {
         val ruleId = UUID.randomUUID()
-        val rule = FuzzyRuleEntity(domain = FuzzyDomain.GENERAL).apply { 
-            id = ruleId
-            isActive = true 
-        }
+        val rule = FuzzyRuleEntity(domain = FuzzyDomain.GENERAL).apply { id = ruleId; isActive = true }
         whenever(repository.findById(ruleId)).thenReturn(Optional.of(rule))
         whenever(repository.save(any())).thenAnswer { it.arguments[0] }
 

@@ -9,4 +9,6 @@ dependencies {
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.google.genai.embedding)
+
+    testImplementation(libs.okhttp.mockwebserver)
 }

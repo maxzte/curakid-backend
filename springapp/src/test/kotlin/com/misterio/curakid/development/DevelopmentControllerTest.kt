@@ -1,6 +1,12 @@
 package com.misterio.curakid.development
 
-import com.misterio.curakid.feature.development.*
+import com.misterio.curakid.feature.development.DevelopmentController
+import com.misterio.curakid.feature.development.LifePeriodQuestionService
+import com.misterio.curakid.feature.development.LifePeriodMilestones
+import com.misterio.curakid.feature.development.OptionResponse
+import com.misterio.curakid.feature.development.LifePeriodDescription
+import com.misterio.curakid.feature.development.LifePeriodResponse
+import com.misterio.curakid.feature.development.QuestionResponse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
@@ -8,10 +14,12 @@ import org.mockito.kotlin.whenever
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.math.BigDecimal
-import java.util.*
+import java.util.UUID
 
 class DevelopmentControllerTest {
 
@@ -28,11 +36,16 @@ class DevelopmentControllerTest {
     @Test
     fun `GET life-periods returns 200 with list`() {
         val periods = listOf(
-            PeriodResponse(
-                periodId = UUID.randomUUID(),
+            LifePeriodResponse(
+                id = UUID.randomUUID(),
                 code = "P1M",
                 label = "1 міс",
-                description = "lorem ipsum",
+                description = LifePeriodDescription(
+                    "Title",
+                    "Subtitle",
+                    LifePeriodMilestones("m", "s", "c"),
+                    emptyList()
+                ),
                 minMonths = 1,
                 maxMonths = 1,
                 questions = listOf(
@@ -61,11 +74,16 @@ class DevelopmentControllerTest {
 
     @Test
     fun `GET life-periods by code returns 200`() {
-        val period = PeriodResponse(
-            periodId = UUID.randomUUID(),
+        val period = LifePeriodResponse(
+            id = UUID.randomUUID(),
             code = "P3_4M",
             label = "3–4 міс",
-            description = "lorem ipsum",
+            description = LifePeriodDescription(
+                "Title",
+                "Subtitle",
+                LifePeriodMilestones("m", "s", "c"),
+                emptyList()
+            ),
             minMonths = 3,
             maxMonths = 4,
             questions = emptyList()

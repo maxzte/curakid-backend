@@ -1,10 +1,10 @@
 package com.misterio.curakid.feature.children
 
 import com.misterio.curakid.core.database.auth.User
-import com.misterio.curakid.core.essential.common.events.ChildCreatedEvent
 import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
+import com.misterio.curakid.core.essential.common.events.ChildCreatedEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -20,6 +20,10 @@ class ChildService(
         return childRepository.findAllByUser(user).map { ChildResponse.from(it) }
     }
 
+    fun hasChildren(user: User): Boolean {
+        return childRepository.findAllByUser(user).isNotEmpty()
+    }
+
     fun getChild(childId: UUID, user: User): ChildResponse {
         val child = childRepository.findByIdAndUser(childId, user)
             .orElseThrow { NoSuchElementException("Child not found") }
@@ -28,22 +32,28 @@ class ChildService(
 
     @Transactional
     fun createChild(user: User, request: CreateChildRequest): ChildResponse {
-        val managedUser = userRepository.findById(user.id!!)
+        val managedUser = userRepository.findById(user.id)
             .orElseThrow { NoSuchElementException("User not found") }
         managedUser.onboardingCompleted = true
+
+        val existing = childRepository.findById(request.id)
+        if (existing.isPresent) return ChildResponse.from(existing.get())
+
         val child = Child(
             user = user,
             name = request.name,
             birthDate = request.birthDate,
             gender = request.gender,
             isPremature = request.isPremature,
+            gestationalWeeks = request.gestationalWeeks,
             allergies = request.allergies ?: emptyList(),
             chronicConditions = request.chronicDiseases ?: emptyList(),
             pastIllnesses = request.pastDiseases ?: emptyList(),
             notes = request.specialFeatures ?: emptyList(),
-        )
+        ).apply { setId(request.id) }
+
         val saved = childRepository.save(child)
-        eventPublisher.publishEvent(ChildCreatedEvent(saved.id!!))
+        eventPublisher.publishEvent(ChildCreatedEvent(saved.id))
         return ChildResponse.from(saved)
     }
 
@@ -55,6 +65,7 @@ class ChildService(
         request.name?.let { child.name = it }
         request.birthDate?.let { child.birthDate = it }
         request.gender?.let { child.gender = it }
+        request.gestationalWeeks?.let { child.gestationalWeeks = it }
         request.allergies?.let { child.allergies = it }
         request.chronicDiseases?.let { child.chronicConditions = it }
         request.pastDiseases?.let { child.pastIllnesses = it }

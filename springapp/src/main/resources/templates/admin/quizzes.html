@@ -26,6 +26,7 @@
     </div>
 
     <script>
+        let allQuestionsGlobal = [];
         fetchPeriods();
 
         // Unified toast is used via AdminAuth.showToast
@@ -67,6 +68,10 @@
                 
                 const payload = await response.json();
                 const periods = normalizePeriodsPayload(payload).map(normalizePeriod);
+
+                // Build global questions list for prerequisites dropdown
+                allQuestionsGlobal = periods.flatMap(p => p.questions || []).filter(q => q.id);
+
                 renderPeriods(periods);
             } catch (err) {
                 AdminAuth.showToast(err.message, 'error');
@@ -98,7 +103,7 @@
                         ${renderQuestions(p.questions || [], p.id)}
 
                         <hr class="section-divider">
-                        <strong style="font-size: 0.95rem; display: block; margin-bottom: 0.5rem; color: var(--primary);">@Question: Додати запитання</strong>
+                        <strong style="font-size: 0.95rem; display: block; margin-bottom: 0.5rem; color: var(--primary);">Додати запитання</strong>
                         <div class="add-inline-form" style="flex-direction: column; align-items: stretch;">
                             <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                                 <div class="inline-field" style="flex: 2; min-width: 250px;">
@@ -119,12 +124,19 @@
                                 </div>
                                 <div class="inline-field">
                                     <label>Вага</label>
-                                    <input type="number" placeholder="1.0" step="0.1" value="1.0" id="q-weight-${p.id}" style="width: 80px;">
+                                    <input type="number" min="0.0" max="1.0" placeholder="1.0" step="0.1" value="1.0" id="q-weight-${p.id}" style="width: 80px;">
+                                </div>
+                                <div class="inline-field" style="flex: 1; min-width: 200px;">
+                                    <label>Базова навичка (Prerequisite)</label>
+                                    <select id="q-prereq-${p.id}" style="width: 100%;">
+                                        <option value="">Без передумови</option>
+                                        ${allQuestionsGlobal.map(aq => `<option value="${aq.id}">${aq.text.substring(0, 50)}...</option>`).join('')}
+                                    </select>
                                 </div>
                             </div>
                             
                             <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px dashed var(--border);">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">@AnswerOption: Варіанти відповідей:</label>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Варіанти відповідей:</label>
                                 <div id="q-options-container-${p.id}" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
                                     <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
                                         <input type="text" class="q-opt-text" value="Так" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
@@ -132,7 +144,7 @@
                                         <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
                                     </div>
                                     <div class="flex-row q-option-row" style="align-items: center; gap: 0.5rem;">
-                                        <input type="text" class="q-opt-text" value="Іноді / Частково" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                                        <input type="text" class="q-opt-text" value="Іноді" placeholder="Текст варіанту" style="flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
                                         <input type="number" step="any" min="0" max="100" class="q-opt-value" value="50.0" placeholder="Значення" style="width: 80px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
                                         <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
                                     </div>
@@ -175,7 +187,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div onclick="toggleOptions(this)" style="cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem;">
                                 <span class="toggle-icon" style="font-size: 0.7rem; color: var(--text-muted);">▶</span>
-                                <strong style="color: var(--primary);">@Question</strong>
+                                <strong style="color: var(--primary);">Питання</strong>
                             </div>
                             <div style="display: flex; gap: 0.5rem;">
                                 <button class="btn btn-sm btn-success" onclick="updateQuestionData('${q.id}')">✓</button>
@@ -198,11 +210,22 @@
                                 <label style="font-size: 0.7rem;">Вага</label>
                                 <input type="number" step="0.1" value="${q.weight}" id="q-weight-edit-${q.id}" style="width: 65px; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
                             </div>
+                            <div class="inline-field" style="flex: 1; min-width: 200px;">
+                                <label style="font-size: 0.7rem;">Базова навичка</label>
+                                <select id="q-prereq-edit-${q.id}" style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: white;">
+                                    <option value="">Без передумови</option>
+                                    ${allQuestionsGlobal.filter(aq => aq.id !== q.id).map(aq => `
+                                        <option value="${aq.id}" ${q.prerequisite?.id === aq.id ? 'selected' : ''}>
+                                            ${aq.text.substring(0, 50)}...
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
                     <div class="options-list">
-                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; display: block;">@AnswerOption:</label>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; display: block;">Варіант відповіді</label>
                         ${(q.options || []).map(o => `
                             <div class="option-item" style="gap: 0.5rem;">
                                 <input type="text" id="o-text-edit-${o.id}" value="${o.text}" style="flex: 1; border: 1px solid transparent; background: transparent; padding: 0.2rem; font-size: 0.9rem;">
@@ -215,7 +238,7 @@
 
                         <div class="add-inline-form" style="margin-top: 1rem; background: #ffffff;">
                             <div class="inline-field" style="flex: 1;">
-                                <label>@AnswerOption: Текст варіанту</label>
+                                <label>Текст варіанту</label>
                                 <input type="text" placeholder="Напр: Так" id="o-text-${q.id}">
                             </div>
                             <div class="inline-field">
@@ -268,6 +291,7 @@
             const text = document.getElementById(`q-text-${periodId}`).value;
             const domain = document.getElementById(`q-domain-${periodId}`).value;
             const weight = parseFloat(document.getElementById(`q-weight-${periodId}`).value);
+            const prerequisiteId = document.getElementById(`q-prereq-${periodId}`).value || null;
 
             const container = document.getElementById(`q-options-container-${periodId}`);
             const optionRows = container.querySelectorAll('.q-option-row');
@@ -296,7 +320,7 @@
             try {
                 const resp = await AdminAuth.apiFetch(`/api/admin/quiz/life-periods/${periodId}/questions`, {
                     method: 'POST',
-                    body: JSON.stringify({ text, domain, weight, options })
+                    body: JSON.stringify({ text, domain, weight, options, prerequisiteId })
                 });
                 if (resp && resp.ok) {
                     AdminAuth.showToast('Запитання додано', 'success');
@@ -309,13 +333,14 @@
             const text = document.getElementById(`q-text-edit-${id}`).value;
             const domain = document.getElementById(`q-domain-edit-${id}`).value;
             const weight = parseFloat(document.getElementById(`q-weight-edit-${id}`).value);
+            const prerequisiteId = document.getElementById(`q-prereq-edit-${id}`).value || null;
 
             if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
 
             try {
                 const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${id}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ text, domain, weight })
+                    body: JSON.stringify({ text, domain, weight, prerequisiteId })
                 });
                 if (resp && resp.ok) {
                     AdminAuth.showToast('Запитання оновлено', 'success');

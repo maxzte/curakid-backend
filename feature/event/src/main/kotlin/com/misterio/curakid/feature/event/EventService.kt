@@ -6,7 +6,6 @@ import com.misterio.curakid.core.database.event.Event
 import com.misterio.curakid.core.database.event.EventRepository
 import com.misterio.curakid.core.database.event.EventType
 import com.misterio.curakid.core.database.event.VaccineEventRepository
-import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -21,7 +20,8 @@ class EventService(
     fun getEventsForChild(childId: UUID, user: User): List<EventResponse> {
         val child = childRepository.findByIdAndUser(childId, user)
             .orElseThrow { NoSuchElementException("Child not found") }
-        return eventRepository.findAllByChildAndTypeNot(child, EventType.VACCINE).map { it.toResponse() }
+        return eventRepository.findAllByChildAndTypeNot(child, EventType.VACCINE)
+            .map { it.toResponse() }
     }
 
     fun getVaccineEventsFor(childId: UUID, user: User): List<VaccineEventResponse> {
@@ -41,6 +41,9 @@ class EventService(
         val child = childRepository.findByIdAndUser(request.childId, user)
             .orElseThrow { NoSuchElementException("Child not found") }
 
+        val existing = eventRepository.findById(request.id)
+        if (existing.isPresent) return existing.get().toResponse()
+
         val event = Event(
             title = request.title,
             type = request.type,
@@ -48,8 +51,8 @@ class EventService(
             location = request.location,
             description = request.description,
             child = child,
-            status = request.status
-        )
+            status = request.status,
+        ).apply { id = request.id }
 
         return eventRepository.save(event).toResponse()
     }
@@ -59,19 +62,33 @@ class EventService(
         val child = childRepository.findByIdAndUser(requests.first().childId, user)
             .orElseThrow { NoSuchElementException("Child not found") }
 
-        val events = requests.map { request ->
-            Event(
-                title = request.title,
-                type = request.type,
-                date = request.date,
-                location = request.location,
-                description = request.description,
-                child = child,
-                status = request.status
-            )
+        val results = mutableListOf<EventResponse>()
+        val toCreate = mutableListOf<Event>()
+
+        requests.forEach { request ->
+            val existing = eventRepository.findById(request.id).orElse(null)
+
+            if (existing != null) {
+                results.add(existing.toResponse())
+            } else {
+                val event = Event(
+                    title = request.title,
+                    type = request.type,
+                    date = request.date,
+                    location = request.location,
+                    description = request.description,
+                    child = child,
+                    status = request.status,
+                ).apply { id = request.id }
+                toCreate.add(event)
+            }
         }
-        val saved = eventRepository.saveAll(events)
-        return saved.map { it.toResponse() }
+
+        if (toCreate.isNotEmpty()) {
+            results.addAll(eventRepository.saveAll(toCreate).map { it.toResponse() })
+        }
+
+        return results
     }
 
     @Transactional

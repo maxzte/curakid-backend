@@ -6,11 +6,16 @@ import java.time.Instant
 import java.util.UUID
 
 data class ChatRequest(
+
+    @field:NotNull(message = "Chat ID is required")
+    val id: UUID,
+
     @field:NotNull(message = "Child ID is required")
     val childId: UUID?,
 
     @field:NotBlank(message = "Text cannot be blank")
-    val text: String?
+    val text: String?,
+
 )
 
 data class ChatMessageResponse(

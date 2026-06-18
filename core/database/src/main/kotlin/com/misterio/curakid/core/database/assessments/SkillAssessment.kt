@@ -1,16 +1,29 @@
 package com.misterio.curakid.core.database.assessments
 
+import com.misterio.curakid.core.database.BaseEntity
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.development.LifePeriod
-import com.misterio.curakid.core.database.BaseEntity
-import jakarta.persistence.*
-import org.hibernate.annotations.JdbcTypeCode
-import org.hibernate.type.SqlTypes
+import jakarta.persistence.CascadeType
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
+import jakarta.persistence.OneToMany
+import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.math.BigDecimal
 import java.time.Instant
 
 @Entity
-@Table(name = "skill_assessments")
+@Table(
+    name = "skill_assessments",
+    uniqueConstraints = [
+        UniqueConstraint(columnNames = ["child_id", "domain", "life_period_id"])
+    ]
+)
 class SkillAssessment(
 
     @ManyToOne(fetch = FetchType.LAZY)

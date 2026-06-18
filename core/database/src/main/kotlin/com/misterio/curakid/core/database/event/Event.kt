@@ -4,6 +4,7 @@ import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
 import java.time.Instant
+import java.util.*
 
 @Entity
 @Table(name = "events")
@@ -35,6 +36,7 @@ open class Event(
     open var status: EventStatus = EventStatus.PLANNED,
 
 ) : BaseEntity()
+
 
 enum class EventType {
     VACCINE,

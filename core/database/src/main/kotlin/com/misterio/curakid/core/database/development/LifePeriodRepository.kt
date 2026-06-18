@@ -11,20 +11,27 @@ interface LifePeriodRepository : JpaRepository<LifePeriod, UUID> {
     @Query(
         "SELECT DISTINCT lp FROM LifePeriod lp " +
             "LEFT JOIN FETCH lp.questions q " +
-            "WHERE lp.code = :code AND (q IS NULL OR q.isActive = true)"
+            "WHERE lp.code = :code"
     )
     fun findByCodeWithQuestions(code: String): Optional<LifePeriod>
 
     @Query(
         "SELECT DISTINCT lp FROM LifePeriod lp " +
         "LEFT JOIN FETCH lp.questions q " +
-        "WHERE (q IS NULL OR q.isActive = true) " +
         "ORDER BY lp.minMonths"
     )
     fun findAllWithQuestions(): List<LifePeriod>
+
     @Query(
         "SELECT lp FROM LifePeriod lp " +
         "WHERE :ageMonths >= lp.minMonths AND :ageMonths < lp.maxMonths"
     )
     fun findFirstByAgeMonths(ageMonths: Int): Optional<LifePeriod>
+
+    @Query("SELECT COUNT(sa) > 0 FROM SkillAssessment sa WHERE sa.lifePeriod.id = :periodId")
+    fun hasAssessments(periodId: UUID): Boolean
+
+    @Query("SELECT COUNT(ps) > 0 FROM PeriodSummary ps WHERE ps.lifePeriod.id = :periodId")
+    fun hasSummaries(periodId: UUID): Boolean
+
 }

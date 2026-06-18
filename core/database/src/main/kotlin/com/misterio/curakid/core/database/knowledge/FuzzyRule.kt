@@ -4,10 +4,12 @@ package com.misterio.curakid.core.database.knowledge
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
 import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.annotations.SQLRestriction
 import org.hibernate.type.SqlTypes
 
 @Entity
 @Table(name = "fuzzy_rules")
+@SQLRestriction("deleted_at IS NULL")
 class FuzzyRuleEntity(
 
     @Enumerated(EnumType.STRING)
@@ -21,10 +23,13 @@ class FuzzyRuleEntity(
     @Column(nullable = false)
     var consequent: String = "",
     
-    @Column(name = "is_active", nullable = false)
-    var isActive: Boolean = true
+    isActive: Boolean = true
 
-) : BaseEntity()
+) : BaseEntity() {
+    init {
+        this.isActive = isActive
+    }
+}
 
 data class FuzzyConditionData(
     var variable: String = "",

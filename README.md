@@ -64,30 +64,23 @@ docker-compose up intelligence
 - **Spring App**: `http://localhost:8080`
 - **Intelligence Service**: `http://localhost:8000` (перший запуск може тривати 2-5 хв через завантаження ML-моделі ~1GB)
 
-### 🧪 Тестування
-Для ручної перевірки Intelligence Service можна використати `curl`:
-```bash
-curl -X POST http://localhost:8000/embed \
-     -H "X-Internal-Key: your_shared_secret" \
-     -H "Content-Type: application/json" \
-     -d '{"text": "Привіт, світ"}'
-```
+---
 
-#### 1. Intelligence Service (Python)
+## 🧪 Тестування та Покриття (Test Coverage)
+
+### 1. Core Service (Kotlin/Spring)
+Для запуску тестів та генерації звіту JaCoCo:
+```bash
+./gradlew test jacocoTestReport
+```
+Звіт буде доступний за адресою: `springapp/build/reports/jacoco/test/html/index.html`.
+
+### 2. Intelligence Service (Python)
+Для запуску тестів з вимірюванням покриття:
 ```bash
 cd intelligence
-python -m venv venv
-source venv/bin/activate  # або venv\Scripts\activate для Windows
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-#### 2. Core Service (Spring Boot)
-Переконайтеся, що в `.env` або `application.yaml` параметр `FIS_BASE_URL` вказує на `http://localhost:8000`.
-
-```bash
-cd springapp
-./gradlew bootRun
+source .venv/bin/activate
+pytest --cov=src test/
 ```
 
 ---
@@ -104,20 +97,6 @@ cd springapp
 
 ---
 
-## 📝 Основні API Ендпоінти
-
-### Core Service (8080)
-- `POST /api/v1/auth/register` — реєстрація
-- `POST /api/v1/auth/login` — логін та отримання JWT
-- `GET /api/v1/profiles` — профілі дітей
-- `POST /api/v1/analysis/report` — генерація інтелектуального звіту
-
-### Intelligence Service (8000)
-- `POST /analyze` — нечіткий аналіз даних (захищено `INTERNAL_API_KEY`)
-- `POST /embeddings` — генерація векторів для тексту
-
----
-
 ## 🤝 Розробка
 Перед комітом переконайтеся, що код відформатований:
 - Для Kotlin: `./gradlew ktlintCheck`
@@ -125,6 +104,6 @@ cd springapp
 
 ## 🛠 Troubleshooting (Вирішення проблем)
 
-- **Backend не підключається до Intelligence**: При першому запуску `intelligence` завантажує ML-модель (~1GB). Бекенд може впасти з помилкою з'єднання. Просто зачекайте завершення завантаження та перезапустіть бекенд: `docker-compose restart backend`.
+- **Backend не підключається до Intelligence**: Бекенд може впасти з помилкою з'єднання. Просто зачекайте завершення завантаження та перезапустіть бекенд: `docker-compose restart backend`.
 - **Помилка JWT**: Переконайтеся, що `JWT_SECRET` у файлі `.env` має довжину не менше 32 символів (256 біт).
 - **Помилка "Extension 'vector' not found"**: Переконайтеся, що ваша база даних PostgreSQL підтримує `pgvector`. У Supabase це розширення вже встановлено, але його потрібно активувати (це робить `schema.sql`).

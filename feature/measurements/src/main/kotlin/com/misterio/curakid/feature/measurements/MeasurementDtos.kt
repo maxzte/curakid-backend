@@ -30,6 +30,7 @@ data class ChartNormPoint(
 
 // --- Requests ---
 data class AddMeasurementRequest(
+    @field:NotNull val id: UUID,
     @field:DecimalMin("0.1") val weightKg: BigDecimal?,
     @field:DecimalMin("0.1") val heightCm: BigDecimal?,
     @field:DecimalMin("0.1") val headCircCm: BigDecimal?,
@@ -58,8 +59,8 @@ data class MeasurementResponse(
 ) {
     companion object {
         fun from(m: Measurement, aiReportId: UUID?): MeasurementResponse = MeasurementResponse(
-            id = m.id!!,
-            childId = m.child!!.id!!,
+            id = m.id,
+            childId = m.child!!.id,
             weightKg = m.weightKg,
             heightCm = m.heightCm,
             headCircCm = m.headCircCm,

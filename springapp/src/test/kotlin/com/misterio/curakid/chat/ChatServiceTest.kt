@@ -32,7 +32,9 @@ import org.mockito.kotlin.whenever
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.core.task.TaskExecutor
 import reactor.core.publisher.Flux
+import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.Optional
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -92,7 +94,10 @@ class ChatServiceTest {
             child = child,
             userText = "Питання",
             aiText = "Відповідь",
-        ).apply { id = UUID.randomUUID() }
+        ).apply {
+            id = UUID.randomUUID()
+            createdAt = Instant.now()
+        }
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
         whenever(chatMessageRepository.findAllByChildOrderByCreatedAtAsc(child))
@@ -105,6 +110,41 @@ class ChatServiceTest {
         assertEquals(chatMessage.id, result[0].id)
         assertEquals(chatMessage.userText, result[0].userText)
         assertEquals(chatMessage.aiText, result[0].aiText)
+    }
+
+    @Test
+    fun `getChatHistory - filters messages older than 24 hours`() {
+        val userId = UUID.randomUUID()
+        val currentUser = makeUser(userId)
+        val child = makeChild(user = makeUser(userId))
+
+        val oldMessage = ChatMessage(
+            child = child,
+            userText = "Старе",
+            aiText = "Відповідь",
+        ).apply {
+            id = UUID.randomUUID()
+            createdAt = Instant.now().minus(25, ChronoUnit.HOURS)
+        }
+
+        val newMessage = ChatMessage(
+            child = child,
+            userText = "Нове",
+            aiText = "Відповідь",
+        ).apply {
+            id = UUID.randomUUID()
+            createdAt = Instant.now()
+        }
+
+        whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
+        whenever(chatMessageRepository.findAllByChildOrderByCreatedAtAsc(child))
+            .thenReturn(listOf(oldMessage, newMessage))
+
+        val result = chatService.getChatHistory(child.id!!, currentUser)
+
+        assertEquals(1, result.size)
+        assertEquals(newMessage.id, result[0].id)
+        assertEquals("Нове", result[0].userText)
     }
 
     @Test
@@ -138,7 +178,7 @@ class ChatServiceTest {
         val userId = UUID.randomUUID()
         val currentUser = makeUser(userId)
         val child = makeChild(user = makeUser(userId))
-        val request = ChatRequest(childId = child.id, text = "У дитини зубки ріжуться")
+        val request = ChatRequest(id = UUID.randomUUID(), childId = child.id, text = "У дитини зубки ріжуться")
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
         whenever(measurementRepository.findFirstByChildOrderByMeasurementDateDesc(child))
@@ -155,7 +195,8 @@ class ChatServiceTest {
         verify(chatMessageService).save(
             eq(child),
             eq("У дитини зубки ріжуться"),
-            eq("Перша частина відповіді.")
+            eq("Перша частина відповіді."),
+            eq(request.id)
         )
     }
 
@@ -163,7 +204,7 @@ class ChatServiceTest {
     fun `streamChatEvents - throws NoSuchElementException when child not found`() {
         val childId = UUID.randomUUID()
         val currentUser = makeUser()
-        val request = ChatRequest(childId = childId, text = "Текст")
+        val request = ChatRequest(id = UUID.randomUUID(), childId = childId, text = "Текст")
 
         whenever(childRepository.findById(childId)).thenReturn(Optional.empty())
 
@@ -176,7 +217,7 @@ class ChatServiceTest {
     fun `streamChatEvents - throws IllegalArgumentException when access denied`() {
         val currentUser = makeUser()
         val child = makeChild(user = makeUser())
-        val request = ChatRequest(childId = child.id, text = "Текст")
+        val request = ChatRequest(id = UUID.randomUUID(), childId = child.id, text = "Текст")
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
 
@@ -190,7 +231,7 @@ class ChatServiceTest {
         val userId = UUID.randomUUID()
         val currentUser = makeUser(userId)
         val child = makeChild(user = makeUser(userId))
-        val request = ChatRequest(childId = child.id, text = "Хелп")
+        val request = ChatRequest(id = UUID.randomUUID(), childId = child.id, text = "Хелп")
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
         whenever(measurementRepository.findFirstByChildOrderByMeasurementDateDesc(child))
@@ -207,7 +248,8 @@ class ChatServiceTest {
         verify(chatMessageService).save(
             eq(child),
             eq("Хелп"),
-            contains("[Помилка генерації]")
+            contains("[Помилка генерації]"),
+            eq(request.id)
         )
     }
 
@@ -216,7 +258,7 @@ class ChatServiceTest {
         val userId = UUID.randomUUID()
         val currentUser = makeUser(userId)
         val child = makeChild(user = makeUser(userId))
-        val request = ChatRequest(childId = child.id, text = "Тест")
+        val request = ChatRequest(id = UUID.randomUUID(), childId = child.id, text = "Тест")
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
         whenever(measurementRepository.findFirstByChildOrderByMeasurementDateDesc(child))
@@ -238,7 +280,8 @@ class ChatServiceTest {
         verify(chatMessageService).save(
             eq(child),
             eq("Тест"),
-            eq("Привіт \n[Помилка генерації]")
+            contains("Привіт"),
+            eq(request.id)
         )
     }
 
@@ -247,7 +290,7 @@ class ChatServiceTest {
         val userId = UUID.randomUUID()
         val currentUser = makeUser(userId)
         val child = makeChild(user = makeUser(userId))
-        val request = ChatRequest(childId = child.id, text = "Питання")
+        val request = ChatRequest(id = UUID.randomUUID(), childId = child.id, text = "Питання")
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
         whenever(measurementRepository.findFirstByChildOrderByMeasurementDateDesc(child))
@@ -269,7 +312,8 @@ class ChatServiceTest {
         verify(chatMessageService).save(
             eq(child),
             eq("Питання"),
-            eq("Часткова відповідь \n[Помилка генерації]")
+            eq("Часткова відповідь \n[Помилка генерації]"),
+            eq(request.id)
         )
     }
 }

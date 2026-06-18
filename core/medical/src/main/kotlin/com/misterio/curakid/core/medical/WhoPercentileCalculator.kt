@@ -40,6 +40,8 @@ class WhoPercentileCalculator {
     private val wfaGirls = mutableMapOf<Int, PercentileParams>()
     private val hfaBoys = mutableMapOf<Int, PercentileParams>()
     private val hfaGirls = mutableMapOf<Int, PercentileParams>()
+    private val wflBoys = mutableMapOf<Int, PercentileParams>()
+    private val wflGirls = mutableMapOf<Int, PercentileParams>()
     private val wfhBoys = mutableMapOf<Int, PercentileParams>()
     private val wfhGirls = mutableMapOf<Int, PercentileParams>()
     private val bmiBoys = mutableMapOf<Int, PercentileParams>()
@@ -49,16 +51,18 @@ class WhoPercentileCalculator {
 
     @PostConstruct
     fun init() {
-        loadPercentileData("who/wfa-e-boys.xlsx", wfaBoys)
-        loadPercentileData("who/wfa-e-girls.xlsx", wfaGirls)
-        loadPercentileData("who/lhfa-e-boys.xlsx", hfaBoys)
-        loadPercentileData("who/lhfa-e-girls.xlsx", hfaGirls)
-        loadWfhPercentileData("who/wfh-e-boys.xlsx", wfhBoys)
-        loadWfhPercentileData("who/wfh-e-girls.xlsx", wfhGirls)
-        loadPercentileData("who/bfa-e-boys.xlsx", bmiBoys)
-        loadPercentileData("who/bfa-e-girls.xlsx", bmiGirls)
-        loadPercentileData("who/hcfa-e-boys.xlsx", hcfaBoys)
-        loadPercentileData("who/hcfa-e-girls.xlsx", hcfaGirls)
+        loadPercentileData("precentile/wfa-e-boys.xlsx", wfaBoys)
+        loadPercentileData("precentile/wfa-e-girls.xlsx", wfaGirls)
+        loadPercentileData("precentile/lhfa-e-boys.xlsx", hfaBoys)
+        loadPercentileData("precentile/lhfa-e-girls.xlsx", hfaGirls)
+        loadWfhPercentileData("precentile/wfl-e-boys.xlsx", wflBoys)
+        loadWfhPercentileData("precentile/wfl-e-girls.xlsx", wflGirls)
+        loadWfhPercentileData("precentile/wfh-e-boys.xlsx", wfhBoys)
+        loadWfhPercentileData("precentile/wfh-e-girls.xlsx", wfhGirls)
+        loadPercentileData("precentile/bfa-e-boys.xlsx", bmiBoys)
+        loadPercentileData("precentile/bfa-e-girls.xlsx", bmiGirls)
+        loadPercentileData("precentile/hcfa-e-boys.xlsx", hcfaBoys)
+        loadPercentileData("precentile/hcfa-e-girls.xlsx", hcfaGirls)
     }
 
     private fun loadWfhPercentileData(path: String, map: MutableMap<Int, PercentileParams>) {
@@ -146,6 +150,7 @@ class WhoPercentileCalculator {
             ChartType.BMI -> if (isMale) bmiBoys else bmiGirls
             ChartType.HCFA -> if (isMale) hcfaBoys else hcfaGirls
             ChartType.WFH -> if (isMale) wfhBoys else wfhGirls
+            ChartType.WFL -> if (isMale) wflBoys else wflGirls
         }
     }
 
@@ -155,8 +160,18 @@ class WhoPercentileCalculator {
         return map[day] ?: map.minByOrNull { abs(it.key - day) }?.value
     }
 
-    fun getParamsForHeight(gender: Gender?, heightCm: Double): PercentileParams? {
-        val map = getRawMap(ChartType.WFH, gender)
+    /**
+     * Returns percentile params for weight-for-height/length.
+     * Uses WFL for children < 2 years (730 days) and WFH for older children.
+     */
+    fun getParamsForHeight(gender: Gender?, heightCm: Double, ageDays: Int): PercentileParams? {
+        val isMale = gender != Gender.FEMALE
+        val map = if (ageDays < 730) {
+            if (isMale) wflBoys else wflGirls
+        } else {
+            if (isMale) wfhBoys else wfhGirls
+        }
+
         val heightKey = (heightCm * 10).roundToInt()
         return map[heightKey] ?: map.minByOrNull { abs(it.key - heightKey) }?.value
     }

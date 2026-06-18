@@ -2,8 +2,7 @@ package com.misterio.curakid.admin
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.misterio.curakid.core.database.assessments.AssessmentDomain
-import com.misterio.curakid.core.database.auth.ConsentType
-import com.misterio.curakid.feature.development.PeriodDescription
+import com.misterio.curakid.feature.development.LifePeriodDescription
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -36,9 +35,31 @@ data class AdminLifePeriodResponse(
     val id: UUID,
     val code: String,
     val label: String,
-    val description: PeriodDescription,
+    val description: LifePeriodDescription,
     val minMonths: Int,
-    val maxMonths: Int
+    val maxMonths: Int,
+    val questions: List<AdminQuestionResponse> = emptyList()
+)
+
+data class AdminQuestionResponse(
+    val id: UUID,
+    val text: String,
+    val domain: AssessmentDomain,
+    val weight: BigDecimal,
+    val prerequisite: AdminPrerequisiteResponse? = null,
+    val options: List<AdminOptionResponse> = emptyList()
+)
+
+data class AdminPrerequisiteResponse(
+    val id: UUID,
+    val text: String
+)
+
+data class AdminOptionResponse(
+    val id: UUID,
+    val text: String,
+    val value: Double,
+    val order: Int
 )
 
 data class CreateQuizQuestionRequest(
@@ -48,6 +69,7 @@ data class CreateQuizQuestionRequest(
     val domain: AssessmentDomain,
     @field:NotNull
     val weight: BigDecimal,
+    val prerequisiteId: UUID? = null,
     @field:Valid
     val options: List<CreateAnswerOptionRequest> = emptyList()
 )

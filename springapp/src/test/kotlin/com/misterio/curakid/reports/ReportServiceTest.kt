@@ -1,5 +1,6 @@
 package com.misterio.curakid.reports
 
+import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.assessments.AssessmentDomain
 import com.misterio.curakid.core.database.assessments.SkillAssessment
 import com.misterio.curakid.core.database.assessments.SkillAssessmentRepository
@@ -16,6 +17,7 @@ import com.misterio.curakid.core.database.reports.PeriodSummary
 import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
 import com.misterio.curakid.core.essential.common.analysis.IntelligenceProvider
 import com.misterio.curakid.core.essential.common.analysis.KnowledgeProvider
+import com.misterio.curakid.core.medical.MeasurementCalculator
 import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import com.misterio.curakid.feature.reports.ReportService
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -50,6 +53,7 @@ class ReportServiceTest {
     private lateinit var chatClient: ChatClient
     private lateinit var percentileCalculator: WhoPercentileCalculator
     private lateinit var transactionTemplate: TransactionTemplate
+    private lateinit var measurementCalculator: MeasurementCalculator
     private lateinit var reportService: ReportService
 
     @BeforeEach
@@ -66,6 +70,7 @@ class ReportServiceTest {
         childRepository = mock()
         percentileCalculator = mock()
         transactionTemplate = mock()
+        measurementCalculator = MeasurementCalculator()
 
         // Mock transaction template to execute the block immediately
         whenever(transactionTemplate.execute(any<TransactionCallback<Any>>())).thenAnswer {
@@ -84,7 +89,8 @@ class ReportServiceTest {
             childRepository = childRepository,
             fuzzyRuleRepository = fuzzyRuleRepository,
             percentileCalculator = percentileCalculator,
-            transactionTemplate = transactionTemplate
+            transactionTemplate = transactionTemplate,
+            measurementCalculator = measurementCalculator
         )
     }
 
@@ -100,7 +106,7 @@ class ReportServiceTest {
 
         whenever(childRepository.findById(childId)).thenReturn(Optional.of(child))
         whenever(measurementRepository.findById(measurementId)).thenReturn(Optional.of(measurement))
-        whenever(measurementRepository.findTop5ByChildOrderByMeasurementDateDesc(any())).thenReturn(emptyList())
+        whenever(measurementRepository.findTop5ByChildAndMeasurementDateBeforeOrderByMeasurementDateDesc(any(), any())).thenReturn(emptyList())
         whenever(aiReportRepository.save(any())).thenAnswer {
             (it.arguments[0] as AiReport).apply { id = UUID.randomUUID() }
         }
@@ -138,10 +144,11 @@ class ReportServiceTest {
     @Test
     fun `getReportStatus should return true if report text is present`() {
         val reportId = UUID.randomUUID()
+        val user = User().apply { id = UUID.randomUUID() }
         val report = AiReport(reportText = "Done").apply { id = reportId }
-        whenever(aiReportRepository.findById(reportId)).thenReturn(Optional.of(report))
+        whenever(aiReportRepository.findByIdAndChildUser(eq(reportId), eq(user))).thenReturn(Optional.of(report))
 
-        val response = reportService.getReportStatus(reportId)
+        val response = reportService.getReportStatus(reportId, user)
 
         assertEquals(200, response.statusCode.value())
         assertEquals(true, response.body)
@@ -150,10 +157,11 @@ class ReportServiceTest {
     @Test
     fun `getReportStatus should return false if report text is null`() {
         val reportId = UUID.randomUUID()
+        val user = User().apply { id = UUID.randomUUID() }
         val report = AiReport(reportText = null).apply { id = reportId }
-        whenever(aiReportRepository.findById(reportId)).thenReturn(Optional.of(report))
+        whenever(aiReportRepository.findByIdAndChildUser(eq(reportId), eq(user))).thenReturn(Optional.of(report))
 
-        val response = reportService.getReportStatus(reportId)
+        val response = reportService.getReportStatus(reportId, user)
 
         assertEquals(false, response.body)
     }

@@ -5,12 +5,12 @@ import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.database.measurements.MeasurementWithReportProjection
 import com.misterio.curakid.core.essential.common.analysis.ReportProvider
+import com.misterio.curakid.core.medical.MeasurementCalculator
 import com.misterio.curakid.core.medical.WhoZScoreCalculator
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
-import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -21,6 +21,7 @@ class MeasurementService(
     private val measurementRepository: MeasurementRepository,
     private val whoZScoreCalculator: WhoZScoreCalculator,
     private val reportProvider: ReportProvider,
+    private val measurementCalculator: MeasurementCalculator,
 ) {
     private val log = LoggerFactory.getLogger(MeasurementService::class.java)
 
@@ -30,72 +31,153 @@ class MeasurementService(
 
     @Transactional
     fun addMeasurement(child: Child, request: AddMeasurementRequest): MeasurementResponse {
+        // 1. Try find by ID first (to support date/value updates of an existing record)
+        val byId = measurementRepository.findById(request.id)
+
+        val measurement = if (byId.isPresent) {
+            val existing = byId.get()
+            log.debug("Found measurement by ID: {}", request.id)
+            
+            // Check for date conflict if date is being changed
+            if (existing.measurementDate != request.measurementDate) {
+                val conflict = measurementRepository.findByChildAndMeasurementDate(child, request.measurementDate)
+                if (conflict.isPresent && conflict.get().id != existing.id) {
+                    throw IllegalArgumentException("Measurement for this date already exists with a different ID")
+                }
+                existing.measurementDate = request.measurementDate
+            }
+            existing
+        } else {
+            // 2. If not found by ID, try find by Child + Date (to merge data for the same timestamp)
+            val byDate = measurementRepository
+                .findByChildAndMeasurementDate(child, request.measurementDate)
+            
+            if (byDate.isPresent) {
+                log.debug("Found measurement by date: {}", request.measurementDate)
+                byDate.get()
+            } else {
+                log.debug("Creating new measurement with ID: {}", request.id)
+                Measurement(
+                    child = child,
+                    measurementDate = request.measurementDate
+                ).apply {
+                    setId(request.id) // Use the provided ID for new record
+                }
+            }
+        }
+
+        // Update values if present in request
+        request.weightKg?.let { measurement.weightKg = it }
+        request.heightCm?.let { measurement.heightCm = it }
+        request.headCircCm?.let { measurement.headCircCm = it }
+
+        // Recalculate scores based on final merged state
         val measurementLocalDate = LocalDate.ofInstant(request.measurementDate, ZoneOffset.UTC)
         val ageDays = ChronoUnit.DAYS.between(child.birthDate, measurementLocalDate).toInt()
         val lookbackDays = AgeWindows.maxLookbackDays(ageDays)
         val lookbackDate = request.measurementDate.minus(lookbackDays, ChronoUnit.DAYS)
         val prev = findPreviousScores(child, request.measurementDate, lookbackDate)
 
-        val history = measurementRepository.findTop5ByChildOrderByMeasurementDateDesc(child)
-
-        val measurement = Measurement(
-            child = child,
-            measurementDate = request.measurementDate
-        )
-
-        if (request.weightKg != null) {
-            measurement.weightKg = request.weightKg
+        measurement.weightKg?.let { weight ->
             measurement.wfaZscore = whoZScoreCalculator.calculateWfaZscore(
-                request.weightKg, child.birthDate, child.gender
+                weight, child.birthDate, child.gender, measurementLocalDate
             )
             measurement.wfaPercentile =
                 whoZScoreCalculator.zScoreToPercentile(measurement.wfaZscore)
-            measurement.wfaDeltaZ = calcDelta(measurement.wfaZscore, prev.wfaZscore)
+            measurement.wfaDeltaZ = measurementCalculator.calculateDelta(
+                prev.history,
+                measurement.wfaZscore,
+                Measurement::wfaZscore
+            )
         }
-        if (request.heightCm != null) {
-            measurement.heightCm = request.heightCm
+        measurement.heightCm?.let { height ->
             measurement.hfaZscore = whoZScoreCalculator.calculateHfaZscore(
-                request.heightCm, child.birthDate, child.gender
+                height, child.birthDate, child.gender, measurementLocalDate
             )
-            measurement.hfaPercentile =
-                whoZScoreCalculator.zScoreToPercentile(measurement.hfaZscore)
-            measurement.hfaDeltaZ = calcDelta(measurement.hfaZscore, prev.hfaZscore)
+            measurement.hfaPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.hfaZscore)
+            measurement.hfaDeltaZ = measurementCalculator.calculateDelta(
+                prev.history,
+                measurement.hfaZscore,
+                Measurement::hfaZscore
+            )
         }
-        if (request.weightKg != null && request.heightCm != null) {
+        val weightVal = measurement.weightKg
+        val heightVal = measurement.heightCm
+        if (weightVal != null && heightVal != null) {
             measurement.bmiZscore = whoZScoreCalculator.calculateBmiZscore(
-                request.weightKg, request.heightCm, child.birthDate, child.gender
+                weightVal, heightVal, child.birthDate, child.gender, measurementLocalDate
             )
-            measurement.bmiPercentile =
-                whoZScoreCalculator.zScoreToPercentile(measurement.bmiZscore)
-            measurement.bmiDeltaZ = calcDelta(measurement.bmiZscore, prev.bmiZscore)
+            measurement.bmiPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.bmiZscore)
+            measurement.bmiDeltaZ = measurementCalculator.calculateDelta(
+                prev.history,
+                measurement.bmiZscore,
+                Measurement::bmiZscore
+            )
 
             measurement.wfhZscore = whoZScoreCalculator.calculateWfhZscore(
-                request.weightKg, request.heightCm, child.gender
+                weightVal, heightVal, child.birthDate, child.gender, measurementLocalDate
             )
-            measurement.wfhPercentile =
-                whoZScoreCalculator.zScoreToPercentile(measurement.wfhZscore)
-            measurement.wfhDeltaZ = calcDelta(measurement.wfhZscore, prev.wfhZscore)
+            measurement.wfhPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.wfhZscore)
+            measurement.wfhDeltaZ = measurementCalculator.calculateDelta(
+                prev.history,
+                measurement.wfhZscore,
+                Measurement::wfhZscore
+            )
         }
-        if (request.headCircCm != null) {
-            measurement.headCircCm = request.headCircCm
+        measurement.headCircCm?.let { head ->
             measurement.hcfaZscore = whoZScoreCalculator.calculateHcfaZscore(
-                request.headCircCm, child.birthDate, child.gender
+                head, child.birthDate, child.gender, measurementLocalDate
             )
-            measurement.hcfaPercentile =
-                whoZScoreCalculator.zScoreToPercentile(measurement.hcfaZscore)
-            measurement.hcfaDeltaZ = calcDelta(measurement.hcfaZscore, prev.hcfaZscore)
+            measurement.hcfaPercentile = whoZScoreCalculator.zScoreToPercentile(measurement.hcfaZscore)
+            measurement.hcfaDeltaZ = measurementCalculator.calculateDelta(
+                prev.history,
+                measurement.hcfaZscore,
+                Measurement::hcfaZscore
+            )
         }
 
         val saved: Measurement = measurementRepository.save(measurement)
         measurementRepository.flush()
         log.debug("saved measurement{}", saved)
 
+        // Fetch history for velocity (top 5 from the past)
+        val historyForVelocity = measurementRepository
+            .findTop5ByChildAndMeasurementDateBeforeOrderByMeasurementDateDesc(child, saved.measurementDate)
+
         val velocityContext = VelocityContext(
-            wfaVelocity = calculateVelocity(history, measurement, Measurement::wfaZscore),
-            hfaVelocity = calculateVelocity(history, measurement, Measurement::hfaZscore),
-            bmiVelocity = calculateVelocity(history, measurement, Measurement::bmiZscore),
-            hcfaVelocity = calculateVelocity(history, measurement, Measurement::hcfaZscore),
-            wfhVelocity = calculateVelocity(history, measurement, Measurement::wfhZscore)
+            wfaVelocity = measurementCalculator.calculateVelocity(
+                historyForVelocity,
+                saved.wfaZscore,
+                saved.measurementDate,
+                Measurement::wfaZscore
+            ),
+            hfaVelocity = measurementCalculator.calculateVelocity(
+                historyForVelocity,
+                saved.hfaZscore,
+                saved.measurementDate,
+                Measurement::hfaZscore
+            ),
+            bmiVelocity = measurementCalculator.calculateVelocity(
+                historyForVelocity,
+                saved.bmiZscore,
+                saved.measurementDate,
+                Measurement::bmiZscore
+            ),
+            hcfaVelocity = measurementCalculator.calculateVelocity(
+                historyForVelocity,
+                saved.hcfaZscore,
+                saved.measurementDate,
+                Measurement::hcfaZscore
+            ),
+            wfhVelocity = measurementCalculator.calculateVelocity(
+                historyForVelocity,
+                saved.wfhZscore,
+                saved.measurementDate,
+                Measurement::wfhZscore
+            ),
+            daysSinceLast = historyForVelocity.firstOrNull()?.let { 
+                ChronoUnit.DAYS.between(it.measurementDate, saved.measurementDate) 
+            }
         )
 
         val reportId = checkTriggers(saved, velocityContext)?.let {
@@ -106,19 +188,7 @@ class MeasurementService(
         return MeasurementResponse.from(saved, reportId)
     }
 
-    data class AgeWindow(
-        val minDays: Int,
-        val maxDays: Int,
-        val maxLookbackDays: Long  // наскільки старий замір ще вважається актуальним
-    )
-
-    // WHO вікові періоди + допустиме вікно для дельти
     object AgeWindows {
-        // До 2 тижнів — заміри щодня, дельта актуальна до 7 днів
-        // 2 тижні - 3 міс — щотижня, дельта актуальна до 30 днів
-        // 3-12 міс — щомісяця, дельта актуальна до 60 днів
-        // 1-5 років — кожні 3 міс, дельта актуальна до 120 днів
-
         fun maxLookbackDays(ageDays: Int): Long = when {
             ageDays < 14 -> 7L
             ageDays < 90 -> 30L
@@ -132,13 +202,14 @@ class MeasurementService(
         before: Instant,
         lookbackDate: Instant,
     ): PreviousScores {
+        // Fix: Use before minus 1ms to include measurements within the same day but exclude current one
         val candidates =
             measurementRepository.findByChildAndMeasurementDateBetweenOrderByMeasurementDateDesc(
-                child, lookbackDate, before.minus(1, ChronoUnit.DAYS)
+                child, lookbackDate, before.minus(1, ChronoUnit.MILLIS)
             )
         log.debug("findPrevScores = {}", candidates)
-        // Для кожного показника беремо найсвіжіший замір де він є
         return PreviousScores(
+            history = candidates,
             wfaZscore = candidates.firstOrNull { it.wfaZscore != null }?.wfaZscore,
             hfaZscore = candidates.firstOrNull { it.hfaZscore != null }?.hfaZscore,
             bmiZscore = candidates.firstOrNull { it.bmiZscore != null }?.bmiZscore,
@@ -148,6 +219,7 @@ class MeasurementService(
     }
 
     data class PreviousScores(
+        val history: List<Measurement>,
         val wfaZscore: BigDecimal? = null,
         val hfaZscore: BigDecimal? = null,
         val bmiZscore: BigDecimal? = null,
@@ -155,50 +227,36 @@ class MeasurementService(
         val wfhZscore: BigDecimal? = null,
     )
 
-    private fun calcDelta(current: BigDecimal?, previous: BigDecimal?): BigDecimal? {
-        if (current == null || previous == null) return null
-        return (current - previous).setScale(2, RoundingMode.HALF_UP)
-    }
-
-    private fun calculateVelocity(
-        history: List<Measurement>,
-        current: Measurement,
-        metric: (Measurement) -> BigDecimal?
-    ): BigDecimal? {
-        val currentValue = metric(current) ?: return null
-        val points = history.filter { metric(it) != null }
-        if (points.isEmpty()) return null
-
-        val oldest = points.last()
-        val oldestValue = metric(oldest)!!
-        
-        val days = ChronoUnit.DAYS.between(oldest.measurementDate, current.measurementDate)
-        if (days <= 0) return null
-        
-        // Velocity = change in Z-score per month (30 days)
-        val delta = currentValue - oldestValue
-        return delta.multiply(BigDecimal("30"))
-            .divide(BigDecimal(days), 2, RoundingMode.HALF_UP)
-    }
-
     private fun checkTriggers(m: Measurement, v: VelocityContext): TriggerContext? {
         val triggers = buildList {
+            // Out of range (Absolute)
             m.wfaZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.WFA_OUT_OF_RANGE) }
             m.hfaZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.HFA_OUT_OF_RANGE) }
             m.hcfaZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.HCFA_OUT_OF_RANGE) }
             m.bmiZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.BMI_OUT_OF_RANGE) }
             m.wfhZscore?.let { if (it.abs() > BigDecimal("2")) add(Trigger.WFH_OUT_OF_RANGE) }
-            
+
+            // Rapid Change (Delta between consecutive)
             m.wfaDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.WFA_RAPID_CHANGE) }
             m.hfaDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.HFA_RAPID_CHANGE) }
-            
-            // Velocity triggers
+            m.bmiDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.BMI_RAPID_CHANGE) }
+            m.hcfaDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.HCFA_RAPID_CHANGE) }
+            m.wfhDeltaZ?.let { if (it.abs() > BigDecimal("1")) add(Trigger.WFH_RAPID_CHANGE) }
+
+            // Velocity triggers (Monthly trend)
             v.wfaVelocity?.let { if (it < BigDecimal("-0.3")) add(Trigger.WFA_PERSISTENT_DECLINE) }
             v.hfaVelocity?.let { if (it < BigDecimal("-0.2")) add(Trigger.HFA_STUNTING_RISK) }
+            v.bmiVelocity?.let { if (it.abs() > BigDecimal("0.3")) add(Trigger.BMI_VELOCITY_ISSUE) }
+            v.hcfaVelocity?.let { if (it.abs() > BigDecimal("0.2")) add(Trigger.HCFA_VELOCITY_ISSUE) }
+            v.wfhVelocity?.let { if (it.abs() > BigDecimal("0.3")) add(Trigger.WFH_VELOCITY_ISSUE) }
 
-            // Outlier detection (> 3 sigma jump in delta)
-            m.wfaDeltaZ?.let { if (it.abs() > BigDecimal("2.5")) add(Trigger.POTENTIAL_OUTLIER) }
-            m.hfaDeltaZ?.let { if (it.abs() > BigDecimal("2.5")) add(Trigger.POTENTIAL_OUTLIER) }
+            // Outlier detection (Jump in delta)
+            val outlierThreshold = BigDecimal("2.5")
+            m.wfaDeltaZ?.let { if (it.abs() > outlierThreshold) add(Trigger.POTENTIAL_OUTLIER) }
+            m.hfaDeltaZ?.let { if (it.abs() > outlierThreshold) add(Trigger.POTENTIAL_OUTLIER) }
+            m.bmiDeltaZ?.let { if (it.abs() > outlierThreshold) add(Trigger.POTENTIAL_OUTLIER) }
+            m.hcfaDeltaZ?.let { if (it.abs() > outlierThreshold) add(Trigger.POTENTIAL_OUTLIER) }
+            m.wfhDeltaZ?.let { if (it.abs() > outlierThreshold) add(Trigger.POTENTIAL_OUTLIER) }
         }
         return if (triggers.isEmpty()) null else TriggerContext(triggers)
     }
@@ -206,7 +264,9 @@ class MeasurementService(
     enum class Trigger {
         WFA_OUT_OF_RANGE, HFA_OUT_OF_RANGE, HCFA_OUT_OF_RANGE, BMI_OUT_OF_RANGE, WFH_OUT_OF_RANGE,
         WFA_RAPID_CHANGE, HFA_RAPID_CHANGE, HCFA_RAPID_CHANGE, BMI_RAPID_CHANGE, WFH_RAPID_CHANGE,
-        WFA_PERSISTENT_DECLINE, HFA_STUNTING_RISK, POTENTIAL_OUTLIER
+        WFA_PERSISTENT_DECLINE, HFA_STUNTING_RISK,
+        BMI_VELOCITY_ISSUE, HCFA_VELOCITY_ISSUE, WFH_VELOCITY_ISSUE,
+        POTENTIAL_OUTLIER
     }
 
     data class VelocityContext(
@@ -214,7 +274,8 @@ class MeasurementService(
         val hfaVelocity: BigDecimal? = null,
         val bmiVelocity: BigDecimal? = null,
         val hcfaVelocity: BigDecimal? = null,
-        val wfhVelocity: BigDecimal? = null
+        val wfhVelocity: BigDecimal? = null,
+        val daysSinceLast: Long? = null
     )
 
     data class TriggerContext(val triggers: List<Trigger>)

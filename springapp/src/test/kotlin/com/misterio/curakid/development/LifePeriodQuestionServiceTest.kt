@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import tools.jackson.databind.ObjectMapper
 import java.math.BigDecimal
 import java.util.Optional
 import java.util.UUID
@@ -22,13 +23,15 @@ class LifePeriodQuestionServiceTest {
 
     private lateinit var lifePeriodRepository: LifePeriodRepository
     private lateinit var questionRepository: QuestionRepository
+    private lateinit var objectMapper: ObjectMapper
     private lateinit var service: LifePeriodQuestionService
 
     @BeforeEach
     fun setUp() {
         lifePeriodRepository = mock()
         questionRepository = mock()
-        service = LifePeriodQuestionService(lifePeriodRepository, questionRepository)
+        objectMapper = ObjectMapper()
+        service = LifePeriodQuestionService(lifePeriodRepository, questionRepository, objectMapper)
     }
 
     @Test

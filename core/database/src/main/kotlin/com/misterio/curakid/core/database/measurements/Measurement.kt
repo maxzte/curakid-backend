@@ -1,13 +1,24 @@
 package com.misterio.curakid.core.database.measurements
 
-import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.BaseEntity
-import jakarta.persistence.*
+import com.misterio.curakid.core.database.children.Child
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.FetchType
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
+import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.math.BigDecimal
 import java.time.Instant
 
 @Entity
-@Table(name = "measurements")
+@Table(
+    name = "measurements",
+    uniqueConstraints = [
+        UniqueConstraint(columnNames = ["child_id", "measurement_date"])
+    ]
+)
 class Measurement(
 
     @ManyToOne(fetch = FetchType.LAZY)

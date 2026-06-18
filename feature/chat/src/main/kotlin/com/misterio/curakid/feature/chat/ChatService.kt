@@ -40,6 +40,10 @@ class ChatService(
 ) {
     private val log = LoggerFactory.getLogger(ChatService::class.java)
 
+    companion object {
+        private const val SESSION_LIFETIME_HOURS = 24L
+    }
+
     @Transactional(readOnly = true)
     fun getChatHistory(childId: UUID, currentUser: User): List<ChatMessageResponse> {
         val child = childRepository.findById(childId)
@@ -49,47 +53,18 @@ class ChatService(
             throw IllegalArgumentException("Access denied")
         }
 
-        return chatMessageRepository.findAllByChildOrderByCreatedAtAsc(child).map {
-            ChatMessageResponse(
-                id = it.id!!,
-                childId = it.child!!.id!!,
-                userText = it.userText,
-                aiText = it.aiText,
-                createdAt = it.createdAt ?: Instant.now()
-            )
-        }
-    }
+        val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
 
-    fun streamChat(request: ChatRequest, currentUser: User): Flux<String> {
-        val child = childRepository.findById(request.childId!!)
-            .orElseThrow { NoSuchElementException("Child not found") }
-
-        if (child.user?.id != currentUser.id) {
-            throw IllegalArgumentException("Access denied")
-        }
-
-        val systemPrompt = buildSystemPrompt(child)
-        val userMessage = request.text ?: ""
-
-        val aiStream: Flux<String> = try {
-            chatClient.prompt()
-                .system(systemPrompt)
-                .user(userMessage)
-                .stream()
-                .content()
-        } catch (ex: Exception) {
-            log.error("Failed to start AI stream", ex)
-            Flux.just("Вибачте, сталася помилка при зверненні до ШІ. Спробуйте пізніше.")
-        }
-
-        return aiStream
-            .collectList()
-            .map { chunks ->
-                val fullResponse = chunks.joinToString("")
-                saveMessage(child, userMessage, fullResponse)
-            }
-            .flatMapMany {
-                Flux.empty<String>() // placeholder, see fix below
+        return chatMessageRepository.findAllByChildOrderByCreatedAtAsc(child)
+            .filter { it.createdAt?.isAfter(sessionStart) ?: false }
+            .map {
+                ChatMessageResponse(
+                    id = it.id,
+                    childId = it.child!!.id,
+                    userText = it.userText,
+                    aiText = it.aiText,
+                    createdAt = it.createdAt ?: Instant.now()
+                )
             }
     }
 
@@ -117,7 +92,11 @@ class ChatService(
                     .filter { it is RuntimeException && it.message?.contains("503") == true }
             )
             .onErrorContinue { ex, _ ->
-                log.warn("Skipping chunk that caused error: ${ex.message}")
+                if (ex is NoSuchElementException && ex.message?.contains("empty chunk") == true) {
+                    log.debug("Skipping empty chunk")
+                } else {
+                    log.warn("Skipping chunk that caused error: ${ex.message}")
+                }
             }
             .doOnNext { chunk ->
                 responseBuilder.append(chunk)
@@ -129,7 +108,12 @@ class ChatService(
             }
             .doOnComplete {
                 taskExecutor.execute {
-                    chatMessageService.save(child, userMessage, responseBuilder.toString())
+                    chatMessageService.save(
+                        child,
+                        userMessage,
+                        responseBuilder.toString(),
+                        request.id
+                    )
                 }
                 emitter.complete()
             }
@@ -139,7 +123,8 @@ class ChatService(
                     chatMessageService.save(
                         child,
                         userMessage,
-                        "$responseBuilder\n[Помилка генерації]"
+                        "$responseBuilder\n[Помилка генерації]",
+                        request.id
                     )
                 }
                 try {
@@ -153,18 +138,11 @@ class ChatService(
                 }
                 emitter.complete()
             }
-            .subscribe()
+            .subscribe({}, { ex ->
+                log.error("Unhandled error in stream subscriber", ex)
+            })
 
         return emitter
-    }
-
-    private fun saveMessage(child: Child, userMessage: String, aiResponse: String) {
-        val message = ChatMessage(
-            child = child,
-            userText = userMessage,
-            aiText = aiResponse
-        )
-        chatMessageRepository.save(message)
     }
 
     private fun buildNorms(
@@ -188,7 +166,8 @@ class ChatService(
         addNorms("hcfaZscore", ChartType.HCFA)
 
         latestMeasurement?.heightCm?.let { height ->
-            percentileCalculator.getParamsForHeight(child.gender, height.toDouble())?.let { p ->
+            val ageDays = ChronoUnit.DAYS.between(child.birthDate, LocalDate.now()).toInt()
+            percentileCalculator.getParamsForHeight(child.gender, height.toDouble(), ageDays)?.let { p ->
                 res["wfhZscore"] = mapOf(
                     "P3" to p.p3, "P15" to p.p15, "P50" to p.p50, "P85" to p.p85, "P97" to p.p97
                 )

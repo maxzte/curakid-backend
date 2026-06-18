@@ -2,9 +2,11 @@ package com.misterio.curakid.core.database.event
 
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
+import org.hibernate.annotations.SQLRestriction
 
 @Entity
 @Table(name = "vaccine_templates")
+@SQLRestriction("deleted_at IS NULL")
 class VaccineTemplate(
 
     @Column(nullable = false)
@@ -31,9 +33,6 @@ class VaccineTemplate(
 
     @Column(columnDefinition = "TEXT")
     var notes: String? = null,
-
-    @Column(name = "is_active", nullable = false)
-    var isActive: Boolean = true
 
 ) : BaseEntity()
 

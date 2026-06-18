@@ -5,12 +5,14 @@ import com.misterio.curakid.core.database.question.Question
 import jakarta.persistence.*
 import org.hibernate.annotations.JdbcType
 import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.annotations.SQLRestriction
 import org.hibernate.type.SqlTypes
 import java.sql.JDBCType
 
 // https://zakon.rada.gov.ua/laws/show/z1936-24#n72
 @Entity
 @Table(name = "life_periods")
+@SQLRestriction("deleted_at IS NULL")
 class LifePeriod(
 
     @Column(nullable = false, unique = true)

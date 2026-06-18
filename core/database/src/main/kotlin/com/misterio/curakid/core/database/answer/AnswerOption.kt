@@ -6,9 +6,11 @@ import com.misterio.curakid.core.database.question.Question
 import jakarta.persistence.*
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
+import org.hibernate.annotations.SQLRestriction
 
 @Entity
 @Table(name = "answer_option")
+@SQLRestriction("deleted_at IS NULL")
 class AnswerOption(
 
     @JsonIgnore

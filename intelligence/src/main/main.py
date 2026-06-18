@@ -64,6 +64,10 @@ async def analyze(request: FisRequest):
     """
     try:
         # 1. Define Antecedents (Inputs)
+        # Age in months: 0 to 72
+        age_range = np.arange(0, 73, 1)
+        age_months = ctrl.Antecedent(age_range, 'ageMonths')
+
         # Z-scores: range -4 to 4
         z_range = np.arange(-4, 4.1, 0.1)
         wfa = ctrl.Antecedent(z_range, 'wfaZscore')
@@ -99,6 +103,11 @@ async def analyze(request: FisRequest):
         urgency = ctrl.Consequent(u_range, 'urgency')
 
         # 3. Define Trapezoidal Membership Functions
+        # For Age
+        age_months['INFANT'] = fuzz.trapmf(age_months.universe, [0, 0, 6, 12])
+        age_months['TODDLER'] = fuzz.trapmf(age_months.universe, [10, 18, 24, 36])
+        age_months['PRESCHOOL'] = fuzz.trapmf(age_months.universe, [30, 48, 72, 72])
+
         for var_name, var in [('wfaZscore', wfa), ('hfaZscore', hfa),
                               ('bmiZscore', bmi), ('hcfaZscore', hcfa),
                               ('wfhZscore', wfh)]:
@@ -174,7 +183,8 @@ async def analyze(request: FisRequest):
             'sensoryScore': sensory,
             'wfaVelocity': wfa_v, 'hfaVelocity': hfa_v, 'bmiVelocity': bmi_v,
             'hcfaVelocity': hcfa_v, 'wfhVelocity': wfh_v,
-            'is_regression': regression
+            'is_regression': regression,
+            'ageMonths': age_months
         }
 
         # 5. Build Rules dynamically
@@ -266,13 +276,15 @@ async def analyze(request: FisRequest):
             'hfaZscore': 'Ріст до віку', 'bmiZscore': 'ІМТ',
             'hcfaZscore': 'Окружність голови', 'wfhZscore': 'Вага до росту',
             'wfaVelocity': 'Динаміка ваги', 'hfaVelocity': 'Динаміка росту',
-            'is_regression': 'Регрес розвитку'
+            'is_regression': 'Регрес розвитку',
+            'ageMonths': 'Вікова група'
         }
 
         term_translation.update({
             'FALLING_FAST': 'Стрімке падіння', 'FALLING': 'Уповільнення',
             'STABLE': 'Стабільно', 'RISING': 'Покращення',
-            'TRUE': 'Виявлено', 'FALSE': 'Відсутній'
+            'TRUE': 'Виявлено', 'FALSE': 'Відсутній',
+            'INFANT': 'Немовля', 'TODDLER': 'Раннє дитинство', 'PRESCHOOL': 'Дошкільник'
         })
 
         for key, var in vars_map.items():

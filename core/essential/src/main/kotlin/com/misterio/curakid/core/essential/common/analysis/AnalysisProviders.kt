@@ -4,7 +4,7 @@ import java.math.BigDecimal
 import java.util.UUID
 
 interface KnowledgeProvider {
-    fun search(query: String, urgencyScore: BigDecimal, ageMonths: Int? = null): List<KnowledgeChunkDto>
+    fun search(query: String, urgencyScore: BigDecimal, ageMonths: Int? = null): KnowledgeSearchResult
 }
 
 data class KnowledgeChunkDto(

@@ -8,5 +8,4 @@ interface ChildRepository : JpaRepository<Child, UUID> {
     fun findAllByUser(user: User): List<Child>
     fun findByIdAndUser(id: UUID, user: User): Optional<Child>
     fun existsByIdAndUser(id: UUID, user: User): Boolean
-
 }

@@ -1,116 +1,79 @@
 🏗 Архітектурний паттерн: Модульний моноліт з аналітичним мікросервісом
 
-Система побудована за принципом Orchestrator-Worker. Основний сервіс на Spring Boot виступає оркестратором бізнес-логіки та безпеки, а сервіс на Python — спеціалізованим інструментом для інтелектуального аналізу.
+Система побудована за принципом Orchestrator-Worker. Основний сервіс на Spring Boot виступає
+оркестратором бізнес-логіки та безпеки, а сервіс на Python — спеціалізованим інструментом для
+інтелектуального аналізу.
 
-1.  Core Service (Оркестратор)
+1. Core Service (Оркестратор)
 
-    Стек: Kotlin + Spring Boot 4.x.
+   Стек: Kotlin + Spring Boot 4.x.
 
-    Функції:
+   Функції:
 
-         Auth Module: Керування доступом (JWT, Refresh Tokens, Blacklist) через Spring Security.
+        Auth Module: Керування доступом (JWT, Refresh Tokens, Blacklist). Реалізовано GDPR-сумісне видалення (Soft Delete з анонімізацією даних).
 
-         Resource Module: CRUD операції для профілів дітей, антропометрії та квізів.
+        Resource Module: CRUD операції для профілів дітей, антропометрії та квізів. Впроваджено валідацію циклічних залежностей та інтелектуальне пропускання питань.
 
-         RAG Engine: Використання SpringAI для семантичного пошуку в pgvector, формування промптів та взаємодії з LLM (Google AI Studio).
+        RAG Engine: Використання SpringAI для гібридного пошуку (pgvector + Full-Text Search). Впроваджено асинхронну оцінку якості звітів (LLM-as-a-judge: Faithfulness, Relevance).
 
-         Integration Layer: Клієнт для взаємодії з FIS-модулем через REST (через WebClient). Захист внутрішньої взаємодії реалізовано через Shared Secret.
+        Integration Layer: Клієнт для взаємодії з FIS-модулем через REST. Захист реалізовано через Shared Secret.
 
-2.  Intelligence Service (FIS Модуль)
+2. Intelligence Service (FIS Модуль)
 
-    Стек: Python + FastAPI + scikit-fuzzy.
+   Стек: Python + FastAPI + scikit-fuzzy.
 
-    Функції:
+   Функції:
 
-         Fuzzy Logic Inference: Отримання числових показників (Z-score, Skill-score) та перетворення їх у лінгвістичні терм-множини.
+        Fuzzy Logic Inference: Отримання числових показників (Z-score, Skill-score) та перетворення їх у лінгвістичні терм-множини.
 
-         Rule Engine: Виконання правил нечіткої логіки. Правила передаються безпосередньо зі Spring Boot як частина REST-запиту на аналіз.
+        Rule Engine: Виконання правил нечіткої логіки. Правила передаються безпосередньо зі Spring Boot.
 
-         Defuzzification: Розрахунок підсумкового показника критичності стану (Urgency Score) та повернення його в оркестратор.
+        Defuzzification: Розрахунок Urgency Score.
 
-         Embeddings Generation: Генерація векторних представлень (ембедингів) через Google Gemini API (model: text-embedding-004, 768-dim).
+3. Data Storage Layer (Віддалений рівень даних)
 
-3.  Data Storage Layer (Віддалений рівень даних)
+   СУБД: Supabase (Remote PostgreSQL 16).
 
-    СУБД: Supabase (Remote PostgreSQL 16).
+   Vector Engine: pgvector для семантичного пошуку.
 
-    Vector Engine: Розширення pgvector, активоване на боці Supabase для семантичного пошуку.
+   Search Engine: Гібридний пошук (Vector + FTS). Використовується алгоритм Rank Reciprocal Fusion (
+   RRF) для об'єднання результатів (конфігурації `simple` та `english`).
 
-    ORM: Hibernate (JPA) у середовищі Spring Boot.
-
-    Hibernate автоматично мапує Kotlin-сутності на таблиці Supabase.
-
-    Розширення: pgvector для зберігання ембедингів медичних протоколів.
-
-    Структура:
-
-         Relational Data: Таблиці користувачів, дітей, логів та налаштувань.
-
-         Vector Data: Медична база знань (фрагменти тексту + вектори 768-dim, згенеровані через Google Gemini API).
-
-         Hybrid Logic: Зберігання нечітких правил у форматі JSONB для динамічного оновлення без зміни коду (Spring Boot завантажує їх з БД і передає у FIS-модуль під час запиту).
+   ORM: Hibernate (JPA). Використовується глобальний фільтр `@SQLRestriction("deleted_at IS NULL")`
+   для реалізації Soft Delete.
 
 🔄 Життєвий цикл запиту на аналіз (Data Flow)
 
     Request: Клієнт надсилає запит на генерацію звіту.
 
-    Aggregation: Spring Boot збирає останні дані дитини з БД та підтягує актуальні нечіткі правила.
+    Aggregation: Spring Boot збирає останні дані дитини та нечіткі правила.
 
-    Analysis: Spring надсилає дані та правила в Python FIS. Той повертає Urgency Score (наприклад, 0.85 — "Висока тривожність").
-    *Відмовостійкість (Fallback)*: Якщо Python FIS недоступний, Spring Boot повертає часткову відповідь з дефолтним (fallback) значенням та позначкою, що аналіз неточний.
+    Analysis: Python FIS повертає Urgency Score.
 
-    Retrieval: Spring Boot використовує Urgency Score як частину контексту для пошуку в pgvector. Знаходяться релевантні медичні чанки.
+    Retrieval: Гібридний пошук (Vector + FTS) знаходить релевантні медичні чанки.
 
-    Generation: Сформований промпт (Дані + Результат FIS + Медичні чанки) відправляється в LLM (Google AI Studio).
+    Generation: LLM (Google AI Studio) генерує звіт.
 
-    Response: Згенерований персоніфікований звіт зберігається в БД та повертається користувачу.
+    Response: Згенерований звіт зберігається в БД та повертається користувачу.
 
-🔄 Життєвий цикл відповідей у періоді розвитку (Period Completion Flow)
+    Evaluation: Система асинхронно запускає аудит звіту через ШІ, зберігаючи метрики Faithfulness та Relevance.
 
-    Trigger: Користувач проходить питання поточного life period.
+🔄 Бізнес-логіка Опитувань (Quiz Logic)
 
-    Draft Save (без обчислення score): Клієнт надсилає відповіді по мірі заповнення. Spring Boot зберігає raw відповіді (questionId -> selectedOption/value) та timestamp відповіді.
+    Prerequisite Validation: Перевірка на циклічні залежності (DFS) під час редагування питань.
 
-    Rule: Під час проміжного збереження не виконується фінальний розрахунок Skill-score. Клієнту не повертається підсумкова оцінка до завершення періоду.
+    Dynamic Skipping: Автоматичне зарахування передумов при виконанні складної навички (score >= 100).
 
-    Completion Trigger: Користувач натискає "завершити період" / переходить на наступний період.
+🔄 Життєвий цикл видалення (GDPR & Integrity Flow)
 
-    Final Aggregation: Лише на цьому кроці Spring Boot агрегує всі відповіді періоду, застосовує ваги питань/доменів і розраховує фінальні Skill-score.
+    User Deletion: Емейл анонімізується, дані затираються, запис отримує мітку `deleted_at`. Це звільняє емейл для нової реєстрації.
 
-    Analysis: Після завершення періоду оркестратор запускає стандартний pipeline (FIS -> RAG -> LLM) для фінального звіту/рекомендацій.
-
-🔄 Позаштатний життєвий цикл (Emergency Recommendation Flow)
-
-    Trigger: Надходять нові антропометричні заміри.
-
-    Pre-check: Spring Boot виконує валідацію, anti-spam/rate-limit, зберігає замір і рахує Z-score/Delta Z/BMI-related індикатори.
-
-    Decision: Якщо є відхилення від норми за критеріями Z-score (порогові умови), запускається позачерговий аналітичний сценарій.
-
-    Emergency Analysis: Оркестратор формує контекст (заміри + останні релевантні дані), викликає FIS, далі RAG та LLM для позаштатної рекомендації.
-
-    Response: Позаштатна рекомендація зберігається в БД та повертається клієнту без очікування завершення life period.
-
-🔄 Життєвий цикл додавання статті в базу знань (Admin Flow)
-
-    Request: Адміністратор додає нову медичну статтю через інтерфейс.
-
-    Processing: Запит надходить до Spring Boot.
-
-    Embedding: Spring Boot генерує ембедінг статті за допомогою Google Gemini API.
-
-    Storage: Spring Boot зберігає отриманий ембедінг та оригінальний текст у Supabase (pgvector).
-
-    Response: У разі успішного збереження адміністратору повертається підтвердження.
+    Content Deletion: М'яке видалення (Soft Delete). Для періодів з історією відповідей видалення заборонено для збереження цілісності медичної карти.
 
 🛠 Інфраструктура та Деплой
 
-    Containerization: Весь стек розгортається через Docker Compose.
+    Containerization: Docker Compose (backend + intelligence).
 
-        Контейнер backend: Spring Boot App.
+    Communication: Внутрішня мережа Docker.
 
-        Контейнер intelligence: Python FastAPI App (масштабування не потребується, одного контейнера достатньо).
-
-    Communication: Внутрішня мережа Docker (Default Bridge). Spring звертається до Python за DNS-іменем сервісу. Захист взаємодії реалізовано за допомогою Shared Secret.
-
-    CI/CD Friendly: Архітектура дозволяє незалежно оновлювати базу знань (через оновлення векторів) або логіку FIS без зупинки основного сервісу.
+    CI/CD Friendly: Незалежне оновлення бази знань, логіки FIS або правил аналізу.

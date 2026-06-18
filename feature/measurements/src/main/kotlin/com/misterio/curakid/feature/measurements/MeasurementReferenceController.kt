@@ -23,7 +23,7 @@ class MeasurementReferenceController(
         val map = calculator.getRawMap(type, gender)
 
         val points = map.entries.sortedBy { it.key }.map { (key, params) ->
-            val xValue = if (type == ChartType.WFH) key / 10.0 else key.toDouble()
+            val xValue = if (type == ChartType.WFH || type == ChartType.WFL) key / 10.0 else key.toDouble()
             ChartNormPoint(
                 x = xValue,
                 p01 = params.p01,

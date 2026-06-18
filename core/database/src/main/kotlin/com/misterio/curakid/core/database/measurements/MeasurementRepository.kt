@@ -60,11 +60,19 @@ interface MeasurementRepository : JpaRepository<Measurement, UUID> {
     fun findAllByChildIdWithReportId(@Param("childId") childId: UUID): List<MeasurementWithReportProjection>
 
     fun findAllByChildOrderByMeasurementDateAsc(child: Child): List<Measurement>
+
+    fun findByChildAndMeasurementDate(child: Child, measurementDate: Instant): Optional<Measurement>
+
     fun findFirstByChildOrderByMeasurementDateDesc(child: Child): Optional<Measurement>
+
     fun findTop5ByChildOrderByMeasurementDateDesc(child: Child): List<Measurement>
+
+    fun findTop5ByChildAndMeasurementDateBeforeOrderByMeasurementDateDesc(child: Child, date: Instant): List<Measurement>
+
     fun findByChildAndMeasurementDateBetweenOrderByMeasurementDateDesc(
         child: Child,
         lookbackDate: Instant,
         before: Instant
     ): List<Measurement>
+
 }

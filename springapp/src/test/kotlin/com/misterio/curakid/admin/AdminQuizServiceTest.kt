@@ -8,16 +8,11 @@ import com.misterio.curakid.core.database.development.LifePeriod
 import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.question.Question
 import com.misterio.curakid.core.database.question.QuestionRepository
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mockito.kotlin.any
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.whenever
+import org.mockito.kotlin.*
 import java.math.BigDecimal
 import java.util.Optional
 import java.util.UUID
@@ -60,12 +55,15 @@ class AdminQuizServiceTest {
     }
 
     @Test
-    fun `deleteLifePeriod should call repository`() {
+    fun `deleteLifePeriod should set deletedAt and save`() {
         val id = UUID.randomUUID()
+        val period = LifePeriod().apply { this.setId(id) }
+        whenever(lifePeriodRepository.findById(id)).thenReturn(Optional.of(period))
 
         service.deleteLifePeriod(id)
 
-        verify(lifePeriodRepository).deleteById(id)
+        assertNotNull(period.deletedAt)
+        verify(lifePeriodRepository).save(period)
     }
 
     @Test
@@ -107,6 +105,31 @@ class AdminQuizServiceTest {
         assertEquals("Does the child respond?", result.text)
         assertEquals(AssessmentDomain.MOTOR_GROSS, result.domain)
         assertEquals(period, result.lifePeriod)
+        verify(questionRepository).save(any())
+    }
+
+    @Test
+    fun `createQuestion should link to prerequisite if provided`() {
+        val periodId = UUID.randomUUID()
+        val prereqId = UUID.randomUUID()
+        val period = LifePeriod().apply { id = periodId }
+        val prereq = Question().apply { id = prereqId }
+        
+        val request = CreateQuizQuestionRequest(
+            "Advanced Skill",
+            AssessmentDomain.MOTOR_GROSS,
+            BigDecimal("1.0"),
+            prerequisiteId = prereqId
+        )
+
+        whenever(lifePeriodRepository.findById(periodId)).thenReturn(Optional.of(period))
+        whenever(questionRepository.findById(prereqId)).thenReturn(Optional.of(prereq))
+        whenever(questionRepository.save(any<Question>())).thenAnswer { it.arguments[0] }
+
+        val result = service.createQuestion(periodId, request)
+
+        assertEquals("Advanced Skill", result.text)
+        assertEquals(prereq, result.prerequisite)
         verify(questionRepository).save(any())
     }
 
@@ -155,14 +178,14 @@ class AdminQuizServiceTest {
     }
 
     @Test
-    fun `deleteQuestion should call repository`() {
+    fun `deleteQuestion should set deletedAt and save`() {
         val id = UUID.randomUUID()
-        val question = Question().apply { this.id = id }
+        val question = Question().apply { this.setId(id) }
         whenever(questionRepository.findById(id)).thenReturn(Optional.of(question))
 
         service.deleteQuestion(id)
 
-        assertFalse(question.isActive)
+        assertNotNull(question.deletedAt)
         verify(questionRepository).save(question)
     }
 
@@ -210,11 +233,32 @@ class AdminQuizServiceTest {
     }
 
     @Test
-    fun `deleteAnswerOption should call repository`() {
+    fun `updateQuestion should throw on cyclic dependency`() {
+        val q1Id = UUID.randomUUID()
+        val q2Id = UUID.randomUUID()
+        
+        val q1 = Question("Q1", AssessmentDomain.MOTOR_GROSS, BigDecimal.ONE).apply { setId(q1Id) }
+        val q2 = Question("Q2", AssessmentDomain.MOTOR_GROSS, BigDecimal.ONE).apply { setId(q2Id); prerequisite = q1 }
+        
+        whenever(questionRepository.findById(q1Id)).thenReturn(Optional.of(q1))
+        whenever(questionRepository.findById(q2Id)).thenReturn(Optional.of(q2))
+        
+        val request = CreateQuizQuestionRequest("Q1 updated", AssessmentDomain.MOTOR_GROSS, BigDecimal.ONE, prerequisiteId = q2Id)
+        
+        assertThrows<IllegalArgumentException> {
+            service.updateQuestion(q1Id, request)
+        }
+    }
+
+    @Test
+    fun `deleteAnswerOption should set deletedAt and save`() {
         val id = UUID.randomUUID()
+        val option = AnswerOption().apply { this.setId(id) }
+        whenever(answerOptionRepository.findById(id)).thenReturn(Optional.of(option))
 
         service.deleteAnswerOption(id)
 
-        verify(answerOptionRepository).deleteById(id)
+        assertNotNull(option.deletedAt)
+        verify(answerOptionRepository).save(option)
     }
 }

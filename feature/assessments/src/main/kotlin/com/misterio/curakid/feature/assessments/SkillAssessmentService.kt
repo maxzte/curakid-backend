@@ -6,11 +6,15 @@ import com.misterio.curakid.core.database.assessments.AssessmentAnswer
 import com.misterio.curakid.core.database.assessments.SkillAssessment
 import com.misterio.curakid.core.database.assessments.SkillAssessmentRepository
 import com.misterio.curakid.core.database.children.Child
+import com.misterio.curakid.core.database.development.LifePeriod
 import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
+import com.misterio.curakid.core.database.question.Question
 import com.misterio.curakid.core.database.question.QuestionRepository
 import com.misterio.curakid.core.database.reports.PeriodSummary
 import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
@@ -34,12 +38,14 @@ class SkillAssessmentService(
 ) {
 
     @Transactional
-    fun saveAssessmentAnswers(child: Child, periodId: UUID, request: SaveAnswersRequest): List<AssessmentResponse> {
+    @CacheEvict(value = ["assessmentReadiness"], allEntries = true)
+    fun saveAssessmentAnswers(child: Child, periodId: UUID, request: SaveAnswersRequest): SaveAnswersResponse {
         val period = lifePeriodRepository.findById(periodId)
             .orElseThrow { IllegalStateException("No life period found for id $periodId") }
 
-        // Fetch all questions to determine their domains
-        val questions = questionRepository.findAllWithOptionsByIdIn(request.answers.map { it.questionId })
+        // Fetch all questions to determine their domains and prerequisites
+        val questionIds = request.answers.map { it.questionId }
+        val questions = questionRepository.findAllWithOptionsByIdIn(questionIds)
             .associateBy { it.id }
 
         // Group answers by domain
@@ -48,6 +54,7 @@ class SkillAssessmentService(
         }
 
         val results = mutableListOf<AssessmentResponse>()
+        val savedAnswers = mutableListOf<AssessmentAnswer>()
 
         answersByDomain.forEach { (domain, answers) ->
             val assessment = assessmentRepository.findByChildAndDomainAndLifePeriod(child, domain, period)
@@ -60,32 +67,126 @@ class SkillAssessmentService(
                     )
                 }
 
-            // Map and add answers to this specific assessment
-            val mapped = answers.map { dto ->
+            val latestInRequest = answers
+                .groupBy { it.questionId }
+                .mapValues { entry ->
+                    entry.value.maxBy { it.answeredAt ?: Instant.now() }
+                }
+
+            val mapped = latestInRequest.values.map { dto ->
                 val q = questions[dto.questionId]!!
                 val opt = q.options.firstOrNull { it.id == dto.selectedOptionId }
                     ?: throw IllegalArgumentException("Option not found")
-                AssessmentAnswer(assessment, q, opt, request.assessmentDate ?: Instant.now())
+                AssessmentAnswer(assessment, q, opt, dto.answeredAt ?: request.assessmentDate ?: Instant.now())
             }
 
             mapped.forEach { newAnswer ->
                 val existing = assessment.answers.find { it.question?.id == newAnswer.question?.id }
                 if (existing != null) {
-                    existing.selectedOption = newAnswer.selectedOption
-                    existing.answeredAt = newAnswer.answeredAt
+                    if (newAnswer.answeredAt.isAfter(existing.answeredAt)) {
+                        existing.selectedOption = newAnswer.selectedOption
+                        existing.answeredAt = newAnswer.answeredAt
+                    }
                 } else {
                     assessment.answers.add(newAnswer)
                 }
+                savedAnswers.add(newAnswer)
+                
+                // Dynamic skipping: if this is a "Yes" (100%), auto-fill prerequisites
+                if ((newAnswer.selectedOption?.value ?: 0.0) >= 100.0) {
+                    autoFillPrerequisites(assessment, newAnswer.question, newAnswer.answeredAt, savedAnswers)
+                }
             }
-            assessment.score = null // Reset score since new data arrived
+            assessment.score = null 
 
             results.add(assessmentRepository.save(assessment).toAssessmentResponse())
         }
 
-        return results
+        val warnings = validateLogicalConsistency(child, savedAnswers)
+
+        return SaveAnswersResponse(results, warnings)
+    }
+
+    private fun autoFillPrerequisites(
+        assessment: SkillAssessment,
+        question: Question?,
+        timestamp: Instant,
+        savedAnswers: MutableList<AssessmentAnswer>
+    ) {
+        // Load all child's historical answers to avoid double-filling across periods
+        val child = assessment.child ?: return
+        val allAssessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
+        val globalHistoryIds = allAssessments.flatMap { it.answers }.mapNotNull { it.question?.id }.toSet()
+
+        var currentPrereq = question?.prerequisite
+        var depth = 0
+        val MAX_DEPTH = 10 // Safety limit for recursion
+
+        while (currentPrereq != null && depth < MAX_DEPTH) {
+            val isAnsweredLocally = assessment.answers.any { it.question?.id == currentPrereq?.id }
+            val isAnsweredGlobally = globalHistoryIds.contains(currentPrereq.id)
+            
+            if (!isAnsweredLocally && !isAnsweredGlobally) {
+                // Find "Yes" option for this prerequisite
+                val yesOption = currentPrereq.options.find { it.value >= 100.0 }
+                if (yesOption != null) {
+                    val autoAnswer = AssessmentAnswer(
+                        assessment = assessment,
+                        question = currentPrereq,
+                        selectedOption = yesOption,
+                        answeredAt = timestamp
+                    )
+                    assessment.answers.add(autoAnswer)
+                    savedAnswers.add(autoAnswer) // Include in final response and validation
+                }
+            }
+            currentPrereq = currentPrereq.prerequisite
+            depth++
+        }
+    }
+
+    private fun validateLogicalConsistency(child: Child, newAnswers: List<AssessmentAnswer>): List<String> {
+        val warnings = mutableListOf<String>()
+        
+        // Load all child's historical answers for context
+        val allAssessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
+        val allAnswers = allAssessments.flatMap { it.answers }
+            .filter { it.question?.id != null }
+            .associateBy { it.question!!.id!! }
+
+        newAnswers.forEach { answer ->
+            val question = answer.question ?: return@forEach
+            val selectedValue = answer.selectedOption?.value ?: return@forEach
+            
+            // 1. Check if "Yes" (100) has a "No" (0) prerequisite
+            if (selectedValue >= 100.0) {
+                val prereq = question.prerequisite
+                if (prereq != null) {
+                    val prereqAnswer = allAnswers[prereq.id]
+                    if (prereqAnswer != null && (prereqAnswer.selectedOption?.value ?: 0.0) < 100.0) {
+                        warnings.add("Схоже, сталася помилка. Навичка '${question.text}' зазвичай з'являється після того, як дитина навчиться '${prereq.text}'.")
+                    }
+                }
+            }
+            
+            // 2. Check if "No" (0) is a prerequisite for some other "Yes" skill already in the system
+            if (selectedValue < 100.0) {
+                // Find questions where THIS question is a prerequisite
+                val dependentQuestions = questionRepository.findAllByPrerequisite(question)
+                dependentQuestions.forEach { depQ ->
+                    val depAnswer = allAnswers[depQ.id]
+                    if (depAnswer != null && (depAnswer.selectedOption?.value ?: 0.0) >= 100.0) {
+                        warnings.add("Ви вказали, що дитина ще не опанувала '${question.text}', хоча раніше було відмічено успіх у '${depQ.text}'. Навичка '${depQ.text}' базується на '${question.text}'.")
+                    }
+                }
+            }
+        }
+        
+        return warnings.distinct()
     }
 
     @Transactional
+    @CacheEvict(value = ["assessmentReadiness"], allEntries = true)
     fun updateAssessmentAnswers(assessmentId: UUID, child: Child, request: AnswerRequest): AssessmentResponse {
         val assessment = assessmentRepository.findByIdAndChild(assessmentId, child)
             .orElseThrow { NoSuchElementException("Assessment $assessmentId not found") }
@@ -93,10 +194,12 @@ class SkillAssessmentService(
         val existingByQuestionId = assessment.answers.associateBy { it.question?.id }
 
         val existing = existingByQuestionId[request.questionId]
+        val answeredAt = request.answeredAt ?: Instant.now()
         if (existing != null) {
-            if (existing.selectedOption?.id != request.selectedOptionId) {
+            // LWW logic: only update if incoming timestamp is newer
+            if (answeredAt.isAfter(existing.answeredAt)) {
                 existing.selectedOption = answerOptionRepository.getReferenceById(request.selectedOptionId)
-                existing.answeredAt = request.answeredAt ?: Instant.now()
+                existing.answeredAt = answeredAt
             }
         } else {
             assessment.answers.add(
@@ -104,6 +207,7 @@ class SkillAssessmentService(
                     assessment = assessment,
                     question = questionRepository.getReferenceById(request.questionId),
                     selectedOption = answerOptionRepository.getReferenceById(request.selectedOptionId),
+                    answeredAt = answeredAt
                 )
             )
         }
@@ -116,6 +220,79 @@ class SkillAssessmentService(
         return assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child).map { it.toAssessmentResponse() }
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = ["assessmentReadiness"], key = "#child.id.toString() + '_' + #periodCode")
+    fun getPeriodReadiness(child: Child, periodCode: String): PeriodReadinessResponse {
+        val period = lifePeriodRepository.findByCodeWithQuestions(periodCode)
+            .orElseThrow { IllegalArgumentException("Period not found") }
+
+        return evaluateReadiness(child, period)
+    }
+
+    private fun evaluateReadiness(child: Child, period: LifePeriod): PeriodReadinessResponse {
+        val correctedAge = child.calculateCorrectedAgeMonths()
+        val isAgeAppropriate = correctedAge >= period.minMonths
+
+        val periodQuestionIds = period.questions.mapNotNull { it.id }.toSet()
+        val assessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
+
+        val answeredQuestionIds = assessments.flatMap { it.answers }
+            .mapNotNull { it.question?.id }
+            .filter { it in periodQuestionIds }
+            .toSet()
+
+        val totalQuestions = period.questions.size
+        if (totalQuestions == 0) return PeriodReadinessResponse(false, 0, REQUIRED_COMPLETION_PERCENT, emptyList())
+
+        val totalCompletionPercent = (answeredQuestionIds.size * 100) / totalQuestions
+
+        // Domain-specific status
+        val questionsByDomain = period.questions.groupBy { it.domain }
+        val domainStatus = questionsByDomain.map { (domain, questions) ->
+            val domainQuestionIds = questions.mapNotNull { it.id }.toSet()
+            val domainAnsweredCount = answeredQuestionIds.count { it in domainQuestionIds }
+            val domainPercent = if (questions.isNotEmpty()) (domainAnsweredCount * 100) / questions.size else 100
+            DomainReadinessResponse(
+                domain = domain.name,
+                completionPercent = domainPercent,
+                isReady = domainPercent >= REQUIRED_DOMAIN_COMPLETION_PERCENT,
+                requiredPercent = REQUIRED_DOMAIN_COMPLETION_PERCENT
+            )
+        }
+
+        val reasons = mutableListOf<String>()
+        if (totalCompletionPercent < REQUIRED_COMPLETION_PERCENT) {
+            reasons.add("Загальний прогрес: $totalCompletionPercent% < $REQUIRED_COMPLETION_PERCENT%")
+        }
+        domainStatus.filter { !it.isReady }.forEach {
+            reasons.add("Недостатньо даних у розділі ${it.domain}: ${it.completionPercent}% < $REQUIRED_DOMAIN_COMPLETION_PERCENT%")
+        }
+        
+        var canTransitionEarly = false
+        if (!isAgeAppropriate) {
+            try {
+                validatePeriodAccess(child, period.minMonths, period.maxMonths, true)
+                canTransitionEarly = true
+            } catch (e: Exception) {
+                reasons.add("Дитина ще занадто мала для цього періоду (потрібно від ${period.minMonths} міс., коригований вік $correctedAge міс.)")
+            }
+        }
+
+        val isReady = totalCompletionPercent >= REQUIRED_COMPLETION_PERCENT && 
+                      domainStatus.all { it.isReady } && 
+                      (isAgeAppropriate || canTransitionEarly)
+
+        return PeriodReadinessResponse(
+            isReady = isReady,
+            completionPercent = totalCompletionPercent,
+            requiredPercent = REQUIRED_COMPLETION_PERCENT,
+            domainStatus = domainStatus,
+            reasons = reasons,
+            canTransitionEarly = canTransitionEarly
+        )
+    }
+
+    @CacheEvict(value = ["assessmentReadiness"], allEntries = true)
     fun completePeriodAssessment(
         child: Child,
         request: CompletePeriodAssessmentRequest
@@ -143,30 +320,23 @@ class SkillAssessmentService(
         val period = lifePeriodRepository.findByCodeWithQuestions(request.periodCode)
             .orElseThrow { IllegalArgumentException("Period not found") }
 
-        validatePeriodAccess(child, period.minMonths, period.maxMonths, request.allowEarlyTransition)
-
-        val periodQuestionIds = period.questions.mapNotNull { it.id }.toSet()
-        val assessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
-
-        val answeredQuestionIds = assessments.flatMap { it.answers }
-            .mapNotNull { it.question?.id }
-            .filter { it in periodQuestionIds }
-            .toSet()
-
-        val totalQuestions = period.questions.size
-        if (totalQuestions == 0) throw IllegalArgumentException("Period '${request.periodCode}' has no questions")
-        val completionPercent = (answeredQuestionIds.size * 100) / totalQuestions
-        if (completionPercent < REQUIRED_COMPLETION_PERCENT) {
-            throw IllegalArgumentException("Completion: $completionPercent% < $REQUIRED_COMPLETION_PERCENT%")
+        val readiness = evaluateReadiness(child, period)
+        
+        if (!readiness.isReady) {
+            if (readiness.canTransitionEarly && request.allowEarlyTransition) {
+                // Allowed
+            } else {
+                throw IllegalArgumentException("Period is not ready for completion: ${readiness.reasons.joinToString("; ")}")
+            }
         }
 
         val now = Instant.now()
-        val toUpdate = assessments.filter { it.lifePeriod?.id == period.id }
-        toUpdate.forEach {
+        val assessments = assessmentRepository.findAllByChildAndLifePeriod(child, period)
+        assessments.forEach {
             it.score = calculateScore(it)
             it.assessmentDate = now
         }
-        val updatedAssessments = assessmentRepository.saveAll(toUpdate).map { it.toAssessmentResponse() }
+        val updatedAssessments = assessmentRepository.saveAll(assessments).map { it.toAssessmentResponse() }
 
         val summary = periodSummaryRepository.findByChildAndLifePeriod(child, period)
             .orElseGet {
@@ -185,7 +355,7 @@ class SkillAssessmentService(
         periodSummaryRepository.flush()
 
         return CompletePeriodAssessmentResult(
-            completionPercent = completionPercent,
+            completionPercent = readiness.completionPercent,
             completedAt = now,
             updatedAssessments = updatedAssessments,
             summary = summary
@@ -219,15 +389,15 @@ class SkillAssessmentService(
     )
 
     private fun validatePeriodAccess(child: Child, min: Int, max: Int, early: Boolean) {
-        val age = ChronoUnit.MONTHS.between(child.birthDate, LocalDate.now()).toInt()
+        val correctedAge = child.calculateCorrectedAgeMonths()
         // age in range  → normal access
         // age > max     → child already exceeded this period; completing it is always allowed
         //                 (catch-up scenario), no early-transition checks needed
-        if (age in min..max || age > max) return
+        if (correctedAge in min..max || correctedAge > max) return
 
         // age < min — early transition; requires explicit flag and Z-score signal
-        if (!early || (min - age) > MAX_EARLY_MONTH_GAP) {
-            throw IllegalArgumentException("Early transition denied for age $age")
+        if (!early || (min - correctedAge) > MAX_EARLY_MONTH_GAP) {
+            throw IllegalArgumentException("Early transition denied for corrected age $correctedAge")
         }
 
         val measurement = measurementRepository
@@ -242,6 +412,7 @@ class SkillAssessmentService(
 
     private companion object {
         private const val REQUIRED_COMPLETION_PERCENT = 80
+        private const val REQUIRED_DOMAIN_COMPLETION_PERCENT = 50
         private const val MAX_EARLY_MONTH_GAP = 3
         private val EARLY_TRANSITION_Z_THRESHOLD = BigDecimal("1.50")
     }

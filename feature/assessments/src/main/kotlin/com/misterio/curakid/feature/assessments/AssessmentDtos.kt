@@ -12,15 +12,36 @@ data class SaveAnswersRequest(
     val assessmentDate: Instant? = null
 )
 
+data class SaveAnswersResponse(
+    val assessments: List<AssessmentResponse>,
+    val warnings: List<String> = emptyList()
+)
+
 data class AnswerRequest(
-    val questionId: UUID,
-    val selectedOptionId: UUID,
+    @field:NotNull val questionId: UUID,
+    @field:NotNull val selectedOptionId: UUID,
     val answeredAt: Instant? = null
 )
 
 data class CompletePeriodAssessmentRequest(
     @field:NotNull val periodCode: String,
     val allowEarlyTransition: Boolean = false
+)
+
+data class PeriodReadinessResponse(
+    val isReady: Boolean,
+    val completionPercent: Int,
+    val requiredPercent: Int,
+    val domainStatus: List<DomainReadinessResponse>,
+    val reasons: List<String> = emptyList(),
+    val canTransitionEarly: Boolean = false
+)
+
+data class DomainReadinessResponse(
+    val domain: String,
+    val completionPercent: Int,
+    val isReady: Boolean,
+    val requiredPercent: Int
 )
 
 // --- Responses ---
@@ -32,11 +53,11 @@ data class AssessmentResponse(
 )
 
 fun SkillAssessment.toAssessmentResponse() = AssessmentResponse(
-    assessmentId = id!!,
-    childId = child!!.id!!,
+    assessmentId = id,
+    childId = child!!.id,
     answers = answers.map {
         AssessmentAnswerResponse(
-            assessmentAnswerId = it.id!!,
+            assessmentAnswerId = it.id,
             question = QuestionResponse(
                 questionId = it.question?.id!!,
                 text = it.question?.text!!,
@@ -44,7 +65,7 @@ fun SkillAssessment.toAssessmentResponse() = AssessmentResponse(
                 weight = it.question!!.weight,
                 options = it.question!!.options.map { answerOption ->
                     OptionResponse(
-                        optionId = answerOption.id!!,
+                        optionId = answerOption.id,
                         text = answerOption.text,
                         value = answerOption.value,
                         displayOrder = answerOption.displayOrder

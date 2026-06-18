@@ -154,3 +154,50 @@ def test_analyze_with_trends_and_regression():
     assert json_data["urgencyScore"] >= 0.7  # Should be high
     assert "Динаміка ваги: Уповільнення" in json_data["linguisticInterpretations"]
     assert "Регрес розвитку: Виявлено" in json_data["linguisticInterpretations"]
+
+def test_analyze_age_specific_priority():
+    headers = {"X-Internal-Key": API_KEY}
+
+    # Common Rules
+    rules = [
+        # For infants, VERY_LOW hcfa is critical
+        {
+            "conditions": [
+                {"variable": "ageMonths", "term": "INFANT"},
+                {"variable": "hcfaZscore", "term": "VERY_LOW"}
+            ],
+            "consequent": "HIGH"
+        },
+        # For preschoolers, VERY_LOW hcfa is medium (less critical)
+        {
+            "conditions": [
+                {"variable": "ageMonths", "term": "PRESCHOOL"},
+                {"variable": "hcfaZscore", "term": "VERY_LOW"}
+            ],
+            "consequent": "MEDIUM"
+        }
+    ]
+
+    # Scenario 1: Infant (3 weeks / 0 months) with hcfa -3.8
+    payload_infant = {
+        "childId": "infant",
+        "ageMonths": 0,
+        "hcfaZscore": -3.8,
+        "rules": rules
+    }
+    response_infant = client.post("/analyze", headers=headers, json=payload_infant)
+    score_infant = response_infant.json()["urgencyScore"]
+
+    # Scenario 2: Preschooler (60 months) with same hcfa -3.8
+    payload_pre = {
+        "childId": "preschooler",
+        "ageMonths": 60,
+        "hcfaZscore": -3.8,
+        "rules": rules
+    }
+    response_pre = client.post("/analyze", headers=headers, json=payload_pre)
+    score_pre = response_pre.json()["urgencyScore"]
+
+    assert score_infant > 0.75
+    assert score_pre < 0.7
+    assert score_infant > score_pre

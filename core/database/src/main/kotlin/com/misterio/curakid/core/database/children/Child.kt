@@ -2,13 +2,23 @@ package com.misterio.curakid.core.database.children
 
 import com.misterio.curakid.core.database.BaseEntity
 import com.misterio.curakid.core.database.auth.User
-import jakarta.persistence.*
+import jakarta.persistence.CollectionTable
+import jakarta.persistence.Column
+import jakarta.persistence.ElementCollection
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
+import jakarta.persistence.Table
 import org.hibernate.annotations.SQLRestriction
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @Entity
 @Table(name = "children")
-@SQLRestriction("is_active = true")
+@SQLRestriction("deleted_at IS NULL")
 class Child(
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -27,6 +37,9 @@ class Child(
 
     @Column(name = "is_premature")
     var isPremature: Boolean = false,
+
+    @Column(name = "gestational_weeks")
+    var gestationalWeeks: Int? = null,
 
     @ElementCollection
     @CollectionTable(name = "child_allergies", joinColumns = [JoinColumn(name = "child_id")])
@@ -48,10 +61,24 @@ class Child(
     @Column(name = "notes", columnDefinition = "TEXT")
     var notes: List<String> = emptyList(),
 
-    @Column(name = "is_active", nullable = false)
-    var isActive: Boolean = true,
+) : BaseEntity() {
 
-) : BaseEntity()
+    fun calculateCorrectedAgeMonths(): Int {
+        val chronologicalAge = ChronoUnit.MONTHS.between(birthDate, LocalDate.now()).toInt()
+        
+        // Corrected age only applies to premature babies (< 40 weeks) up to 2 years
+        if (!isPremature || gestationalWeeks == null || gestationalWeeks!! >= 40 || chronologicalAge >= 24) {
+            return chronologicalAge
+        }
+
+        // Formula: Corrected Age = Chronological Age - (40 - Gestational Weeks) / 4 (weeks to months)
+        val weeksEarly = 40 - gestationalWeeks!!
+        val monthsEarly = weeksEarly / 4
+
+        return (chronologicalAge - monthsEarly).coerceAtLeast(0)
+    }
+}
+
 
 enum class Gender {
     MALE, FEMALE

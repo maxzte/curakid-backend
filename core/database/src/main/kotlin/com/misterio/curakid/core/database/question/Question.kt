@@ -6,10 +6,14 @@ import com.misterio.curakid.core.database.answer.AnswerOption
 import com.misterio.curakid.core.database.development.LifePeriod
 import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
+import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 
 @Entity
 @Table(name = "questions")
+@SQLRestriction("deleted_at IS NULL")
 class Question(
 
     @Column(nullable = false)
@@ -20,6 +24,8 @@ class Question(
     var domain: AssessmentDomain = AssessmentDomain.MOTOR_GROSS,
 
     @Column(name = "weight", precision = 3, scale = 2)
+    @Min(0L)
+    @Max(1L)
     var weight: BigDecimal = BigDecimal("1.0"),
 
     @JsonIgnore
@@ -27,12 +33,13 @@ class Question(
     @JoinColumn(name = "life_period_id")
     var lifePeriod: LifePeriod? = null,
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "prerequisite_id")
+    var prerequisite: Question? = null,
+
     @OneToMany(mappedBy = "question", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
     @OrderBy("displayOrder ASC")
-    val options: MutableList<AnswerOption> = mutableListOf(),
-
-    @Column(name = "is_active", nullable = false)
-    var isActive: Boolean = true
+    val options: MutableList<AnswerOption> = mutableListOf()
 
 ) : BaseEntity()
 

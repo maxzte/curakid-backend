@@ -35,7 +35,7 @@ class AdminController(
         @RequestParam("file") file: MultipartFile,
         @RequestParam("minAge", required = false) minAge: Int?,
         @RequestParam("maxAge", required = false) maxAge: Int?
-    ): ResponseEntity<MedicalKnowledge> {
+    ): ResponseEntity<List<MedicalKnowledge>> {
         val metadata = mutableMapOf<String, Any>()
         if (minAge != null || maxAge != null) {
             val ageMap = mutableMapOf<String, Int>()
@@ -66,14 +66,26 @@ class AdminController(
     // Quiz — Life Periods
     @GetMapping("/quiz/life-periods")
     fun getLifePeriods(): ResponseEntity<List<AdminLifePeriodResponse>> {
-        val response = quizService.getLifePeriods().map {
+        val response = quizService.getLifePeriods().map { lp ->
             AdminLifePeriodResponse(
-                id = it.id!!,
-                code = it.code,
-                label = it.label,
-                description = LifePeriodQuestionService.parseDescription(objectMapper, it.description),
-                minMonths = it.minMonths,
-                maxMonths = it.maxMonths
+                id = lp.id!!,
+                code = lp.code,
+                label = lp.label,
+                description = LifePeriodQuestionService.parseDescription(objectMapper, lp.description),
+                minMonths = lp.minMonths,
+                maxMonths = lp.maxMonths,
+                questions = lp.questions.filter { it.isActive }.map { q ->
+                    AdminQuestionResponse(
+                        id = q.id!!,
+                        text = q.text,
+                        domain = q.domain,
+                        weight = q.weight,
+                        prerequisite = q.prerequisite?.let { AdminPrerequisiteResponse(it.id!!, it.text) },
+                        options = q.options.map { o ->
+                            AdminOptionResponse(o.id!!, o.text, o.value, o.displayOrder)
+                        }
+                    )
+                }
             )
         }
         return ResponseEntity.ok(response)

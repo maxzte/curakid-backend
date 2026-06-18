@@ -18,4 +18,5 @@ interface EventRepository : JpaRepository<Event, UUID> {
     fun findAllByChildAndType(child: Child, type: EventType): List<Event>
 
     fun findAllByChildAndTypeNot(child: Child, type: EventType): List<Event>
+
 }

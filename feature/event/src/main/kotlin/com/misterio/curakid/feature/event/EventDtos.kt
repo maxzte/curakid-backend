@@ -5,18 +5,18 @@ import com.misterio.curakid.core.database.event.EventStatus
 import com.misterio.curakid.core.database.event.EventType
 import com.misterio.curakid.core.database.event.VaccineEvent
 import com.misterio.curakid.core.database.event.VaccineType
-import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import java.util.UUID
 
 data class EventRequest(
+    val id: UUID,
+    val childId: UUID,
     val title: String,
     val type: EventType,
     val date: Instant,
     val location: String? = null,
     val description: String? = null,
     val status: EventStatus = EventStatus.PLANNED,
-    val childId: UUID
 )
 
 data class UpdateEventRequest(
@@ -60,7 +60,7 @@ data class VaccineEventResponse(
 
 fun Event.toResponse() = EventResponse(
     childId = child?.id!!,
-    id = id!!,
+    id = id,
     type = type,
     date = date,
     title = title,
@@ -71,7 +71,7 @@ fun Event.toResponse() = EventResponse(
 
 fun VaccineEvent.toResponse() = VaccineEventResponse(
     childId = child?.id!!,
-    id = id!!,
+    id = id,
     type = type,
     date = date,
     disease = template?.disease,

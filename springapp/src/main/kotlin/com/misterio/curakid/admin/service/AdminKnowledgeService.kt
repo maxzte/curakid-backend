@@ -11,6 +11,7 @@ import org.apache.pdfbox.Loader
 import org.apache.pdfbox.text.PDFTextStripper
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 import java.util.*
 
 @Service
@@ -20,24 +21,30 @@ class AdminKnowledgeService(
     private val embeddingProvider: EmbeddingProvider
 ) {
     @Transactional
-    fun uploadArticle(title: String, content: String, categoryId: UUID): MedicalKnowledge {
+    fun uploadArticle(title: String, content: String, categoryId: UUID): List<MedicalKnowledge> {
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { RuntimeException("Category not found") }
 
-        val embedding = embeddingProvider.generateEmbedding(content)
-            ?: throw RuntimeException("Failed to generate embedding for the article")
+        val sourceId = UUID.randomUUID()
+        val chunks = chunkText(content)
         
-        val article = MedicalKnowledge(
-            title = title,
-            content = content,
-            category = category,
-            embedding = embedding.toFloatArray()
-        )
-        return knowledgeRepository.save(article)
+        return chunks.map { chunk ->
+            val embedding = embeddingProvider.generateEmbedding(chunk)
+                ?: throw RuntimeException("Failed to generate embedding for the chunk")
+            
+            val article = MedicalKnowledge(
+                title = title,
+                content = chunk,
+                category = category,
+                embedding = embedding.toFloatArray(),
+                sourceId = sourceId
+            )
+            knowledgeRepository.save(article)
+        }
     }
 
     @Transactional
-    fun uploadArticleFromFile(title: String, content: ByteArray, filename: String, categoryId: UUID, metadata: Map<String, Any>): MedicalKnowledge {
+    fun uploadArticleFromFile(title: String, content: ByteArray, filename: String, categoryId: UUID, metadata: Map<String, Any>): List<MedicalKnowledge> {
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { RuntimeException("Category not found") }
 
@@ -47,18 +54,57 @@ class AdminKnowledgeService(
             String(content)
         }
 
-        val doc = KnowledgeDocument(textContent, metadata)
-        val embedding = embeddingProvider.embed(doc)
-            ?: throw RuntimeException("Failed to generate embedding for the document")
+        val sourceId = UUID.randomUUID()
+        val chunks = chunkText(textContent)
 
-        val article = MedicalKnowledge(
-            title = title,
-            content = textContent,
-            category = category,
-            embedding = embedding.toFloatArray(),
-            metadata = metadata
-        )
-        return knowledgeRepository.save(article)
+        return chunks.map { chunk ->
+            val doc = KnowledgeDocument(chunk, metadata)
+            val embedding = embeddingProvider.embed(doc)
+                ?: throw RuntimeException("Failed to generate embedding for the chunk")
+
+            val article = MedicalKnowledge(
+                title = title,
+                content = chunk,
+                category = category,
+                embedding = embedding.toFloatArray(),
+                metadata = metadata,
+                sourceId = sourceId
+            )
+            knowledgeRepository.save(article)
+        }
+    }
+
+    private fun chunkText(text: String, chunkSize: Int = 1200, overlap: Int = 200): List<String> {
+        if (text.length <= chunkSize) return listOf(text)
+        
+        val chunks = mutableListOf<String>()
+        var start = 0
+        
+        while (start < text.length) {
+            var end = start + chunkSize
+            if (end >= text.length) {
+                chunks.add(text.substring(start))
+                break
+            }
+            
+            // Try to find a natural break (newline or space) near the end of the chunk
+            val lastNewline = text.lastIndexOf('\n', end)
+            if (lastNewline > start + (chunkSize / 2)) {
+                end = lastNewline + 1
+            } else {
+                val lastSpace = text.lastIndexOf(' ', end)
+                if (lastSpace > start + (chunkSize / 2)) {
+                    end = lastSpace + 1
+                }
+            }
+            
+            chunks.add(text.substring(start, end).trim())
+            start = end - overlap
+            if (start < 0) start = 0
+            // Ensure progress
+            if (start >= end) start = end + 1
+        }
+        return chunks
     }
 
     private fun extractTextFromPdf(bytes: ByteArray): String {
@@ -74,7 +120,13 @@ class AdminKnowledgeService(
     fun getArticles(): List<MedicalKnowledge> = knowledgeRepository.findAll()
 
     @Transactional
-    fun deleteArticle(id: UUID) = knowledgeRepository.deleteById(id)
+    fun deleteArticle(id: UUID) {
+        val article = knowledgeRepository.findById(id).orElseThrow {
+            RuntimeException("Article not found")
+        }
+        article.deletedAt = Instant.now()
+        knowledgeRepository.save(article)
+    }
 
     fun getCategories(): List<MedicalCategory> = categoryRepository.findAll()
 

@@ -51,6 +51,7 @@ class FeatureConventionPlugin : Plugin<Project> {
                 "testImplementation"(libs.findLibrary("spring.security.test").get())
                 "testRuntimeOnly"(libs.findLibrary("h2").get())
                 "testImplementation"(libs.findLibrary("mockito.core").get())
+                "testImplementation"(libs.findLibrary("mockito-kotlin").get())
                 "mockitoAgent"(libs.findLibrary("mockito.core").get()) { isTransitive = false }
             }
 

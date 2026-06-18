@@ -107,4 +107,20 @@ class WhoZScoreCalculatorTest {
 
         assertEquals(resMale, resNull, "Null gender should fallback to Male")
     }
+
+    @Test
+    fun `WFL vs WFH should switch at 2 years`() {
+        val weight = BigDecimal("12.0")
+        val height = BigDecimal("85.0")
+        
+        val birthDateUnder2 = LocalDate.now().minusDays(729)
+        val birthDateOver2 = LocalDate.now().minusDays(731)
+
+        val resUnder = calculator.calculateWfhZscore(weight, height, birthDateUnder2, Gender.MALE)
+        val resOver = calculator.calculateWfhZscore(weight, height, birthDateOver2, Gender.MALE)
+
+        // They should be different because they use different tables (WFL vs WFH)
+        // Note: In reality they might be close, but they are definitely different calculations.
+        assertTrue(resUnder != resOver, "Calculations for <2y and >2y should use different tables and likely yield different results")
+    }
 }

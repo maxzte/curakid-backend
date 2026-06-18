@@ -1,7 +1,10 @@
 package com.misterio.curakid.feature.assessments
 
+import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.currentUser
+import com.misterio.curakid.core.essential.common.exceptions.OnboardingRequiredException
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -11,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.util.NoSuchElementException
 import java.util.UUID
@@ -26,8 +30,7 @@ class AssessmentController(
         @PathVariable childId: UUID,
         auth: Authentication
     ): ResponseEntity<List<AssessmentResponse>> {
-        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
-            .orElseThrow { NoSuchElementException("Child not found") }
+        val child = findChildOrThrow(childId, auth.currentUser())
         return ResponseEntity.ok(assessmentService.getAssessmentsByChild(child))
     }
 
@@ -37,9 +40,8 @@ class AssessmentController(
         @PathVariable periodId: UUID,
         @Valid @RequestBody request: SaveAnswersRequest,
         auth: Authentication
-    ): ResponseEntity<List<AssessmentResponse>> {
-        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
-            .orElseThrow { NoSuchElementException("Child not found") }
+    ): ResponseEntity<SaveAnswersResponse> {
+        val child = findChildOrThrow(childId, auth.currentUser())
         return ResponseEntity.status(201).body(assessmentService.saveAssessmentAnswers(child, periodId, request))
     }
 
@@ -50,8 +52,7 @@ class AssessmentController(
         @Valid @RequestBody request: AnswerRequest,
         auth: Authentication
     ): ResponseEntity<AssessmentResponse> {
-        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
-            .orElseThrow { NoSuchElementException("Child not found") }
+        val child = findChildOrThrow(childId, auth.currentUser())
         return ResponseEntity.ok(assessmentService.updateAssessmentAnswers(assessmentId, child, request))
     }
 
@@ -61,8 +62,26 @@ class AssessmentController(
         @Valid @RequestBody request: CompletePeriodAssessmentRequest,
         auth: Authentication
     ): ResponseEntity<CompletePeriodAssessmentResponse> {
-        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
-            .orElseThrow { NoSuchElementException("Child not found") }
+        val child = findChildOrThrow(childId, auth.currentUser())
         return ResponseEntity.accepted().body(assessmentService.completePeriodAssessment(child, request))
+    }
+
+    @GetMapping("/readiness")
+    fun getReadiness(
+        @PathVariable childId: UUID,
+        @RequestParam periodCode: String,
+        auth: Authentication
+    ): ResponseEntity<PeriodReadinessResponse> {
+        val child = findChildOrThrow(childId, auth.currentUser())
+        return ResponseEntity.ok(assessmentService.getPeriodReadiness(child, periodCode))
+    }
+
+    private fun findChildOrThrow(childId: UUID, user: User): Child {
+        return childRepository.findByIdAndUser(childId, user).orElseGet {
+            if (childRepository.findAllByUser(user).isEmpty()) {
+                throw OnboardingRequiredException()
+            }
+            throw NoSuchElementException("Child not found")
+        }
     }
 }

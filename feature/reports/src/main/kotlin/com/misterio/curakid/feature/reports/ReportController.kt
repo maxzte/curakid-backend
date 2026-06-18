@@ -38,7 +38,10 @@ class ReportController(
     }
 
     @GetMapping("api/reports/{reportId}/status")
-    fun getReportStatus(@PathVariable reportId: UUID): ResponseEntity<Boolean> = reportService.getReportStatus(reportId)
+    fun getReportStatus(
+        @PathVariable reportId: UUID,
+        auth: Authentication
+    ): ResponseEntity<Boolean> = reportService.getReportStatus(reportId, auth.currentUser())
 
     @GetMapping("/api/children/{childId}/reports/generate")
     fun generateReport(

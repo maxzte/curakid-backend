@@ -179,6 +179,74 @@ class SkillAssessmentServiceTest {
     }
 
     @Test
+    fun `getPeriodReadiness should return isReady false if one domain has low coverage despite 80 percent total`() {
+        val child = Child(birthDate = LocalDate.now().minusMonths(6)).apply { id = UUID.randomUUID() }
+        val period = LifePeriod(code = "6M", minMonths = 6, maxMonths = 8).apply {
+            id = UUID.randomUUID()
+        }
+
+        // Domain A: 15 questions, Domain B: 5 questions. Total 20.
+        val questionsA = (1..15).map { Question(domain = AssessmentDomain.MOTOR_GROSS).apply { id = UUID.randomUUID() } }
+        val questionsB = (1..5).map { Question(domain = AssessmentDomain.SPEECH).apply { id = UUID.randomUUID() } }
+        period.questions.addAll(questionsA)
+        period.questions.addAll(questionsB)
+
+        // Answer all 15 in A and 1 in B -> 16/20 = 80% total.
+        // Domain B coverage: 1/5 = 20% < 50% (REQUIRED_DOMAIN_COMPLETION_PERCENT).
+        val assessmentA = SkillAssessment(child = child, domain = AssessmentDomain.MOTOR_GROSS, lifePeriod = period).apply {
+            id = UUID.randomUUID()
+            questionsA.forEach { q ->
+                answers.add(AssessmentAnswer(this, q, AnswerOption(value = 100.0).apply { id = UUID.randomUUID() }, Instant.now()))
+            }
+        }
+        val assessmentB = SkillAssessment(child = child, domain = AssessmentDomain.SPEECH, lifePeriod = period).apply {
+            id = UUID.randomUUID()
+            answers.add(AssessmentAnswer(this, questionsB[0], AnswerOption(value = 100.0).apply { id = UUID.randomUUID() }, Instant.now()))
+        }
+
+        whenever(lifePeriodRepository.findByCodeWithQuestions("6M")).thenReturn(Optional.of(period))
+        whenever(assessmentRepository.findAllByChildOrderByAssessmentDateDesc(any())).thenReturn(
+            listOf(assessmentA, assessmentB)
+        )
+
+        val readiness = service.getPeriodReadiness(child, "6M")
+
+        assertEquals(80, readiness.completionPercent)
+        assertEquals(false, readiness.isReady)
+        val speechStatus = readiness.domainStatus.find { it.domain == AssessmentDomain.SPEECH.name }!!
+        assertEquals(20, speechStatus.completionPercent)
+        assertEquals(false, speechStatus.isReady)
+    }
+
+    @Test
+    fun `getPeriodReadiness should use corrected age for premature babies`() {
+        // Child is 8 months chronological, but born at 32 weeks (8 weeks early).
+        // Corrected age = 8 - (40-32)/4 = 6 months.
+        val chronologicalAge = 8L
+        val birthDate = LocalDate.now().minusMonths(chronologicalAge)
+        val child = Child(birthDate = birthDate).apply { 
+            id = UUID.randomUUID()
+            isPremature = true
+            gestationalWeeks = 32
+        }
+        
+        // Period 6-8 months should be "Appropriate" for corrected age 6.
+        val period = LifePeriod(code = "6M", minMonths = 6, maxMonths = 8).apply { id = UUID.randomUUID() }
+
+        whenever(lifePeriodRepository.findByCodeWithQuestions("6M")).thenReturn(Optional.of(period))
+        whenever(assessmentRepository.findAllByChildOrderByAssessmentDateDesc(any())).thenReturn(
+            emptyList()
+        )
+
+        val readiness = service.getPeriodReadiness(child, "6M")
+
+        // Should be ready if we ignore other factors (or at least NOT rejected due to age)
+        // Since questions are empty, it returns isReady=false but we check the reasons for age-related rejection
+        val ageRejectionReason = readiness.reasons.find { it.contains("занадто мала") }
+        assertEquals(null, ageRejectionReason, "Should not be rejected by age because corrected age is 6")
+    }
+
+    @Test
     fun `validatePeriodAccess should allow early transition if age gap is 3 months and z-score high`() {
         // Child is 1 year old, in period 6-8 is technically over, but age > max also returns.
         val birthDate = LocalDate.now().minusYears(1)

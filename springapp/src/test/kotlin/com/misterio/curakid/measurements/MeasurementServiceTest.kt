@@ -5,6 +5,7 @@ import com.misterio.curakid.core.database.children.Gender
 import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.essential.common.analysis.ReportProvider
+import com.misterio.curakid.core.medical.MeasurementCalculator
 import com.misterio.curakid.core.medical.WhoZScoreCalculator
 import com.misterio.curakid.feature.measurements.AddMeasurementRequest
 import com.misterio.curakid.feature.measurements.MeasurementService
@@ -16,6 +17,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.math.BigDecimal
@@ -28,6 +30,7 @@ class MeasurementServiceTest {
 
     private lateinit var measurementRepository: MeasurementRepository
     private lateinit var whoZScoreCalculator: WhoZScoreCalculator
+    private lateinit var measurementCalculator: MeasurementCalculator
     private lateinit var measurementService: MeasurementService
     private lateinit var reportProvider: ReportProvider
 
@@ -36,8 +39,14 @@ class MeasurementServiceTest {
         measurementRepository = mock()
         whoZScoreCalculator = mock()
         reportProvider = mock()
+        measurementCalculator = MeasurementCalculator()
         measurementService =
-            MeasurementService(measurementRepository, whoZScoreCalculator, reportProvider)
+            MeasurementService(
+                measurementRepository,
+                whoZScoreCalculator,
+                reportProvider,
+                measurementCalculator
+            )
 
         whenever(measurementRepository.save(any<Measurement>())).thenAnswer {
             (it.arguments[0] as Measurement).apply {
@@ -53,23 +62,32 @@ class MeasurementServiceTest {
                 id = UUID.randomUUID()
             }
         val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
             weightKg = BigDecimal("10.0"),
             heightCm = BigDecimal("75.0"),
             headCircCm = null,
             measurementDate = Instant.now()
         )
 
-        whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any())).thenReturn(
+        whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any(), any())).thenReturn(
             BigDecimal(
                 "0.5"
             )
         )
-        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any())).thenReturn(
+        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any(), any())).thenReturn(
             BigDecimal(
                 "-0.2"
             )
         )
-        whenever(whoZScoreCalculator.calculateBmiZscore(any(), any(), any(), any())).thenReturn(
+        whenever(
+            whoZScoreCalculator.calculateBmiZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(
             BigDecimal("0.1")
         )
         whenever(whoZScoreCalculator.zScoreToPercentile(anyOrNull())).thenReturn(BigDecimal("50.00"))
@@ -87,13 +105,21 @@ class MeasurementServiceTest {
         val child =
             Child(birthDate = LocalDate.now().minusMonths(12)).apply { id = UUID.randomUUID() }
         val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
             weightKg = null,
             heightCm = BigDecimal("75.0"),
             headCircCm = null,
             measurementDate = Instant.now()
         )
 
-        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), anyOrNull())).thenReturn(
+        whenever(
+            whoZScoreCalculator.calculateHfaZscore(
+                any(),
+                any(),
+                anyOrNull(),
+                any()
+            )
+        ).thenReturn(
             BigDecimal("0.0")
         )
 
@@ -111,23 +137,32 @@ class MeasurementServiceTest {
                 id = UUID.randomUUID()
             }
         val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
             weightKg = BigDecimal("15.0"), // Extremely high for 12 months
             heightCm = BigDecimal("75.0"),
             headCircCm = null,
             measurementDate = Instant.now()
         )
 
-        whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any())).thenReturn(
+        whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any(), any())).thenReturn(
             BigDecimal(
                 "2.5"
             )
         ) // > 2
-        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any())).thenReturn(
+        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any(), any())).thenReturn(
             BigDecimal(
                 "0.0"
             )
         )
-        whenever(whoZScoreCalculator.calculateBmiZscore(any(), any(), any(), any())).thenReturn(
+        whenever(
+            whoZScoreCalculator.calculateBmiZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(
             BigDecimal("0.0")
         )
         whenever(reportProvider.generateEmergencyReport(any(), any())).thenReturn(UUID.randomUUID())
@@ -144,6 +179,7 @@ class MeasurementServiceTest {
                 id = UUID.randomUUID()
             }
         val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
             weightKg = BigDecimal("10.0"),
             heightCm = BigDecimal("75.0"),
             headCircCm = null,
@@ -152,7 +188,10 @@ class MeasurementServiceTest {
 
         // Mock previous measurement for delta calculation
         val prev =
-            Measurement(child = child, measurementDate = Instant.now().minus(10, ChronoUnit.DAYS)).apply {
+            Measurement(
+                child = child,
+                measurementDate = Instant.now().minus(10, ChronoUnit.DAYS)
+            ).apply {
                 wfaZscore = BigDecimal("0.5")
             }
         whenever(
@@ -168,15 +207,24 @@ class MeasurementServiceTest {
             whoZScoreCalculator.calculateWfaZscore(
                 any(),
                 any(),
+                any(),
                 any()
             )
         ).thenReturn(BigDecimal("1.6")) // Delta 1.1 > 1.0
-        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any())).thenReturn(
+        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any(), any())).thenReturn(
             BigDecimal(
                 "0.0"
             )
         )
-        whenever(whoZScoreCalculator.calculateBmiZscore(any(), any(), any(), any())).thenReturn(
+        whenever(
+            whoZScoreCalculator.calculateBmiZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(
             BigDecimal("0.0")
         )
 
@@ -190,6 +238,7 @@ class MeasurementServiceTest {
         val child = Child(birthDate = LocalDate.now().minusDays(5)).apply { id = UUID.randomUUID() }
         val now = Instant.now()
         val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
             weightKg = BigDecimal("3.5"),
             heightCm = null,
             headCircCm = null,
@@ -208,9 +257,162 @@ class MeasurementServiceTest {
 
         // For age < 14 days, lookback is 7 days
         val expectedLookback = now.minus(7, ChronoUnit.DAYS)
-        val expectedTo = now.minus(1, ChronoUnit.DAYS)
+        val expectedTo = now.minus(1, ChronoUnit.MILLIS)
         verify(measurementRepository).findByChildAndMeasurementDateBetweenOrderByMeasurementDateDesc(
             eq(child), eq(expectedLookback), eq(expectedTo)
         )
+    }
+
+    @Test
+    fun `addMeasurement - Scenario 1 - Normal`() {
+        val child = Child(birthDate = LocalDate.parse("2026-04-27"), gender = Gender.MALE).apply {
+            id = UUID.randomUUID()
+        }
+        val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
+            weightKg = BigDecimal("4.2"),
+            heightCm = BigDecimal("54.0"),
+            headCircCm = BigDecimal("37.0"),
+            measurementDate = Instant.parse("2026-05-27T10:00:00Z")
+        )
+
+        // Mock normal Z-scores (within [-2, 2] range)
+        whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("-0.5")
+        )
+        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("0.2")
+        )
+        whenever(
+            whoZScoreCalculator.calculateBmiZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(BigDecimal("0.0"))
+        whenever(whoZScoreCalculator.calculateHcfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("0.1")
+        )
+        whenever(
+            whoZScoreCalculator.calculateWfhZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(BigDecimal("0.0"))
+        whenever(whoZScoreCalculator.zScoreToPercentile(anyOrNull())).thenReturn(BigDecimal("30.0"))
+
+        val result = measurementService.addMeasurement(child, request)
+
+        assertNull(result.aiReportId)
+        verify(reportProvider, never()).generateEmergencyReport(any(), any())
+    }
+
+    @Test
+    fun `addMeasurement - Scenario 2 - Below Normal`() {
+        val child = Child(birthDate = LocalDate.parse("2026-04-27"), gender = Gender.MALE).apply {
+            id = UUID.randomUUID()
+        }
+        val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
+            weightKg = BigDecimal("2.8"),
+            heightCm = BigDecimal("50.0"),
+            headCircCm = BigDecimal("34.0"),
+            measurementDate = Instant.parse("2026-05-27T10:00:00Z")
+        )
+
+        // Mock low Z-scores (< -2, triggers report)
+        whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("-2.5")
+        )
+        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("-1.5")
+        )
+        whenever(
+            whoZScoreCalculator.calculateBmiZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(BigDecimal("-2.1"))
+        whenever(whoZScoreCalculator.calculateHcfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("-1.2")
+        )
+        whenever(
+            whoZScoreCalculator.calculateWfhZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(BigDecimal("-2.0"))
+        whenever(whoZScoreCalculator.zScoreToPercentile(anyOrNull())).thenReturn(BigDecimal("1.0"))
+
+        val reportId = UUID.randomUUID()
+        whenever(reportProvider.generateEmergencyReport(eq(child.id!!), any())).thenReturn(reportId)
+
+        val result = measurementService.addMeasurement(child, request)
+
+        assertEquals(reportId, result.aiReportId)
+        verify(reportProvider).generateEmergencyReport(eq(child.id!!), any())
+    }
+
+    @Test
+    fun `addMeasurement - Scenario 3 - Critical`() {
+        val child = Child(birthDate = LocalDate.parse("2026-04-27"), gender = Gender.MALE).apply {
+            id = UUID.randomUUID()
+        }
+        val request = AddMeasurementRequest(
+            id = UUID.randomUUID(),
+            weightKg = BigDecimal("2.3"),
+            heightCm = BigDecimal("47.0"),
+            headCircCm = BigDecimal("32.0"),
+            measurementDate = Instant.parse("2026-05-27T10:00:00Z")
+        )
+
+        // Mock critical Z-scores (even lower, triggers report)
+        whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("-3.5")
+        )
+        whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("-2.5")
+        )
+        whenever(
+            whoZScoreCalculator.calculateBmiZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(BigDecimal("-3.1"))
+        whenever(whoZScoreCalculator.calculateHcfaZscore(any(), any(), any(), any())).thenReturn(
+            BigDecimal("-2.2")
+        )
+        whenever(
+            whoZScoreCalculator.calculateWfhZscore(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        ).thenReturn(BigDecimal("-3.0"))
+        whenever(whoZScoreCalculator.zScoreToPercentile(anyOrNull())).thenReturn(BigDecimal("0.1"))
+
+        val reportId = UUID.randomUUID()
+        whenever(reportProvider.generateEmergencyReport(eq(child.id!!), any())).thenReturn(reportId)
+
+        val result = measurementService.addMeasurement(child, request)
+
+        assertEquals(reportId, result.aiReportId)
+        verify(reportProvider).generateEmergencyReport(eq(child.id!!), any())
     }
 }

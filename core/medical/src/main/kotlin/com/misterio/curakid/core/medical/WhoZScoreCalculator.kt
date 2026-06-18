@@ -32,6 +32,8 @@ class WhoZScoreCalculator {
     private val wfaGirls = mutableMapOf<Int, LmsParams>()
     private val hfaBoys = mutableMapOf<Int, LmsParams>()
     private val hfaGirls = mutableMapOf<Int, LmsParams>()
+    private val wflBoys = mutableMapOf<Int, LmsParams>()
+    private val wflGirls = mutableMapOf<Int, LmsParams>()
     private val wfhBoys = mutableMapOf<Int, LmsParams>()
     private val wfhGirls = mutableMapOf<Int, LmsParams>()
     private val bmiBoys = mutableMapOf<Int, LmsParams>()
@@ -45,8 +47,10 @@ class WhoZScoreCalculator {
         loadLmsData("zscore/wfa-e-girls.xlsx", wfaGirls)
         loadLmsData("zscore/lhfa-e-boys.xlsx", hfaBoys)
         loadLmsData("zscore/lhfa-e-girls.xlsx", hfaGirls)
-        loadWfhLmsData("zscore/wfl-e-boys.xlsx", wfhBoys)
-        loadWfhLmsData("zscore/wfl-e-girls.xlsx", wfhGirls)
+        loadWfhLmsData("zscore/wfl-e-boys.xlsx", wflBoys)
+        loadWfhLmsData("zscore/wfl-e-girls.xlsx", wflGirls)
+        loadWfhLmsData("zscore/wfh-e-boys.xlsx", wfhBoys)
+        loadWfhLmsData("zscore/wfh-e-girls.xlsx", wfhGirls)
         loadLmsData("zscore/bfa-e-boys.xlsx", bmiBoys)
         loadLmsData("zscore/bfa-e-girls.xlsx", bmiGirls)
         loadLmsData("zscore/hcfa-e-boys.xlsx", hcfaBoys)
@@ -100,8 +104,13 @@ class WhoZScoreCalculator {
     /**
      * Weight-for-Age Z-score (for ages 0-1856 days).
      */
-    fun calculateWfaZscore(weightKg: BigDecimal, birthDate: LocalDate, gender: Gender?): BigDecimal {
-        val ageDays = getAgeInDays(birthDate)
+    fun calculateWfaZscore(
+        weightKg: BigDecimal,
+        birthDate: LocalDate,
+        gender: Gender?,
+        measurementDate: LocalDate = LocalDate.now()
+    ): BigDecimal {
+        val ageDays = getAgeInDays(birthDate, measurementDate)
         val params = getParams(ageDays, gender, wfaBoys, wfaGirls)
         return computeZscore(weightKg.toDouble(), params)
     }
@@ -109,8 +118,13 @@ class WhoZScoreCalculator {
     /**
      * Height-for-Age Z-score (for ages 0-1856 days).
      */
-    fun calculateHfaZscore(heightCm: BigDecimal, birthDate: LocalDate, gender: Gender?): BigDecimal {
-        val ageDays = getAgeInDays(birthDate)
+    fun calculateHfaZscore(
+        heightCm: BigDecimal,
+        birthDate: LocalDate,
+        gender: Gender?,
+        measurementDate: LocalDate = LocalDate.now()
+    ): BigDecimal {
+        val ageDays = getAgeInDays(birthDate, measurementDate)
         val params = getParams(ageDays, gender, hfaBoys, hfaGirls)
         return computeZscore(heightCm.toDouble(), params)
     }
@@ -122,11 +136,12 @@ class WhoZScoreCalculator {
         weightKg: BigDecimal,
         heightCm: BigDecimal,
         birthDate: LocalDate,
-        gender: Gender?
+        gender: Gender?,
+        measurementDate: LocalDate = LocalDate.now()
     ): BigDecimal {
         val heightM = heightCm.toDouble() / 100.0
         val bmi = weightKg.toDouble() / (heightM * heightM)
-        val ageDays = getAgeInDays(birthDate)
+        val ageDays = getAgeInDays(birthDate, measurementDate)
         val params = getParams(ageDays, gender, bmiBoys, bmiGirls)
         return computeZscore(bmi, params)
     }
@@ -137,31 +152,42 @@ class WhoZScoreCalculator {
     fun calculateHcfaZscore(
         headCircumferenceCm: BigDecimal,
         birthDate: LocalDate,
-        gender: Gender?
+        gender: Gender?,
+        measurementDate: LocalDate = LocalDate.now()
     ): BigDecimal {
-        val ageDays = getAgeInDays(birthDate)
+        val ageDays = getAgeInDays(birthDate, measurementDate)
         val params = getParams(ageDays, gender, hcfaBoys, hcfaGirls)
         return computeZscore(headCircumferenceCm.toDouble(), params)
     }
 
     /**
-     * Weight-for-Height Z-score (based on height/length in cm, typically 45-120cm).
+     * Weight-for-Height Z-score (based on height/length in cm).
+     * Uses WFL (Weight-for-Length) for children < 2 years (730 days).
+     * Uses WFH (Weight-for-Height) for children >= 2 years.
      */
     fun calculateWfhZscore(
         weightKg: BigDecimal,
         heightCm: BigDecimal,
-        gender: Gender?
+        birthDate: LocalDate,
+        gender: Gender?,
+        measurementDate: LocalDate = LocalDate.now()
     ): BigDecimal {
+        val ageDays = getAgeInDays(birthDate, measurementDate)
         val heightKey = heightCm.multiply(BigDecimal.TEN).setScale(0, RoundingMode.HALF_UP).toInt()
         val isMale = gender != Gender.FEMALE
-        val map = if (isMale) wfhBoys else wfhGirls
-        
+
+        val map = if (ageDays < 730) {
+            if (isMale) wflBoys else wflGirls
+        } else {
+            if (isMale) wfhBoys else wfhGirls
+        }
+
         val params = map[heightKey] ?: map.minByOrNull { abs(it.key - heightKey) }?.value ?: LmsParams(1.0, 1.0, 1.0)
         return computeZscore(weightKg.toDouble(), params)
     }
 
-    private fun getAgeInDays(birthDate: LocalDate): Int {
-        val days = ChronoUnit.DAYS.between(birthDate, LocalDate.now()).toInt()
+    private fun getAgeInDays(birthDate: LocalDate, measurementDate: LocalDate = LocalDate.now()): Int {
+        val days = ChronoUnit.DAYS.between(birthDate, measurementDate).toInt()
         return days.coerceIn(0, 1856) // 0 to 60 months approx
     }
 

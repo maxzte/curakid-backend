@@ -34,4 +34,10 @@ class AiReport(
     @JoinColumn(name = "trigger_measurement_id")
     var triggerMeasurement: Measurement? = null,
 
+    @Column(name = "faithfulness_score")
+    var faithfulnessScore: Double? = null,
+
+    @Column(name = "relevance_score")
+    var relevanceScore: Double? = null,
+
 ) : BaseEntity()

@@ -212,8 +212,20 @@ class AuthService(
         }
     }
 
+    @Transactional
     fun deleteMe(userId: UUID) {
-        userRepository.deleteById(userId)
+        val user = userRepository.findById(userId).orElseThrow {
+            RuntimeException("User not found")
+        }
+        
+        // Anonymize user data to free up email and comply with GDPR
+        user.email = "deleted_${user.id}_${Instant.now().epochSecond}@deleted.curakid.com"
+        user.name = "Deleted User"
+        user.passwordHash = "DELETED"
+        user.deletedAt = Instant.now()
+        user.isActive = false
+
+        userRepository.save(user)
         userConsentRepository.revokeAllByUserId(userId, Instant.now())
     }
 

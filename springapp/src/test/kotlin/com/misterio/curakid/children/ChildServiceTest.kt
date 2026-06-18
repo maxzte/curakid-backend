@@ -43,16 +43,29 @@ class ChildServiceTest {
     @Test
     fun `createChild should save and return child response`() {
         val request = CreateChildRequest(
+            id = UUID.randomUUID(),
             name = "Ivan",
             birthDate = LocalDate.of(2022, 1, 1),
             gender = Gender.MALE,
             isPremature = false,
+            gestationalWeeks = null,
             allergies = null,
             chronicDiseases = null,
             pastDiseases = null,
-            specialFeatures = null
+            specialFeatures = null,
         )
-        val savedChild = Child(user, "Ivan", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
+        val savedChild = Child(
+            user,
+            "Ivan",
+            LocalDate.of(2022, 1, 1),
+            Gender.MALE,
+            false,
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            emptyList()
+        ).apply {
             id = UUID.randomUUID()
         }
         whenever(userRepository.findById(any())).thenReturn(Optional.of(user))
@@ -77,7 +90,7 @@ class ChildServiceTest {
     @Test
     fun `getChildren should return mapped responses`() {
         val child1 = Child(
-            user,
+            user = user,
             name = "Ivan",
             birthDate = LocalDate.of(2022, 1, 1),
             gender = Gender.MALE
@@ -85,7 +98,7 @@ class ChildServiceTest {
             id = UUID.randomUUID()
         }
         val child2 = Child(
-            user,
+            user = user,
             name = "Maria",
             birthDate = LocalDate.of(2023, 5, 10),
             gender = Gender.FEMALE
@@ -113,7 +126,12 @@ class ChildServiceTest {
     @Test
     fun `updateChild should update fields and save`() {
         val childId = UUID.randomUUID()
-        val existingChild = Child(user, "Old Name", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
+        val existingChild = Child(
+            user = user,
+            name = "Old Name",
+            birthDate = LocalDate.of(2022, 1, 1),
+            gender = Gender.MALE
+        ).apply {
             id = childId
         }
         whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(
@@ -127,6 +145,7 @@ class ChildServiceTest {
             name = "New Name",
             birthDate = null,
             gender = null,
+            gestationalWeeks = null,
             allergies = listOf("Peanuts"),
             chronicDiseases = null,
             pastDiseases = null,
@@ -142,7 +161,12 @@ class ChildServiceTest {
     @Test
     fun `deleteChild should set isActive to false, anonymize name and save`() {
         val childId = UUID.randomUUID()
-        val existingChild = Child(user, "Ivan", LocalDate.of(2022, 1, 1), Gender.MALE).apply {
+        val existingChild = Child(
+            user = user,
+            name = "Ivan",
+            birthDate = LocalDate.of(2022, 1, 1),
+            gender = Gender.MALE
+        ).apply {
             id = childId
         }
         whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(

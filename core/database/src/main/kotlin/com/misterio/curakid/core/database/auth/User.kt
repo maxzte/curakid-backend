@@ -2,6 +2,7 @@ package com.misterio.curakid.core.database.auth
 
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
+import org.hibernate.annotations.SQLRestriction
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.userdetails.UserDetails
@@ -9,6 +10,7 @@ import java.time.Instant
 
 @Entity
 @Table(name = "users")
+@SQLRestriction("deleted_at IS NULL")
 class User(
 
     @Column(unique = true, nullable = false)
@@ -24,8 +26,7 @@ class User(
     @Column(nullable = false)
     var role: Role = Role.ROLE_USER,
 
-    @Column(name = "is_active", nullable = false)
-    var isActive: Boolean = false,
+    isActive: Boolean = false,
 
     @Column(name = "onboarding_completed", nullable = false)
     var onboardingCompleted: Boolean = false,
@@ -43,6 +44,11 @@ class User(
     var resetCodeExpiry: Instant? = null
 
 ) : BaseEntity(), UserDetails {
+
+    init {
+        this.isActive = isActive
+    }
+
     override fun getAuthorities(): Collection<GrantedAuthority> = listOf(SimpleGrantedAuthority(role.name))
     override fun getPassword(): String = passwordHash
     override fun getUsername(): String = email

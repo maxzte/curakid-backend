@@ -40,16 +40,48 @@
                     "domain": "PHYSICAL",
                     "isActive": true,
                     "conditions": [
+                    { "variable": "ageMonths", "term": "INFANT" },
+                    { "variable": "hcfaZscore", "term": "VERY_LOW" }
+                    ],
+                    "consequent": "HIGH"
+                    },
+                    {
+                    "domain": "PHYSICAL",
+                    "isActive": true,
+                    "conditions": [
+                    { "variable": "ageMonths", "term": "INFANT" },
+                    { "variable": "wfhZscore", "term": "LOW" }
+                    ],
+                    "consequent": "HIGH"
+                    },
+                    {
+                    "domain": "PHYSICAL",
+                    "isActive": true,
+                    "conditions": [
+                    { "variable": "ageMonths", "term": "PRESCHOOL" },
+                    { "variable": "bmiZscore", "term": "VERY_LOW" }
+                    ],
+                    "consequent": "HIGH"
+                    },
+                    {
+                    "domain": "PHYSICAL",
+                    "isActive": true,
+                    "conditions": [
+                    { "variable": "ageMonths", "term": "PRESCHOOL" },
+                    { "variable": "hcfaZscore", "term": "VERY_LOW" }
+                    ],
+                    "consequent": "MEDIUM"
+                    },
+                    {
+                    "domain": "PHYSICAL",
+                    "isActive": true,
+                    "conditions": [
                     {
                     "variable": "wfaZscore",
                     "term": "NORMAL"
                     },
                     {
                     "variable": "hfaZscore",
-                    "term": "NORMAL"
-                    },
-                    {
-                    "variable": "hcfaZscore",
                     "term": "NORMAL"
                     }
                     ],
@@ -160,17 +192,6 @@
                     "conditions": [
                     {
                     "variable": "bmiZscore",
-                    "term": "VERY_LOW"
-                    }
-                    ],
-                    "consequent": "HIGH"
-                    },
-                    {
-                    "domain": "PHYSICAL",
-                    "isActive": true,
-                    "conditions": [
-                    {
-                    "variable": "bmiZscore",
                     "term": "HIGH"
                     }
                     ],
@@ -197,17 +218,6 @@
                     }
                     ],
                     "consequent": "MEDIUM"
-                    },
-                    {
-                    "domain": "PHYSICAL",
-                    "isActive": true,
-                    "conditions": [
-                    {
-                    "variable": "hcfaZscore",
-                    "term": "VERY_LOW"
-                    }
-                    ],
-                    "consequent": "HIGH"
                     },
                     {
                     "domain": "PHYSICAL",
@@ -241,28 +251,6 @@
                     }
                     ],
                     "consequent": "LOW"
-                    },
-                    {
-                    "domain": "PHYSICAL",
-                    "isActive": true,
-                    "conditions": [
-                    {
-                    "variable": "wfhZscore",
-                    "term": "LOW"
-                    }
-                    ],
-                    "consequent": "MEDIUM"
-                    },
-                    {
-                    "domain": "PHYSICAL",
-                    "isActive": true,
-                    "conditions": [
-                    {
-                    "variable": "wfhZscore",
-                    "term": "VERY_LOW"
-                    }
-                    ],
-                    "consequent": "HIGH"
                     },
                     {
                     "domain": "PHYSICAL",
@@ -787,7 +775,7 @@
     <script>
         let rules = [];
         const variables = [
-            'wfaZscore', 'hfaZscore', 'bmiZscore', 'hcfaZscore', 'wfhZscore',
+            'ageMonths', 'wfaZscore', 'hfaZscore', 'bmiZscore', 'hcfaZscore', 'wfhZscore',
             'motorGrossScore', 'motorFineScore', 'speechScore',
             'cognitiveScore', 'socialScore', 'selfCareScore', 'sensoryScore',
             'wfaVelocity', 'hfaVelocity', 'bmiVelocity', 'hcfaVelocity', 'wfhVelocity',
@@ -795,6 +783,7 @@
         ];
         const domains = ['GENERAL', 'MOTOR', 'SPEECH', 'COGNITIVE', 'SOCIAL', 'PHYSICAL'];
         const terms = {
+            age: ['INFANT', 'TODDLER', 'PRESCHOOL'],
             z: ['VERY_LOW', 'LOW', 'NORMAL', 'HIGH', 'VERY_HIGH'],
             skill: ['CRITICAL', 'BELOW_NORMAL', 'NORMAL'],
             velocity: ['FALLING_FAST', 'FALLING', 'STABLE', 'RISING'],
@@ -815,6 +804,7 @@
 
         function getTermsForVariable(v) {
             if (!v) return terms.z;
+            if (v === 'ageMonths') return terms.age;
             if (v === 'is_regression') return terms.binary;
             if (v.includes('Velocity')) return terms.velocity;
             if (v.includes('Score')) return terms.skill;

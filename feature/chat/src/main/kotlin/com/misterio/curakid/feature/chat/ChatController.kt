@@ -19,6 +19,14 @@ class ChatController(
     private val chatService: ChatService
 ) {
 
+    @GetMapping("/history/{childId}")
+    fun getChatHistory(
+        @PathVariable childId: UUID,
+        auth: Authentication
+    ): List<ChatMessageResponse> {
+        return chatService.getChatHistory(childId, auth.currentUser())
+    }
+
     @PostMapping(value = ["/stream"], produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     fun streamChat(
         @Valid @RequestBody request: ChatRequest,
@@ -27,12 +35,4 @@ class ChatController(
         return chatService.streamChatEvents(request, auth.currentUser())
     }
 
-    @GetMapping("/history/{childId}")
-    fun getChatHistory(
-        @PathVariable childId: UUID,
-        auth: Authentication
-    ): List<ChatMessageResponse> {
-        return chatService.getChatHistory(childId, auth.currentUser())
-    }
 }
-

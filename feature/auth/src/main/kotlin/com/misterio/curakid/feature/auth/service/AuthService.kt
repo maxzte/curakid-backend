@@ -43,6 +43,10 @@ class AuthService(
     private val emailService: EmailService,
     @Value("\${jwt.refresh-token-expiration:604800000}") private val refreshExpiration: Long, // 7 days
 ) {
+    private val secureRandom = java.security.SecureRandom()
+
+    private fun generateSixDigitCode(): String = String.format("%06d", secureRandom.nextInt(1_000_000))
+
     @Transactional
     fun register(request: RegisterRequest, httpRequest: HttpServletRequest): MessageResponse {
         if (userRepository.existsByEmail(request.email)) {
@@ -60,13 +64,13 @@ class AuthService(
         val ip = httpRequest.remoteAddr
         val userAgent = httpRequest.getHeader("User-Agent")
 
-        val verificationCode = (100000..999999).random().toString()
+        val verificationCode = generateSixDigitCode()
         val user = User(
             email = request.email,
             passwordHash = passwordEncoder.encode(request.password)
                 ?: throw IllegalStateException("Password encoding failed"),
             name = request.name,
-            isActive = request.email.endsWith("@gatling.local") // Auto-activate for load tests
+            isActive = false
         ).apply {
             this.verificationCode = verificationCode
             this.verificationCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
@@ -127,10 +131,13 @@ class AuthService(
 
     @Transactional
     fun forgotPassword(request: ForgotPasswordRequest): MessageResponse {
-        val user = userRepository.findByEmail(request.email)
-            .orElseThrow { RuntimeException("User not found") }
+        val userOptional = userRepository.findByEmail(request.email)
+        if (userOptional.isEmpty) {
+            return MessageResponse("Password reset code sent to your email.")
+        }
 
-        val resetCode = (100000..999999).random().toString()
+        val user = userOptional.get()
+        val resetCode = generateSixDigitCode()
         user.resetCode = resetCode
         user.resetCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
         userRepository.save(user)

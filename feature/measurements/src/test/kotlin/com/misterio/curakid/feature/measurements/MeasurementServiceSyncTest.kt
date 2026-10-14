@@ -1,6 +1,7 @@
 package com.misterio.curakid.feature.measurements
 
 import com.misterio.curakid.core.database.children.Child
+import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.children.Gender
 import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
@@ -31,6 +32,7 @@ import java.util.UUID
 class MeasurementServiceSyncTest {
 
     @Mock lateinit var measurementRepository: MeasurementRepository
+    @Mock lateinit var childRepository: ChildRepository
     @Mock lateinit var whoZScoreCalculator: WhoZScoreCalculator
     @Mock lateinit var reportProvider: ReportProvider
     private val measurementCalculator = MeasurementCalculator()
@@ -38,7 +40,7 @@ class MeasurementServiceSyncTest {
 
     @BeforeEach
     fun setUp() {
-        service = MeasurementService(measurementRepository, whoZScoreCalculator, reportProvider, measurementCalculator)
+        service = MeasurementService(measurementRepository, childRepository, whoZScoreCalculator, reportProvider, measurementCalculator)
 
         whenever(whoZScoreCalculator.calculateWfaZscore(any(), any(), any(), any())).thenReturn(BigDecimal("0.0"))
         whenever(whoZScoreCalculator.calculateHfaZscore(any(), any(), any(), any())).thenReturn(BigDecimal("0.0"))

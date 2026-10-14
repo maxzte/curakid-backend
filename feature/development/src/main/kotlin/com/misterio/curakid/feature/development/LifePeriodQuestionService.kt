@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class LifePeriodQuestionService(
@@ -16,7 +17,9 @@ class LifePeriodQuestionService(
     private val log = LoggerFactory.getLogger(LifePeriodQuestionService::class.java)
 
     companion object {
-        fun parseDescription(objectMapper: ObjectMapper, json: String?): LifePeriodDescription {
+        private val internalMapper = ObjectMapper()
+
+        fun parseDescription(json: String?): LifePeriodDescription {
             if (json.isNullOrBlank()) return LifePeriodDescription(
                 "",
                 "",
@@ -24,7 +27,7 @@ class LifePeriodQuestionService(
                 emptyList()
             )
             return try {
-                val root = objectMapper.readTree(json)
+                val root = internalMapper.readTree(json)
                 val ua = root.get("ua") ?: root
                 LifePeriodDescription(
                     title = ua.get("title")?.asString() ?: "",
@@ -41,9 +44,13 @@ class LifePeriodQuestionService(
                 LifePeriodDescription("", json, LifePeriodMilestones("", "", ""), emptyList())
             }
         }
+
+        fun parseDescription(objectMapper: Any?, json: String?): LifePeriodDescription {
+            return parseDescription(json)
+        }
     }
 
-    //    @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     @Cacheable("lifePeriods")
     fun getAllPeriodsWithQuestions(): List<LifePeriodResponse> {
         val periods = lifePeriodRepository.findAllWithQuestions()
@@ -54,9 +61,16 @@ class LifePeriodQuestionService(
         return periods.map { it.toResponse(objectMapper) }
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable("lifePeriods", key = "#code")
     fun getPeriodWithQuestions(code: String): LifePeriodResponse {
-        val period = lifePeriodRepository.findByCode(code)
+        val period = lifePeriodRepository.findByCodeWithQuestions(code)
             .orElseThrow { IllegalArgumentException("Period $code not found") }
+
+        val questionIds = period.questions.mapNotNull { it.id }
+        if (questionIds.isNotEmpty()) {
+            questionRepository.findAllWithOptionsByIdIn(questionIds)
+        }
 
         return period.toResponse(objectMapper)
     }

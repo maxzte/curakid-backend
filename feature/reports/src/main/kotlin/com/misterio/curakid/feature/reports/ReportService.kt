@@ -52,12 +52,37 @@ class ReportService(
     private val percentileCalculator: WhoPercentileCalculator,
     private val transactionTemplate: TransactionTemplate,
     private val measurementCalculator: MeasurementCalculator,
+    @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor") private val taskExecutor: org.springframework.core.task.TaskExecutor,
 ) : ReportProvider {
     private val objectMapper = ObjectMapper()
     private val log = LoggerFactory.getLogger(ReportService::class.java)
 
+    fun getReports(childId: UUID, user: User): List<ReportResponse> {
+        val child = childRepository.findByIdAndUser(childId, user)
+            .orElseThrow { NoSuchElementException("Child not found") }
+        return getReports(child)
+    }
+
     fun getReports(child: Child): List<ReportResponse> =
         aiReportRepository.findAllByChildOrderByCreatedAtDesc(child).map { ReportResponse.from(it) }
+
+    fun triggerPeriodReportGeneration(childId: UUID, user: User) {
+        val child = childRepository.findByIdAndUser(childId, user)
+            .orElseThrow { NoSuchElementException("Child not found") }
+        val latestSummary = periodSummaryRepository.findTopByChildOrderByCreatedAtDesc(child)
+            .orElseThrow { NoSuchElementException("No period summary found for child") }
+        taskExecutor.execute {
+            generatePeriodReport(child.id!!, latestSummary.id!!)
+        }
+    }
+
+    fun triggerReportRegeneration(summaryId: UUID, user: User) {
+        val summary = periodSummaryRepository.findByIdAndChildUser(summaryId, user.id)
+            .orElseThrow { NoSuchElementException("Period summary not found") }
+        taskExecutor.execute {
+            regenerateReport(user, summaryId)
+        }
+    }
 
     fun getReport(reportId: UUID, currentUser: User): ReportResponse {
         val report = aiReportRepository.findByIdAndChildUser(reportId, currentUser)
@@ -400,7 +425,7 @@ class ReportService(
     }
 
     private fun enqueueReportGeneration(reportId: UUID, context: ReportContext) {
-        CompletableFuture.runAsync {
+        CompletableFuture.runAsync(Runnable {
             try {
                 val generated = generateReport(context)
                 transactionTemplate.execute {
@@ -431,7 +456,7 @@ class ReportService(
                     null
                 }
             }
-        }
+        }, taskExecutor)
     }
 
     private fun updatePlaceholderReport(
@@ -454,7 +479,7 @@ class ReportService(
         context: ReportContext,
         generated: GeneratedReport
     ) {
-        CompletableFuture.runAsync {
+        CompletableFuture.runAsync(Runnable {
             try {
                 val evaluationPrompt = """
                     # ROLE
@@ -490,7 +515,7 @@ class ReportService(
             } catch (ex: Exception) {
                 log.error("Report evaluation failed: {}", ex.message)
             }
-        }
+        }, taskExecutor)
     }
 
     private fun parseEvaluationResponse(response: String): Pair<Double, Double> {
@@ -513,6 +538,9 @@ class ReportService(
     fun regenerateReport(user: User, summaryId: UUID): ReportResponse {
         val summary = periodSummaryRepository.findById(summaryId)
             .orElseThrow { NoSuchElementException("Period summary not found") }
+        if (summary.child?.user?.id != user.id) {
+            throw IllegalArgumentException("Access denied")
+        }
         val context = preparePeriodReportContext(summary.child!!.id!!, summaryId)
             ?: throw IllegalStateException("Unable to prepare report context")
         val generated = generateReport(context)

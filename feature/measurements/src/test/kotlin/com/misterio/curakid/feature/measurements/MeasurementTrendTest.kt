@@ -1,6 +1,7 @@
 package com.misterio.curakid.feature.measurements
 
 import com.misterio.curakid.core.database.children.Child
+import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.essential.common.analysis.ReportProvider
@@ -27,6 +28,7 @@ import java.util.UUID
 class MeasurementTrendTest {
 
     @Mock lateinit var measurementRepository: MeasurementRepository
+    @Mock lateinit var childRepository: ChildRepository
     @Mock lateinit var whoZScoreCalculator: WhoZScoreCalculator
     @Mock lateinit var reportProvider: ReportProvider
     private val measurementCalculator = MeasurementCalculator()
@@ -34,7 +36,7 @@ class MeasurementTrendTest {
 
     @BeforeEach
     fun setUp() {
-        measurementService = MeasurementService(measurementRepository, whoZScoreCalculator, reportProvider, measurementCalculator)
+        measurementService = MeasurementService(measurementRepository, childRepository, whoZScoreCalculator, reportProvider, measurementCalculator)
 
         whenever(measurementRepository.save(any<Measurement>())).thenAnswer {
             (it.arguments[0] as Measurement).apply { if (id == null) id = UUID.randomUUID() }

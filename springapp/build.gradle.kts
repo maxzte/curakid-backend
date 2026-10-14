@@ -34,6 +34,7 @@ dependencies {
 
     implementation(libs.spring.ai.google.gemini)
     implementation(libs.pdfbox)
+    implementation(libs.sentry.spring.boot.starter)
     testImplementation(libs.jjwt.api)
 
     implementation(libs.kotlin.reflect)

@@ -12,6 +12,7 @@ gemini = "2.0.0-M7"
 jjwt = "0.12.6"
 google-auth = "1.33.0"
 pdfbox = "3.0.4"
+sentry = "7.18.1"
 
 
 [libraries]
@@ -39,6 +40,7 @@ google-api-client = { module = "com.google.api-client:google-api-client", versio
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "spring-boot" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version = "5.4.0" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+sentry-spring-boot-starter = { module = "io.sentry:sentry-spring-boot-starter-jakarta", version.ref = "sentry" }
 
 # TEST
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }

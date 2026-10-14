@@ -9,4 +9,5 @@ dependencies {
     implementation(projects.core.database)
 
     implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.json)
 }

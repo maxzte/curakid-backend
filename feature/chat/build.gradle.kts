@@ -10,9 +10,6 @@ dependencies {
     implementation(projects.core.database)
     implementation(projects.core.medical)
 
-    implementation(projects.feature.reports) // To reuse Intelligence/Knowledge provider and context extraction if needed
-    implementation(projects.feature.children) // Child repository
-
     implementation(libs.spring.boot.starter.validation)
 
     implementation(libs.spring.ai.google.gemini)

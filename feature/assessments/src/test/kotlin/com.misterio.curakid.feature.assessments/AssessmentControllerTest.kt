@@ -26,29 +26,24 @@ class AssessmentControllerTest {
 
     private lateinit var mockMvc: MockMvc
     private lateinit var assessmentService: SkillAssessmentService
-    private lateinit var childRepository: ChildRepository
     private val user = User(email = "test@test.com", passwordHash = "hash", name = "Test").apply {
         id = UUID.randomUUID()
     }
     private val auth = UsernamePasswordAuthenticationToken(user, null, emptyList())
     private val childId = UUID.randomUUID()
-    private val child = Child(name = "Test Child").apply { id = childId }
     private val periodId = UUID.randomUUID()
     private val assessmentId = UUID.randomUUID()
 
     @BeforeEach
     fun setUp() {
         assessmentService = mock()
-        childRepository = mock()
-        val controller = AssessmentController(assessmentService, childRepository)
+        val controller = AssessmentController(assessmentService)
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build()
-
-        whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(Optional.of(child))
     }
 
     @Test
     fun `GET assessments returns list`() {
-        whenever(assessmentService.getAssessmentsByChild(child)).thenReturn(
+        whenever(assessmentService.getAssessmentsByChild(childId, user)).thenReturn(
             listOf(AssessmentResponse(assessmentId, childId, assessmentDate = Instant.now()))
         )
 
@@ -59,7 +54,7 @@ class AssessmentControllerTest {
 
     @Test
     fun `POST answers returns 201`() {
-        whenever(assessmentService.saveAssessmentAnswers(any(), any(), any())).thenReturn(
+        whenever(assessmentService.saveAssessmentAnswers(any(), any(), any(), any())).thenReturn(
             SaveAnswersResponse(listOf(AssessmentResponse(assessmentId, childId, assessmentDate = Instant.now())))
         )
 
@@ -74,7 +69,7 @@ class AssessmentControllerTest {
 
     @Test
     fun `PATCH assessment returns updated`() {
-        whenever(assessmentService.updateAssessmentAnswers(any(), any(), any())).thenReturn(
+        whenever(assessmentService.updateAssessmentAnswers(any(), any(), any(), any())).thenReturn(
             AssessmentResponse(assessmentId, childId, assessmentDate = Instant.now())
         )
 
@@ -89,7 +84,7 @@ class AssessmentControllerTest {
 
     @Test
     fun `POST complete returns 202`() {
-        whenever(assessmentService.completePeriodAssessment(any(), any())).thenReturn(
+        whenever(assessmentService.completePeriodAssessment(any(), any(), any())).thenReturn(
             CompletePeriodAssessmentResponse("P1M", 100, 80, Instant.now(), emptyList())
         )
 
@@ -105,7 +100,7 @@ class AssessmentControllerTest {
 
     @Test
     fun `GET readiness returns status`() {
-        whenever(assessmentService.getPeriodReadiness(child, "P1M")).thenReturn(
+        whenever(assessmentService.getPeriodReadiness(childId, "P1M", user)).thenReturn(
             PeriodReadinessResponse(true, 100, 80, emptyList())
         )
 

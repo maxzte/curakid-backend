@@ -37,7 +37,13 @@ class ChildService(
         managedUser.onboardingCompleted = true
 
         val existing = childRepository.findById(request.id)
-        if (existing.isPresent) return ChildResponse.from(existing.get())
+        if (existing.isPresent) {
+            val existingChild = existing.get()
+            if (existingChild.user?.id != user.id) {
+                throw IllegalArgumentException("Child with this ID already exists")
+            }
+            return ChildResponse.from(existingChild)
+        }
 
         val child = Child(
             user = user,

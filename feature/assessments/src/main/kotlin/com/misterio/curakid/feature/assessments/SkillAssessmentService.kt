@@ -22,6 +22,9 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
+import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.children.ChildRepository
+import com.misterio.curakid.core.essential.common.exceptions.OnboardingRequiredException
 import java.time.temporal.ChronoUnit
 import java.util.*
 
@@ -34,12 +37,61 @@ class SkillAssessmentService(
     private val measurementRepository: MeasurementRepository,
     private val periodSummaryRepository: PeriodSummaryRepository,
     private val reportProvider: ReportProvider,
-    private val transactionTemplate: TransactionTemplate
+    private val transactionTemplate: TransactionTemplate,
+    private val childRepository: ChildRepository? = null,
+    private val cacheManager: org.springframework.cache.CacheManager? = null
 ) {
 
+    fun findChildOrThrow(childId: UUID, user: User): Child {
+        val repo = childRepository ?: throw IllegalStateException("ChildRepository not configured")
+        return repo.findByIdAndUser(childId, user).orElseGet {
+            if (repo.findAllByUser(user).isEmpty()) {
+                throw OnboardingRequiredException()
+            }
+            throw NoSuchElementException("Child not found")
+        }
+    }
+
+    fun getAssessmentsByChild(childId: UUID, user: User): List<AssessmentResponse> {
+        val child = findChildOrThrow(childId, user)
+        return getAssessmentsByChild(child)
+    }
+
     @Transactional
-    @CacheEvict(value = ["assessmentReadiness"], allEntries = true)
+    fun saveAssessmentAnswers(childId: UUID, periodId: UUID, user: User, request: SaveAnswersRequest): SaveAnswersResponse {
+        val child = findChildOrThrow(childId, user)
+        return saveAssessmentAnswers(child, periodId, request)
+    }
+
+    fun updateAssessmentAnswers(assessmentId: UUID, childId: UUID, user: User, request: AnswerRequest): AssessmentResponse {
+        val child = findChildOrThrow(childId, user)
+        return updateAssessmentAnswers(assessmentId, child, request)
+    }
+
+    fun completePeriodAssessment(childId: UUID, user: User, request: CompletePeriodAssessmentRequest): CompletePeriodAssessmentResponse {
+        val child = findChildOrThrow(childId, user)
+        return completePeriodAssessment(child, request)
+    }
+
+    fun getPeriodReadiness(childId: UUID, periodCode: String, user: User): PeriodReadinessResponse {
+        val child = findChildOrThrow(childId, user)
+        return getPeriodReadiness(child, periodCode)
+    }
+
+    private fun evictReadinessForChild(childId: UUID?) {
+        if (childId == null) return
+        val cache = cacheManager?.getCache("assessmentReadiness") ?: return
+        val nativeMap = cache.nativeCache
+        if (nativeMap is Map<*, *>) {
+            val prefix = "${childId}_"
+            val keysToEvict = nativeMap.keys.filterIsInstance<String>().filter { it.startsWith(prefix) }
+            keysToEvict.forEach { cache.evict(it) }
+        }
+    }
+
+    @Transactional
     fun saveAssessmentAnswers(child: Child, periodId: UUID, request: SaveAnswersRequest): SaveAnswersResponse {
+        evictReadinessForChild(child.id)
         val period = lifePeriodRepository.findById(periodId)
             .orElseThrow { IllegalStateException("No life period found for id $periodId") }
 
@@ -186,8 +238,8 @@ class SkillAssessmentService(
     }
 
     @Transactional
-    @CacheEvict(value = ["assessmentReadiness"], allEntries = true)
     fun updateAssessmentAnswers(assessmentId: UUID, child: Child, request: AnswerRequest): AssessmentResponse {
+        evictReadinessForChild(child.id)
         val assessment = assessmentRepository.findByIdAndChild(assessmentId, child)
             .orElseThrow { NoSuchElementException("Assessment $assessmentId not found") }
 
@@ -292,11 +344,11 @@ class SkillAssessmentService(
         )
     }
 
-    @CacheEvict(value = ["assessmentReadiness"], allEntries = true)
     fun completePeriodAssessment(
         child: Child,
         request: CompletePeriodAssessmentRequest
     ): CompletePeriodAssessmentResponse {
+        evictReadinessForChild(child.id)
         val result = transactionTemplate.execute {
             completePeriodAssessmentTransaction(child, request)
         } ?: throw IllegalStateException("Period assessment transaction failed or was rolled back")

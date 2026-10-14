@@ -1,5 +1,7 @@
 package com.misterio.curakid.admin.service
 
+import com.misterio.curakid.admin.AdminArticleResponse
+import com.misterio.curakid.admin.AdminCategoryResponse
 import com.misterio.curakid.admin.CreateCategoryRequest
 import com.misterio.curakid.core.essential.common.analysis.EmbeddingProvider
 import com.misterio.curakid.core.essential.common.analysis.KnowledgeDocument
@@ -20,8 +22,24 @@ class AdminKnowledgeService(
     private val categoryRepository: MedicalCategoryRepository,
     private val embeddingProvider: EmbeddingProvider
 ) {
+    private fun MedicalCategory.toResponse() = AdminCategoryResponse(
+        id = id ?: UUID.randomUUID(),
+        name = name,
+        displayName = displayName
+    )
+
+    private fun MedicalKnowledge.toResponse() = AdminArticleResponse(
+        id = id ?: UUID.randomUUID(),
+        title = title,
+        content = content,
+        category = category?.toResponse(),
+        metadata = metadata,
+        createdAt = createdAt,
+        sourceId = sourceId
+    )
+
     @Transactional
-    fun uploadArticle(title: String, content: String, categoryId: UUID): List<MedicalKnowledge> {
+    fun uploadArticle(title: String, content: String, categoryId: UUID): List<AdminArticleResponse> {
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { RuntimeException("Category not found") }
 
@@ -39,12 +57,12 @@ class AdminKnowledgeService(
                 embedding = embedding.toFloatArray(),
                 sourceId = sourceId
             )
-            knowledgeRepository.save(article)
+            knowledgeRepository.save(article).toResponse()
         }
     }
 
     @Transactional
-    fun uploadArticleFromFile(title: String, content: ByteArray, filename: String, categoryId: UUID, metadata: Map<String, Any>): List<MedicalKnowledge> {
+    fun uploadArticleFromFile(title: String, content: ByteArray, filename: String, categoryId: UUID, metadata: Map<String, Any>): List<AdminArticleResponse> {
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { RuntimeException("Category not found") }
 
@@ -70,7 +88,7 @@ class AdminKnowledgeService(
                 metadata = metadata,
                 sourceId = sourceId
             )
-            knowledgeRepository.save(article)
+            knowledgeRepository.save(article).toResponse()
         }
     }
 
@@ -117,7 +135,7 @@ class AdminKnowledgeService(
         }
     }
 
-    fun getArticles(): List<MedicalKnowledge> = knowledgeRepository.findAll()
+    fun getArticles(): List<AdminArticleResponse> = knowledgeRepository.findAll().map { it.toResponse() }
 
     @Transactional
     fun deleteArticle(id: UUID) {
@@ -128,14 +146,14 @@ class AdminKnowledgeService(
         knowledgeRepository.save(article)
     }
 
-    fun getCategories(): List<MedicalCategory> = categoryRepository.findAll()
+    fun getCategories(): List<AdminCategoryResponse> = categoryRepository.findAll().map { it.toResponse() }
 
     @Transactional
-    fun createCategory(request: CreateCategoryRequest): MedicalCategory {
+    fun createCategory(request: CreateCategoryRequest): AdminCategoryResponse {
         val category = MedicalCategory(
             name = request.name,
             displayName = request.displayName
         )
-        return categoryRepository.save(category)
+        return categoryRepository.save(category).toResponse()
     }
 }

@@ -19,13 +19,36 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
     private val adminUiAuthFilter: AdminUiAuthFilter,
+    private val rateLimitFilter: RateLimitFilter,
     @Lazy private val jwtAuthFilter: JwtAuthenticationFilter,
-    private val userDetailsService: UserDetailsService
+    private val userDetailsService: UserDetailsService,
+    @Value("\${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:8080}")
+    private val allowedOriginsStr: String = "http://localhost:3000,http://localhost:5173,http://localhost:8080"
 ) {
+
+    @Bean
+    open fun corsConfigurationSource(): CorsConfigurationSource {
+        val configuration = CorsConfiguration()
+        val origins = allowedOriginsStr.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        configuration.allowedOriginPatterns = if (origins.contains("*")) listOf("*") else origins
+        configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD")
+        configuration.allowedHeaders = listOf("*")
+        configuration.allowCredentials = !origins.contains("*")
+        configuration.maxAge = 3600L
+
+        val source = UrlBasedCorsConfigurationSource()
+        source.registerCorsConfiguration("/**", configuration)
+        return source
+    }
 
     @Bean
     open fun authenticationProvider(): AuthenticationProvider {
@@ -47,6 +70,7 @@ class SecurityConfig(
     @Bean
     open fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .exceptionHandling { handling ->
@@ -56,6 +80,8 @@ class SecurityConfig(
             }
             .authorizeHttpRequests { auth ->
                 auth.requestMatchers(HttpMethod.GET, "/api/legal", "/api/legal/**").permitAll()
+                auth.requestMatchers("/api/health", "/actuator/health", "/actuator/health/**").permitAll()
+                auth.requestMatchers("/actuator/**").hasRole("ADMIN")
                 auth.requestMatchers(
                     "/v3/api-docs/**",
                     "/swagger-ui/**",
@@ -70,6 +96,7 @@ class SecurityConfig(
                 auth.anyRequest().authenticated()
             }
             .authenticationProvider(authenticationProvider())
+            .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(adminUiAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
 

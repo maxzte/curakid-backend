@@ -1,10 +1,6 @@
 package com.misterio.curakid.feature.assessments
 
-import com.misterio.curakid.core.database.auth.User
-import com.misterio.curakid.core.database.children.Child
-import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.currentUser
-import com.misterio.curakid.core.essential.common.exceptions.OnboardingRequiredException
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -16,22 +12,19 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.util.NoSuchElementException
 import java.util.UUID
 
 @RestController
 @RequestMapping("/api/children/{childId}/assessments")
 class AssessmentController(
-    private val assessmentService: SkillAssessmentService,
-    private val childRepository: ChildRepository
+    private val assessmentService: SkillAssessmentService
 ) {
     @GetMapping
     fun getAssessments(
         @PathVariable childId: UUID,
         auth: Authentication
     ): ResponseEntity<List<AssessmentResponse>> {
-        val child = findChildOrThrow(childId, auth.currentUser())
-        return ResponseEntity.ok(assessmentService.getAssessmentsByChild(child))
+        return ResponseEntity.ok(assessmentService.getAssessmentsByChild(childId, auth.currentUser()))
     }
 
     @PostMapping("/{periodId}")
@@ -41,8 +34,7 @@ class AssessmentController(
         @Valid @RequestBody request: SaveAnswersRequest,
         auth: Authentication
     ): ResponseEntity<SaveAnswersResponse> {
-        val child = findChildOrThrow(childId, auth.currentUser())
-        return ResponseEntity.status(201).body(assessmentService.saveAssessmentAnswers(child, periodId, request))
+        return ResponseEntity.status(201).body(assessmentService.saveAssessmentAnswers(childId, periodId, auth.currentUser(), request))
     }
 
     @PatchMapping("/{assessmentId}")
@@ -52,8 +44,7 @@ class AssessmentController(
         @Valid @RequestBody request: AnswerRequest,
         auth: Authentication
     ): ResponseEntity<AssessmentResponse> {
-        val child = findChildOrThrow(childId, auth.currentUser())
-        return ResponseEntity.ok(assessmentService.updateAssessmentAnswers(assessmentId, child, request))
+        return ResponseEntity.ok(assessmentService.updateAssessmentAnswers(assessmentId, childId, auth.currentUser(), request))
     }
 
     @PostMapping("/complete")
@@ -62,8 +53,7 @@ class AssessmentController(
         @Valid @RequestBody request: CompletePeriodAssessmentRequest,
         auth: Authentication
     ): ResponseEntity<CompletePeriodAssessmentResponse> {
-        val child = findChildOrThrow(childId, auth.currentUser())
-        return ResponseEntity.accepted().body(assessmentService.completePeriodAssessment(child, request))
+        return ResponseEntity.accepted().body(assessmentService.completePeriodAssessment(childId, auth.currentUser(), request))
     }
 
     @GetMapping("/readiness")
@@ -72,16 +62,6 @@ class AssessmentController(
         @RequestParam periodCode: String,
         auth: Authentication
     ): ResponseEntity<PeriodReadinessResponse> {
-        val child = findChildOrThrow(childId, auth.currentUser())
-        return ResponseEntity.ok(assessmentService.getPeriodReadiness(child, periodCode))
-    }
-
-    private fun findChildOrThrow(childId: UUID, user: User): Child {
-        return childRepository.findByIdAndUser(childId, user).orElseGet {
-            if (childRepository.findAllByUser(user).isEmpty()) {
-                throw OnboardingRequiredException()
-            }
-            throw NoSuchElementException("Child not found")
-        }
+        return ResponseEntity.ok(assessmentService.getPeriodReadiness(childId, periodCode, auth.currentUser()))
     }
 }

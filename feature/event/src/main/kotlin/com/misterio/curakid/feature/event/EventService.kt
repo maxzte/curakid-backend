@@ -1,6 +1,7 @@
 package com.misterio.curakid.feature.event
 
 import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.event.Event
 import com.misterio.curakid.core.database.event.EventRepository
@@ -42,7 +43,13 @@ class EventService(
             .orElseThrow { NoSuchElementException("Child not found") }
 
         val existing = eventRepository.findById(request.id)
-        if (existing.isPresent) return existing.get().toResponse()
+        if (existing.isPresent) {
+            val existingEvent = existing.get()
+            if (existingEvent.child?.user?.id != user.id) {
+                throw IllegalArgumentException("Event with this ID already exists")
+            }
+            return existingEvent.toResponse()
+        }
 
         val event = Event(
             title = request.title,
@@ -59,16 +66,26 @@ class EventService(
 
     @Transactional
     fun createEvents(user: User, requests: List<EventRequest>): List<EventResponse> {
-        val child = childRepository.findByIdAndUser(requests.first().childId, user)
-            .orElseThrow { NoSuchElementException("Child not found") }
+        if (requests.isEmpty()) return emptyList()
 
         val results = mutableListOf<EventResponse>()
         val toCreate = mutableListOf<Event>()
+        val childCache = mutableMapOf<UUID, Child>()
+
+        fun getChildForUser(childId: UUID): Child =
+            childCache.computeIfAbsent(childId) { id ->
+                childRepository.findByIdAndUser(id, user)
+                    .orElseThrow { NoSuchElementException("Child not found") }
+            }
 
         requests.forEach { request ->
+            val eventChild = getChildForUser(request.childId)
             val existing = eventRepository.findById(request.id).orElse(null)
 
             if (existing != null) {
+                if (existing.child?.user?.id != user.id) {
+                    throw IllegalArgumentException("Event with ID ${request.id} already exists")
+                }
                 results.add(existing.toResponse())
             } else {
                 val event = Event(
@@ -77,7 +94,7 @@ class EventService(
                     date = request.date,
                     location = request.location,
                     description = request.description,
-                    child = child,
+                    child = eventChild,
                     status = request.status,
                 ).apply { id = request.id }
                 toCreate.add(event)

@@ -55,12 +55,11 @@ class ChatService(
 
         val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
 
-        return chatMessageRepository.findAllByChildOrderByCreatedAtAsc(child)
-            .filter { it.createdAt?.isAfter(sessionStart) ?: false }
+        return chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(child, sessionStart)
             .map {
                 ChatMessageResponse(
-                    id = it.id,
-                    childId = it.child!!.id,
+                    id = it.getId(),
+                    childId = it.child?.getId() ?: childId,
                     userText = it.userText,
                     aiText = it.aiText,
                     createdAt = it.createdAt ?: Instant.now()
@@ -78,12 +77,39 @@ class ChatService(
 
         val systemPrompt = buildSystemPrompt(child)
         val userMessage = request.text ?: ""
+        val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
+        val recentHistory = chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(child, sessionStart)
+            .takeLast(6)
+
+        val fullUserPrompt = if (recentHistory.isNotEmpty()) {
+            buildString {
+                appendLine("# ПОПЕРЕДНІЙ ДІАЛОГ СЕСІЇ:")
+                recentHistory.forEach { msg ->
+                    appendLine("Батьки: ${msg.userText}")
+                    appendLine("Педіатр (ти): ${msg.aiText}")
+                }
+                appendLine()
+                appendLine("# ПОТОЧНЕ ЗАПИТАННЯ БАТЬКІВ:")
+                appendLine(userMessage)
+            }
+        } else {
+            userMessage
+        }
+
         val emitter = SseEmitter(60_000L)
         val responseBuilder = StringBuilder()
+        var disposable: reactor.core.Disposable? = null
 
-        chatClient.prompt()
+        emitter.onCompletion { disposable?.dispose() }
+        emitter.onTimeout {
+            disposable?.dispose()
+            emitter.complete()
+        }
+        emitter.onError { disposable?.dispose() }
+
+        disposable = chatClient.prompt()
             .system(systemPrompt)
-            .user(userMessage)
+            .user(fullUserPrompt)
             .stream()
             .content()
             .retryWhen(

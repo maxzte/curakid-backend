@@ -146,3 +146,19 @@ data class AdminVaccineTemplateResponse(
     val scheduledAgeDays: Int?,
     val notes: String?
 )
+
+data class AdminCategoryResponse(
+    val id: UUID,
+    val name: String,
+    val displayName: String
+)
+
+data class AdminArticleResponse(
+    val id: UUID,
+    val title: String,
+    val content: String,
+    val category: AdminCategoryResponse?,
+    val metadata: Map<String, Any>? = null,
+    val createdAt: Instant? = null,
+    val sourceId: UUID? = null
+)

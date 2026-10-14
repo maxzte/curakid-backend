@@ -97,7 +97,7 @@ class LifePeriodQuestionServiceTest {
     fun `getPeriodWithQuestions should return correct DTO`() {
         val period = createPeriod("P3_4M", "3–4 міс", "lorem ipsum", 3, 4)
 
-        whenever(lifePeriodRepository.findByCode("P3_4M"))
+        whenever(lifePeriodRepository.findByCodeWithQuestions("P3_4M"))
             .thenReturn(Optional.of(period))
 
         val result = service.getPeriodWithQuestions("P3_4M")
@@ -110,7 +110,7 @@ class LifePeriodQuestionServiceTest {
 
     @Test
     fun `getPeriodWithQuestions should throw for unknown code`() {
-        whenever(lifePeriodRepository.findByCode("UNKNOWN"))
+        whenever(lifePeriodRepository.findByCodeWithQuestions("UNKNOWN"))
             .thenReturn(Optional.empty())
 
         assertThrows<IllegalArgumentException> {

@@ -12,14 +12,13 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.ArgumentMatchers.any
-import org.mockito.ArgumentMatchers.anyString
-import org.mockito.ArgumentMatchers.contains
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.check
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -68,8 +67,8 @@ class ChatServiceTest {
         val streamSpec = mock<ChatClient.StreamResponseSpec>()
 
         whenever(chatClient.prompt()).thenReturn(requestSpec)
-        whenever(requestSpec.system(anyString())).thenReturn(requestSpec)
-        whenever(requestSpec.user(anyString())).thenReturn(requestSpec)
+        whenever(requestSpec.system(any<String>())).thenReturn(requestSpec)
+        whenever(requestSpec.user(any<String>())).thenReturn(requestSpec)
         whenever(requestSpec.stream()).thenReturn(streamSpec)
         whenever(streamSpec.content()).thenReturn(chunks)
     }
@@ -100,7 +99,7 @@ class ChatServiceTest {
         }
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
-        whenever(chatMessageRepository.findAllByChildOrderByCreatedAtAsc(child))
+        whenever(chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(eq(child), any()))
             .thenReturn(listOf(chatMessage))
 
         val result = chatService.getChatHistory(child.id!!, currentUser)
@@ -118,15 +117,6 @@ class ChatServiceTest {
         val currentUser = makeUser(userId)
         val child = makeChild(user = makeUser(userId))
 
-        val oldMessage = ChatMessage(
-            child = child,
-            userText = "Старе",
-            aiText = "Відповідь",
-        ).apply {
-            id = UUID.randomUUID()
-            createdAt = Instant.now().minus(25, ChronoUnit.HOURS)
-        }
-
         val newMessage = ChatMessage(
             child = child,
             userText = "Нове",
@@ -137,8 +127,8 @@ class ChatServiceTest {
         }
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
-        whenever(chatMessageRepository.findAllByChildOrderByCreatedAtAsc(child))
-            .thenReturn(listOf(oldMessage, newMessage))
+        whenever(chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(eq(child), any()))
+            .thenReturn(listOf(newMessage))
 
         val result = chatService.getChatHistory(child.id!!, currentUser)
 
@@ -252,7 +242,7 @@ class ChatServiceTest {
         verify(chatMessageService).save(
             eq(child),
             eq("Хелп"),
-            contains("[Помилка генерації]"),
+            check { assertTrue(it.contains("[Помилка генерації]")) },
             eq(request.id)
         )
     }
@@ -284,7 +274,7 @@ class ChatServiceTest {
         verify(chatMessageService).save(
             eq(child),
             eq("Тест"),
-            contains("Привіт"),
+            check { assertTrue(it.contains("Привіт")) },
             eq(request.id)
         )
     }

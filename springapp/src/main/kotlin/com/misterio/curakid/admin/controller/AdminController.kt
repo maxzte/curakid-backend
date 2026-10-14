@@ -1,14 +1,13 @@
 package com.misterio.curakid.admin.controller
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.misterio.curakid.admin.*
 import com.misterio.curakid.admin.service.*
-import com.misterio.curakid.core.database.knowledge.MedicalKnowledge
 import com.misterio.curakid.feature.development.LifePeriodQuestionService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import tools.jackson.databind.ObjectMapper
 import java.util.*
 
 @RestController
@@ -35,7 +34,7 @@ class AdminController(
         @RequestParam("file") file: MultipartFile,
         @RequestParam("minAge", required = false) minAge: Int?,
         @RequestParam("maxAge", required = false) maxAge: Int?
-    ): ResponseEntity<List<MedicalKnowledge>> {
+    ): ResponseEntity<List<AdminArticleResponse>> {
         val metadata = mutableMapOf<String, Any>()
         if (minAge != null || maxAge != null) {
             val ageMap = mutableMapOf<String, Int>()

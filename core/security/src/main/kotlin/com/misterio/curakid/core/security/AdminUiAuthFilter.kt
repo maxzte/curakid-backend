@@ -7,6 +7,10 @@ import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
+
 @Component
 class AdminUiAuthFilter(
     private val jwtService: JwtService,
@@ -20,7 +24,8 @@ class AdminUiAuthFilter(
     ) {
         val path = request.requestURI
 
-        if (!path.startsWith("/admin/ui/") || path == "/admin/ui/login") {
+        val isAdminPath = path == "/admin/ui" || path.startsWith("/admin/ui/")
+        if (!isAdminPath || path == "/admin/ui/login") {
             filterChain.doFilter(request, response)
             return
         }
@@ -52,6 +57,10 @@ class AdminUiAuthFilter(
                 response.sendRedirect("/admin/ui/login")
                 return
             }
+
+            val authToken = UsernamePasswordAuthenticationToken(user, null, user.authorities)
+            authToken.details = WebAuthenticationDetailsSource().buildDetails(request)
+            SecurityContextHolder.getContext().authentication = authToken
         } catch (e: Exception) {
             response.sendRedirect("/admin/ui/login")
             return

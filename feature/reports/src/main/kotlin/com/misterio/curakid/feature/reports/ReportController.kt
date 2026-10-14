@@ -1,20 +1,14 @@
 package com.misterio.curakid.feature.reports
 
-import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.currentUser
-import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
-import java.util.NoSuchElementException
 import java.util.UUID
-
 
 @RestController
 class ReportController(
-    private val reportService: ReportService,
-    private val childRepository: ChildRepository,
-    private val periodSummaryRepository: PeriodSummaryRepository
+    private val reportService: ReportService
 ) {
     /** GET /api/children/{childId}/reports — list all reports for a child */
     @GetMapping("/api/children/{childId}/reports")
@@ -22,9 +16,7 @@ class ReportController(
         @PathVariable childId: UUID,
         auth: Authentication
     ): ResponseEntity<List<ReportResponse>> {
-        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
-            .orElseThrow { NoSuchElementException("Child not found") }
-        return ResponseEntity.ok(reportService.getReports(child))
+        return ResponseEntity.ok(reportService.getReports(childId, auth.currentUser()))
     }
 
     /** GET /api/reports/{reportId} — get a single report */
@@ -37,19 +29,18 @@ class ReportController(
         return ResponseEntity.ok(report)
     }
 
-    @GetMapping("api/reports/{reportId}/status")
+    @GetMapping("/api/reports/{reportId}/status")
     fun getReportStatus(
         @PathVariable reportId: UUID,
         auth: Authentication
     ): ResponseEntity<Boolean> = reportService.getReportStatus(reportId, auth.currentUser())
 
-    @GetMapping("/api/children/{childId}/reports/generate")
+    @RequestMapping(value = ["/api/children/{childId}/reports/generate"], method = [RequestMethod.GET, RequestMethod.POST])
     fun generateReport(
         @PathVariable childId: UUID,
         auth: Authentication
     ): ResponseEntity<ReportResponse> {
-        val child = childRepository.findByIdAndUser(childId, auth.currentUser())
-            .orElseThrow { NoSuchElementException("Child not found") }
+        reportService.triggerPeriodReportGeneration(childId, auth.currentUser())
         return ResponseEntity.accepted().build()
     }
 
@@ -59,9 +50,7 @@ class ReportController(
         @PathVariable summaryId: UUID,
         auth: Authentication
     ): ResponseEntity<ReportResponse> {
-        val currentUserId = auth.currentUser().id
-        val summary = periodSummaryRepository.findByIdAndChildUser(summaryId, currentUserId)
-            .orElseThrow { NoSuchElementException("Period summary not found") }
+        reportService.triggerReportRegeneration(summaryId, auth.currentUser())
         return ResponseEntity.accepted().build()  // Return 202 for async operation
     }
 }

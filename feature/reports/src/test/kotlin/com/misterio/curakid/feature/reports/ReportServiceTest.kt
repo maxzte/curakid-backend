@@ -81,7 +81,8 @@ class ReportServiceTest {
             fuzzyRuleRepository = fuzzyRuleRepository,
             percentileCalculator = percentileCalculator,
             transactionTemplate = transactionTemplate,
-            measurementCalculator = measurementCalculator
+            measurementCalculator = measurementCalculator,
+            taskExecutor = org.springframework.core.task.SyncTaskExecutor()
         )
     }
 

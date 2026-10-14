@@ -1,6 +1,8 @@
 package com.misterio.curakid.feature.measurements
 
+import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.children.Child
+import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.measurements.Measurement
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
 import com.misterio.curakid.core.database.measurements.MeasurementWithReportProjection
@@ -15,18 +17,34 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import java.util.NoSuchElementException
+import java.util.UUID
 
 @Service
 class MeasurementService(
     private val measurementRepository: MeasurementRepository,
+    private val childRepository: ChildRepository,
     private val whoZScoreCalculator: WhoZScoreCalculator,
     private val reportProvider: ReportProvider,
     private val measurementCalculator: MeasurementCalculator,
 ) {
     private val log = LoggerFactory.getLogger(MeasurementService::class.java)
 
+    fun getMeasurements(childId: UUID, user: User): List<MeasurementWithReportProjection> {
+        val child = childRepository.findByIdAndUser(childId, user)
+            .orElseThrow { NoSuchElementException("Child not found") }
+        return getMeasurements(child)
+    }
+
     fun getMeasurements(child: Child): List<MeasurementWithReportProjection> {
         return measurementRepository.findAllByChildIdWithReportId(child.id!!)
+    }
+
+    @Transactional
+    fun addMeasurement(childId: UUID, user: User, request: AddMeasurementRequest): MeasurementResponse {
+        val child = childRepository.findByIdAndUser(childId, user)
+            .orElseThrow { NoSuchElementException("Child not found") }
+        return addMeasurement(child, request)
     }
 
     @Transactional
@@ -36,6 +54,9 @@ class MeasurementService(
 
         val measurement = if (byId.isPresent) {
             val existing = byId.get()
+            if (existing.child?.id != child.id) {
+                throw IllegalArgumentException("Measurement does not belong to this child")
+            }
             log.debug("Found measurement by ID: {}", request.id)
             
             // Check for date conflict if date is being changed

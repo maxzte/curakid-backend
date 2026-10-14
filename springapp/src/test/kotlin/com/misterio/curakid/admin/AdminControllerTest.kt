@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import tools.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.UUID
 
 class AdminControllerTest {
@@ -66,9 +66,11 @@ class AdminControllerTest {
     @Test
     fun `POST knowledge category returns created`() {
         whenever(knowledgeService.createCategory(any())).thenAnswer {
-            com.misterio.curakid.core.database.knowledge.MedicalCategory(
-                name = (it.arguments[0] as CreateCategoryRequest).name,
-                displayName = (it.arguments[0] as CreateCategoryRequest).displayName
+            val req = it.arguments[0] as CreateCategoryRequest
+            AdminCategoryResponse(
+                id = UUID.randomUUID(),
+                name = req.name,
+                displayName = req.displayName
             )
         }
 

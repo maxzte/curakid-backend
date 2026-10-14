@@ -12,14 +12,29 @@ from skfuzzy import control as ctrl
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+            send_default_pii=False,
+        )
+        logger.info("Sentry monitoring initialized successfully.")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Sentry: {e}")
+
 app = FastAPI(title="CuraKid Intelligence Service")
+
+import hmac
 
 # Security
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "change-me")
 
 
-async def verify_internal_key(x_internal_key: str = Header(...)):
-    if x_internal_key != INTERNAL_API_KEY:
+def verify_internal_key(x_internal_key: str = Header(...)):
+    if not hmac.compare_digest(x_internal_key, INTERNAL_API_KEY):
         logger.warning(f"Invalid API key attempt: {x_internal_key}")
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -58,7 +73,7 @@ async def health():
 
 
 @app.post("/analyze", dependencies=[Depends(verify_internal_key)])
-async def analyze(request: FisRequest):
+def analyze(request: FisRequest):
     """
     Performs Fuzzy Inference based on child data and dynamic rules from DB.
     """
@@ -233,7 +248,7 @@ async def analyze(request: FisRequest):
 
         if not rules_list:
             # Якщо немає жодного правила з доступними даними — йдемо у фолбек
-            return await analyze_fallback(request)
+            return analyze_fallback(request)
 
         # 6. Computation
         fis_ctrl = ctrl.ControlSystem(rules_list)
@@ -332,7 +347,7 @@ async def analyze(request: FisRequest):
 
     except Exception as e:
         logger.error(f"Error during FIS analysis: {str(e)}")
-        return await analyze_fallback(request)
+        return analyze_fallback(request)
 
 
 def get_default_skill_thresholds(age_months: int) -> Dict[str, float]:
@@ -374,7 +389,7 @@ def get_default_skill_thresholds(age_months: int) -> Dict[str, float]:
         }
 
 
-async def analyze_fallback(request: FisRequest):
+def analyze_fallback(request: FisRequest):
     # Keep the previous heuristic as a safety fallback
     breakdown = {}
     skill_score = 0.0

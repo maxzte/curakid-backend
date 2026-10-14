@@ -36,4 +36,13 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.PRECONDITION_FAILED, response.statusCode)
         assertEquals("Custom msg", response.body?.message)
     }
+
+    @Test
+    fun `handleGenericException should return 500 status and sanitized message`() {
+        val ex = RuntimeException("Sensitive database constraint violation or NPE")
+        val response = handler.handleGenericException(ex)
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assertEquals("Внутрішня помилка сервера. Будь ласка, зверніться до служби підтримки.", response.body?.message)
+    }
 }

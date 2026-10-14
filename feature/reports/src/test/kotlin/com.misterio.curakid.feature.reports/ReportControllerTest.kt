@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import org.mockito.kotlin.verify
+import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -28,8 +30,6 @@ class ReportControllerTest {
 
     private lateinit var mockMvc: MockMvc
     private lateinit var reportService: ReportService
-    private lateinit var childRepository: ChildRepository
-    private lateinit var periodSummaryRepository: PeriodSummaryRepository
     private val user = User(email = "test@test.com", passwordHash = "hash", name = "Test").apply {
         id = UUID.randomUUID()
     }
@@ -37,21 +37,17 @@ class ReportControllerTest {
     private val childId = UUID.randomUUID()
     private val reportId = UUID.randomUUID()
     private val summaryId = UUID.randomUUID()
-    private val child = Child(name = "Test Child").apply { id = childId }
 
     @BeforeEach
     fun setUp() {
         reportService = mock()
-        childRepository = mock()
-        periodSummaryRepository = mock()
-        val controller = ReportController(reportService, childRepository, periodSummaryRepository)
+        val controller = ReportController(reportService)
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build()
     }
 
     @Test
     fun `GET child reports returns list`() {
-        whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(Optional.of(child))
-        whenever(reportService.getReports(child)).thenReturn(
+        whenever(reportService.getReports(childId, user)).thenReturn(
             listOf(ReportResponse(reportId, childId, null, null, null, null, null, false, Instant.now()))
         )
 
@@ -80,23 +76,25 @@ class ReportControllerTest {
     }
 
     @Test
-    fun `GET generate report returns 202`() {
-        whenever(childRepository.findByIdAndUser(childId, user)).thenReturn(Optional.of(child))
-
+    fun `GET and POST generate report returns 202 and triggers generation`() {
         mockMvc.perform(get("/api/children/$childId/reports/generate").principal(auth))
+            .andExpect(status().isAccepted)
+
+        verify(reportService).triggerPeriodReportGeneration(childId, user)
+
+        mockMvc.perform(post("/api/children/$childId/reports/generate").principal(auth))
             .andExpect(status().isAccepted)
     }
 
     @Test
-    fun `POST regenerate report returns 202`() {
-        val summary = mock<com.misterio.curakid.core.database.reports.PeriodSummary>()
-        whenever(periodSummaryRepository.findByIdAndChildUser(summaryId, user.id!!)).thenReturn(Optional.of(summary))
-
+    fun `POST regenerate report returns 202 and triggers regeneration`() {
         mockMvc.perform(
             post("/api/reports/$summaryId/regenerate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .principal(auth)
         )
             .andExpect(status().isAccepted)
+
+        verify(reportService).triggerReportRegeneration(summaryId, user)
     }
 }

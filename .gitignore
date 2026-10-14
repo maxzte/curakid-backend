@@ -45,3 +45,23 @@ out/
 /.env
 /.env.local
 /.env.docker
+.env*
+!.env.example
+
+### Logs & Crash Reports ###
+*.log
+*.hprof
+hs_err_pid*.log
+
+### Python & Caches ###
+.venv/
+venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/hf_cache/
+
+### OS Artifacts ###
+.DS_Store
+._*
+Thumbs.db

@@ -20,18 +20,22 @@ out/
 # --- Python (Intelligence) ---
 # Оскільки контекст бекенду - весь корінь,
 # ігноруємо все важке від Python-сервісу
+intelligence/.venv/
 intelligence/venv/
-intelligence/__pycache__/
+intelligence/**/__pycache__/
 intelligence/.cache/
+**/hf_cache/
 **/models/cache/
-.pytest_cache/
-*.pyc
-*.pyo
+**/.pytest_cache/
+*.py[cod]
+*.log
+*.hprof
 
 # --- Docker ---
 Dockerfile
 .dockerignore
 docker-compose*
 
-.env
-.env.*
+**/.env
+**/.env.*
+!.env.example

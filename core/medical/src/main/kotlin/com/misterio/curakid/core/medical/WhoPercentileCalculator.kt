@@ -65,38 +65,43 @@ class WhoPercentileCalculator {
         loadPercentileData("precentile/hcfa-e-girls.xlsx", hcfaGirls)
     }
 
+    private fun extractPercentileParams(row: org.apache.poi.ss.usermodel.Row): PercentileParams {
+        val p01 = row.getCell(4)?.numericCellValue ?: 0.0
+        val p1 = row.getCell(5)?.numericCellValue ?: 0.0
+        val p3 = row.getCell(6)?.numericCellValue ?: 0.0
+        val p5 = row.getCell(7)?.numericCellValue ?: 0.0
+        val p10 = row.getCell(8)?.numericCellValue ?: 0.0
+        val p15 = row.getCell(9)?.numericCellValue ?: 0.0
+        val p25 = row.getCell(10)?.numericCellValue ?: 0.0
+        val p50 = row.getCell(11)?.numericCellValue ?: 0.0
+        val p75 = row.getCell(12)?.numericCellValue ?: 0.0
+        val p85 = row.getCell(13)?.numericCellValue ?: 0.0
+        val p90 = row.getCell(14)?.numericCellValue ?: 0.0
+        val p95 = row.getCell(15)?.numericCellValue ?: 0.0
+        val p97 = row.getCell(16)?.numericCellValue ?: 0.0
+        val p99 = row.getCell(17)?.numericCellValue ?: 0.0
+        val p999 = row.getCell(18)?.numericCellValue ?: 0.0
+
+        return PercentileParams(
+            p01, p1, p3, p5, p10, p15, p25, p50,
+            p75, p85, p90, p95, p97, p99, p999
+        )
+    }
+
     private fun loadWfhPercentileData(path: String, map: MutableMap<Int, PercentileParams>) {
         ClassPathResource(path).inputStream.use { inputStream ->
-            val workbook = WorkbookFactory.create(inputStream)
-            val sheet = workbook.getSheetAt(0)
-            for (row in sheet) {
-                if (row.rowNum == 0) continue // Skip header
-                val heightCell = row.getCell(0) ?: continue
+            WorkbookFactory.create(inputStream).use { workbook ->
+                val sheet = workbook.getSheetAt(0)
+                for (row in sheet) {
+                    if (row.rowNum == 0) continue // Skip header
+                    val heightCell = row.getCell(0) ?: continue
 
-                try {
-                    val heightKey = (heightCell.numericCellValue * 10).roundToInt()
-                    val p01 = row.getCell(4)?.numericCellValue ?: 0.0
-                    val p1 = row.getCell(5)?.numericCellValue ?: 0.0
-                    val p3 = row.getCell(6)?.numericCellValue ?: 0.0
-                    val p5 = row.getCell(7)?.numericCellValue ?: 0.0
-                    val p10 = row.getCell(8)?.numericCellValue ?: 0.0
-                    val p15 = row.getCell(9)?.numericCellValue ?: 0.0
-                    val p25 = row.getCell(10)?.numericCellValue ?: 0.0
-                    val p50 = row.getCell(11)?.numericCellValue ?: 0.0
-                    val p75 = row.getCell(12)?.numericCellValue ?: 0.0
-                    val p85 = row.getCell(13)?.numericCellValue ?: 0.0
-                    val p90 = row.getCell(14)?.numericCellValue ?: 0.0
-                    val p95 = row.getCell(15)?.numericCellValue ?: 0.0
-                    val p97 = row.getCell(16)?.numericCellValue ?: 0.0
-                    val p99 = row.getCell(17)?.numericCellValue ?: 0.0
-                    val p999 = row.getCell(18)?.numericCellValue ?: 0.0
-
-                    map[heightKey] = PercentileParams(
-                        p01, p1, p3, p5, p10, p15, p25, p50,
-                        p75, p85, p90, p95, p97, p99, p999
-                    )
-                } catch (e: Exception) {
-                    continue
+                    try {
+                        val heightKey = (heightCell.numericCellValue * 10).roundToInt()
+                        map[heightKey] = extractPercentileParams(row)
+                    } catch (_: Exception) {
+                        continue
+                    }
                 }
             }
         }
@@ -104,36 +109,18 @@ class WhoPercentileCalculator {
 
     private fun loadPercentileData(path: String, map: MutableMap<Int, PercentileParams>) {
         ClassPathResource(path).inputStream.use { inputStream ->
-            val workbook = WorkbookFactory.create(inputStream)
-            val sheet = workbook.getSheetAt(0)
-            for (row in sheet) {
-                if (row.rowNum == 0) continue // Skip header
-                val dayCell = row.getCell(0) ?: continue
+            WorkbookFactory.create(inputStream).use { workbook ->
+                val sheet = workbook.getSheetAt(0)
+                for (row in sheet) {
+                    if (row.rowNum == 0) continue // Skip header
+                    val dayCell = row.getCell(0) ?: continue
 
-                try {
-                    val day = dayCell.numericCellValue.toInt()
-                    val p01 = row.getCell(4)?.numericCellValue ?: 0.0
-                    val p1 = row.getCell(5)?.numericCellValue ?: 0.0
-                    val p3 = row.getCell(6)?.numericCellValue ?: 0.0
-                    val p5 = row.getCell(7)?.numericCellValue ?: 0.0
-                    val p10 = row.getCell(8)?.numericCellValue ?: 0.0
-                    val p15 = row.getCell(9)?.numericCellValue ?: 0.0
-                    val p25 = row.getCell(10)?.numericCellValue ?: 0.0
-                    val p50 = row.getCell(11)?.numericCellValue ?: 0.0
-                    val p75 = row.getCell(12)?.numericCellValue ?: 0.0
-                    val p85 = row.getCell(13)?.numericCellValue ?: 0.0
-                    val p90 = row.getCell(14)?.numericCellValue ?: 0.0
-                    val p95 = row.getCell(15)?.numericCellValue ?: 0.0
-                    val p97 = row.getCell(16)?.numericCellValue ?: 0.0
-                    val p99 = row.getCell(17)?.numericCellValue ?: 0.0
-                    val p999 = row.getCell(18)?.numericCellValue ?: 0.0
-
-                    map[day] = PercentileParams(
-                        p01, p1, p3, p5, p10, p15, p25, p50,
-                        p75, p85, p90, p95, p97, p99, p999
-                    )
-                } catch (e: Exception) {
-                    continue
+                    try {
+                        val day = dayCell.numericCellValue.toInt()
+                        map[day] = extractPercentileParams(row)
+                    } catch (_: Exception) {
+                        continue
+                    }
                 }
             }
         }

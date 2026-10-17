@@ -62,7 +62,7 @@ fun StringBuilder.appendSkills(
     selfCare: BigDecimal?,
     sensory: BigDecimal?,
 ) {
-    if (listOfNotNull(motorGross, motorFine, speech, selfCare, sensory, selfCare).isEmpty()) {
+    if (listOfNotNull(motorGross, motorFine, speech, cognitive, social, selfCare, sensory).isEmpty()) {
         appendLine("Дані щодо розвитку навичок наразі відсутні.")
         appendLine()
         return

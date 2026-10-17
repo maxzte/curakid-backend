@@ -123,4 +123,18 @@ class WhoZScoreCalculatorTest {
         // Note: In reality they might be close, but they are definitely different calculations.
         assertTrue(resUnder != resOver, "Calculations for <2y and >2y should use different tables and likely yield different results")
     }
+
+    @Test
+    fun `fallback for intermediate age should select nearest day not 5-year-old`() {
+        // Test an infant age around 30 days. If fallback were lastOrNull() (1856 days),
+        // median weight would be ~18kg and 4.5kg would yield an extreme negative z-score (~ -5.0).
+        // With nearest day fallback, 4.5kg for ~30 days is normal (median ~4.5kg, z-score near 0).
+        val birthDate = LocalDate.now().minusDays(30)
+        val result = calculator.calculateWfaZscore(BigDecimal("4.5"), birthDate, Gender.MALE)
+
+        assertTrue(
+            result.abs() < BigDecimal("1.5"),
+            "Z-score for 1-month-old infant with 4.5kg should be near 0, got $result"
+        )
+    }
 }

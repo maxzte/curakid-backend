@@ -132,6 +132,9 @@ class SkillAssessmentService(
                 AssessmentAnswer(assessment, q, opt, dto.answeredAt ?: request.assessmentDate ?: Instant.now())
             }
 
+            val allChildAssessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
+            val globalHistoryIds = allChildAssessments.flatMap { it.answers }.mapNotNull { it.question?.id }.toSet()
+
             mapped.forEach { newAnswer ->
                 val existing = assessment.answers.find { it.question?.id == newAnswer.question?.id }
                 if (existing != null) {
@@ -146,7 +149,7 @@ class SkillAssessmentService(
                 
                 // Dynamic skipping: if this is a "Yes" (100%), auto-fill prerequisites
                 if ((newAnswer.selectedOption?.value ?: 0.0) >= 100.0) {
-                    autoFillPrerequisites(assessment, newAnswer.question, newAnswer.answeredAt, savedAnswers)
+                    autoFillPrerequisites(assessment, newAnswer.question, newAnswer.answeredAt, savedAnswers, globalHistoryIds)
                 }
             }
             assessment.score = null 
@@ -154,7 +157,8 @@ class SkillAssessmentService(
             results.add(assessmentRepository.save(assessment).toAssessmentResponse())
         }
 
-        val warnings = validateLogicalConsistency(child, savedAnswers)
+        val allChildAssessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
+        val warnings = validateLogicalConsistency(allChildAssessments, savedAnswers)
 
         return SaveAnswersResponse(results, warnings)
     }
@@ -163,13 +167,9 @@ class SkillAssessmentService(
         assessment: SkillAssessment,
         question: Question?,
         timestamp: Instant,
-        savedAnswers: MutableList<AssessmentAnswer>
+        savedAnswers: MutableList<AssessmentAnswer>,
+        globalHistoryIds: Set<UUID>
     ) {
-        // Load all child's historical answers to avoid double-filling across periods
-        val child = assessment.child ?: return
-        val allAssessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
-        val globalHistoryIds = allAssessments.flatMap { it.answers }.mapNotNull { it.question?.id }.toSet()
-
         var currentPrereq = question?.prerequisite
         var depth = 0
         val MAX_DEPTH = 10 // Safety limit for recursion
@@ -197,14 +197,25 @@ class SkillAssessmentService(
         }
     }
 
-    private fun validateLogicalConsistency(child: Child, newAnswers: List<AssessmentAnswer>): List<String> {
+    private fun validateLogicalConsistency(
+        allAssessments: List<SkillAssessment>,
+        newAnswers: List<AssessmentAnswer>
+    ): List<String> {
         val warnings = mutableListOf<String>()
         
-        // Load all child's historical answers for context
-        val allAssessments = assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)
+        // Contextual historical map
         val allAnswers = allAssessments.flatMap { it.answers }
             .filter { it.question?.id != null }
             .associateBy { it.question!!.id!! }
+
+        val noAnswerQuestions = newAnswers
+            .filter { (it.selectedOption?.value ?: 0.0) < 100.0 }
+            .mapNotNull { it.question }
+
+        val dependentQuestionsMap = if (noAnswerQuestions.isNotEmpty()) {
+            questionRepository.findAllByPrerequisiteIn(noAnswerQuestions)
+                .groupBy { it.prerequisite?.id }
+        } else emptyMap()
 
         newAnswers.forEach { answer ->
             val question = answer.question ?: return@forEach
@@ -223,8 +234,7 @@ class SkillAssessmentService(
             
             // 2. Check if "No" (0) is a prerequisite for some other "Yes" skill already in the system
             if (selectedValue < 100.0) {
-                // Find questions where THIS question is a prerequisite
-                val dependentQuestions = questionRepository.findAllByPrerequisite(question)
+                val dependentQuestions = dependentQuestionsMap[question.id] ?: emptyList()
                 dependentQuestions.forEach { depQ ->
                     val depAnswer = allAnswers[depQ.id]
                     if (depAnswer != null && (depAnswer.selectedOption?.value ?: 0.0) >= 100.0) {

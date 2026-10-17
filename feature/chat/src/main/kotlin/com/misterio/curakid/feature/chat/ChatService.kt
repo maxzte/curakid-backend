@@ -16,6 +16,7 @@ import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.core.task.TaskExecutor
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -45,6 +46,7 @@ class ChatService(
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = ["chatHistory"], key = "#childId")
     fun getChatHistory(childId: UUID, currentUser: User): List<ChatMessageResponse> {
         val child = childRepository.findById(childId)
             .orElseThrow { NoSuchElementException("Child not found") }

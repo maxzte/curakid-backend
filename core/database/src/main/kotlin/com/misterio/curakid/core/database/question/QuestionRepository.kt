@@ -21,4 +21,6 @@ interface QuestionRepository : JpaRepository<Question, UUID> {
     fun findAllWithOptionsByIdInAndDomain(ids: Collection<UUID>, domain: AssessmentDomain): List<Question>
 
     fun findAllByPrerequisite(prerequisite: Question): List<Question>
+
+    fun findAllByPrerequisiteIn(prerequisites: Collection<Question>): List<Question>
 }

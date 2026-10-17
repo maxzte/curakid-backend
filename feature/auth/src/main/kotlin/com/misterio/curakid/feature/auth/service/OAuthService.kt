@@ -12,8 +12,10 @@ import com.misterio.curakid.feature.auth.AuthResponse
 import com.misterio.curakid.feature.auth.OAuthProvider
 import com.misterio.curakid.feature.auth.OAuthProviderRepository
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 
 @Service
@@ -30,18 +32,33 @@ class OAuthService(
 
     @Transactional
     fun loginWithGoogle(idTokenString: String): AuthResponse {
+
         val idToken = try {
             verifier.verify(idTokenString)
         } catch (e: Exception) {
-            throw RuntimeException("Google token verification failed", e)
-        } ?: throw RuntimeException("Invalid Google ID Token")
+            throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google token verification failed: ${e.message}")
+        } ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google ID Token")
 
         val payload = idToken.payload
         val email = payload.email
         val fullName = payload["name"] as String? ?: "Google User"
         val googleUserId = payload.subject
 
-        val user = userRepository.findByEmail(email).orElseGet {
+        val existingUser = userRepository.findByEmail(email).orElse(null)
+        val user = if (existingUser != null) {
+            if (existingUser.deletedAt != null) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Account was deleted")
+            }
+            if (!existingUser.isActive) {
+                // Verified Google account confirms email ownership -> activate user
+                existingUser.isActive = true
+                existingUser.verificationCode = null
+                existingUser.verificationCodeExpiry = null
+                userRepository.save(existingUser)
+            } else {
+                existingUser
+            }
+        } else {
             val newUser = User(
                 email = email,
                 passwordHash = "", // OAuth users don't have a password
@@ -74,14 +91,14 @@ class OAuthService(
             .map { existing ->
                 existing.apply {
                     token = tokenStr
-                    expiryDate = Instant.now().plusMillis(604800000)
+                    expiryDate = Instant.now().plusMillis(jwtService.refreshExpiration)
                 }
             }
             .orElseGet {
                 RefreshToken(
                     user = user,
                     token = tokenStr,
-                    expiryDate = Instant.now().plusMillis(604800000)
+                    expiryDate = Instant.now().plusMillis(jwtService.refreshExpiration)
                 )
             }
 

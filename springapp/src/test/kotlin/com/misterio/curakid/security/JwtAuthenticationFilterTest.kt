@@ -110,7 +110,7 @@ class JwtAuthenticationFilterTest {
         }
         val response = MockHttpServletResponse()
         val chain: FilterChain = mock()
-        val user = User(email = "test@test.com", passwordHash = "hash", name = "Test").apply {
+        val user = User(email = "test@test.com", passwordHash = "hash", name = "Test", isActive = true).apply {
             id = java.util.UUID.randomUUID()
         }
 
@@ -146,6 +146,46 @@ class JwtAuthenticationFilterTest {
         whenever(tokenBlacklistService.isBlacklisted("jti-789")).thenReturn(false)
         whenever(userDetailsService.loadUserByUsername("token@test.com")).thenReturn(storedUser)
         whenever(jwtService.isTokenValid("token-for-different-user", storedUser)).thenReturn(false)
+
+        filter.doFilter(request, response, chain)
+
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.status)
+        verify(chain, never()).doFilter(any(), any())
+    }
+
+    @Test
+    fun `should send 401 when token type is refresh instead of access`() {
+        val request = MockHttpServletRequest().apply {
+            addHeader("Authorization", "Bearer refresh-token-as-access")
+        }
+        val response = MockHttpServletResponse()
+        val chain: FilterChain = mock()
+
+        whenever(jwtService.parseValidClaims("refresh-token-as-access")).thenReturn(null)
+        whenever(jwtService.extractTokenType("refresh-token-as-access")).thenReturn(JwtService.TYPE_REFRESH)
+
+        filter.doFilter(request, response, chain)
+
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.status)
+        verify(chain, never()).doFilter(any(), any())
+    }
+
+    @Test
+    fun `should send 401 when user is disabled`() {
+        val request = MockHttpServletRequest().apply {
+            addHeader("Authorization", "Bearer valid-token")
+        }
+        val response = MockHttpServletResponse()
+        val chain: FilterChain = mock()
+        val disabledUser = User(email = "test@test.com", passwordHash = "hash", name = "Test", isActive = false).apply {
+            id = java.util.UUID.randomUUID()
+        }
+
+        whenever(jwtService.isTokenValid("valid-token")).thenReturn(true)
+        whenever(jwtService.extractUsername("valid-token")).thenReturn("test@test.com")
+        whenever(jwtService.extractJti("valid-token")).thenReturn("jti-456")
+        whenever(tokenBlacklistService.isBlacklisted("jti-456")).thenReturn(false)
+        whenever(userDetailsService.loadUserByUsername("test@test.com")).thenReturn(disabledUser)
 
         filter.doFilter(request, response, chain)
 

@@ -58,6 +58,7 @@ class OAuthServiceTest {
             jwtService,
             refreshTokenRepository
         )
+        whenever(jwtService.refreshExpiration).thenReturn(604800000L)
     }
 
     @AfterEach
@@ -88,6 +89,7 @@ class OAuthServiceTest {
     fun `loginWithGoogle should return existing user when email already registered`() {
         val existingUser = User(email = "test@gmail.com", name = "Existing").apply { id = UUID.randomUUID() }
         whenever(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(existingUser))
+        whenever(userRepository.save(any<User>())).thenAnswer { it.arguments[0] }
         whenever(oauthProviderRepository.findByProviderNameAndProviderUserId(any(), any())).thenReturn(Optional.empty())
         whenever(oauthProviderRepository.save(any<OAuthProvider>())).thenAnswer { it.arguments[0] }
         whenever(jwtService.generateAccessToken(any())).thenReturn("access-token")
@@ -125,5 +127,41 @@ class OAuthServiceTest {
             service.loginWithGoogle("invalid-token")
         }
         assertTrue(exception.message!!.contains("Invalid Google ID Token"))
+    }
+
+    @Test
+    fun `loginWithGoogle should activate unverified user`() {
+        val unverifiedUser = User(email = "test@gmail.com", name = "Pending", isActive = false).apply {
+            id = UUID.randomUUID()
+            verificationCode = "123456"
+        }
+        whenever(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(unverifiedUser))
+        whenever(userRepository.save(any<User>())).thenAnswer { it.arguments[0] }
+        whenever(oauthProviderRepository.findByProviderNameAndProviderUserId(any(), any())).thenReturn(Optional.empty())
+        whenever(oauthProviderRepository.save(any<OAuthProvider>())).thenAnswer { it.arguments[0] }
+        whenever(jwtService.generateAccessToken(any())).thenReturn("access-token")
+        whenever(jwtService.generateRefreshToken(any())).thenReturn("refresh-token")
+        whenever(refreshTokenRepository.findByUser(any())).thenReturn(Optional.empty())
+        whenever(refreshTokenRepository.save(any<RefreshToken>())).thenAnswer { it.arguments[0] }
+
+        val response = service.loginWithGoogle("valid-id-token")
+
+        assertEquals("access-token", response.accessToken)
+        assertTrue(unverifiedUser.isActive, "User should be activated on Google login")
+        assertEquals(null, unverifiedUser.verificationCode)
+        verify(userRepository).save(unverifiedUser)
+    }
+
+    @Test
+    fun `loginWithGoogle should reject deleted user`() {
+        val deletedUser = User(email = "test@gmail.com", name = "Deleted").apply {
+            id = UUID.randomUUID()
+            deletedAt = java.time.Instant.now()
+        }
+        whenever(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(deletedUser))
+
+        assertThrows<org.springframework.web.server.ResponseStatusException> {
+            service.loginWithGoogle("valid-id-token")
+        }
     }
 }

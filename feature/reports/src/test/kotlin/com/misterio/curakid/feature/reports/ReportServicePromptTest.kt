@@ -60,7 +60,8 @@ class ReportServicePromptTest {
             percentileCalculator = percentileCalculator,
             transactionTemplate = transactionTemplate,
             measurementCalculator = measurementCalculator,
-            taskExecutor = org.springframework.core.task.SyncTaskExecutor()
+            taskExecutor = org.springframework.core.task.SyncTaskExecutor(),
+            objectMapper = com.fasterxml.jackson.databind.ObjectMapper()
         )
     }
 
@@ -94,5 +95,44 @@ class ReportServicePromptTest {
         assertTrue(prompt.contains("ОБОВ\u2019ЯЗКОВО зверни на це увагу батьків"))
         assertTrue(prompt.contains("Спілкуйся з батьками як партнер"))
         assertTrue(prompt.contains("ОБОВ'ЯЗКОВО рекомендуй звернутися до лікаря"))
+    }
+
+    @Test
+    fun `buildPrompt should include skills section when only cognitive or social domain present`() {
+        val childData = ChildData(
+            gender = Gender.FEMALE,
+            isPremature = false,
+            allergies = emptyList(),
+            chronicConditions = emptyList(),
+            pastIllnesses = emptyList(),
+            notes = emptyList()
+        )
+
+        val domainScores = DomainScores(
+            cognitive = BigDecimal("85.0"),
+            social = BigDecimal("90.0"),
+            motorGross = null,
+            motorFine = null,
+            speech = null,
+            selfCare = null,
+            sensory = null
+        )
+
+        val prompt = reportService.buildPrompt(
+            childData = childData,
+            ageMonths = 18,
+            ageDays = 0,
+            latestMeasurement = null,
+            domainScores = domainScores,
+            urgencyScore = BigDecimal("0.1"),
+            chunks = emptyList(),
+            confidence = SearchConfidence.HIGH,
+            norms = emptyMap()
+        )
+
+        assertTrue(prompt.contains("ОЦІНКА НАВИЧОК"), "Skills section must be rendered")
+        assertTrue(prompt.contains("Когніція: 85.0"))
+        assertTrue(prompt.contains("Соціалізація: 90.0"))
+        assertTrue(!prompt.contains("Дані щодо розвитку навичок наразі відсутні"))
     }
 }

@@ -70,7 +70,7 @@ class AdminController(
                 id = lp.id!!,
                 code = lp.code,
                 label = lp.label,
-                description = LifePeriodQuestionService.parseDescription(objectMapper, lp.description),
+                description = LifePeriodQuestionService.parseDescription(lp.description, objectMapper),
                 minMonths = lp.minMonths,
                 maxMonths = lp.maxMonths,
                 questions = lp.questions.filter { it.isActive }.map { q ->

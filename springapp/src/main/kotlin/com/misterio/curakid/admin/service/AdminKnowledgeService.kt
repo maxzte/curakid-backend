@@ -41,14 +41,14 @@ class AdminKnowledgeService(
     @Transactional
     fun uploadArticle(title: String, content: String, categoryId: UUID): List<AdminArticleResponse> {
         val category = categoryRepository.findById(categoryId)
-            .orElseThrow { RuntimeException("Category not found") }
+            .orElseThrow { NoSuchElementException("Category not found") }
 
         val sourceId = UUID.randomUUID()
         val chunks = chunkText(content)
         
         return chunks.map { chunk ->
             val embedding = embeddingProvider.generateEmbedding(chunk)
-                ?: throw RuntimeException("Failed to generate embedding for the chunk")
+                ?: throw IllegalStateException("Failed to generate embedding for the chunk")
             
             val article = MedicalKnowledge(
                 title = title,
@@ -64,7 +64,7 @@ class AdminKnowledgeService(
     @Transactional
     fun uploadArticleFromFile(title: String, content: ByteArray, filename: String, categoryId: UUID, metadata: Map<String, Any>): List<AdminArticleResponse> {
         val category = categoryRepository.findById(categoryId)
-            .orElseThrow { RuntimeException("Category not found") }
+            .orElseThrow { NoSuchElementException("Category not found") }
 
         val textContent = if (filename.lowercase().endsWith(".pdf")) {
             extractTextFromPdf(content)
@@ -78,7 +78,7 @@ class AdminKnowledgeService(
         return chunks.map { chunk ->
             val doc = KnowledgeDocument(chunk, metadata)
             val embedding = embeddingProvider.embed(doc)
-                ?: throw RuntimeException("Failed to generate embedding for the chunk")
+                ?: throw IllegalStateException("Failed to generate embedding for the chunk")
 
             val article = MedicalKnowledge(
                 title = title,
@@ -131,7 +131,7 @@ class AdminKnowledgeService(
                 PDFTextStripper().getText(document)
             }
         } catch (e: Exception) {
-            throw RuntimeException("Failed to extract text from PDF: ${e.message}")
+            throw IllegalStateException("Failed to extract text from PDF: ${e.message}")
         }
     }
 
@@ -140,7 +140,7 @@ class AdminKnowledgeService(
     @Transactional
     fun deleteArticle(id: UUID) {
         val article = knowledgeRepository.findById(id).orElseThrow {
-            RuntimeException("Article not found")
+            NoSuchElementException("Article not found")
         }
         article.deletedAt = Instant.now()
         knowledgeRepository.save(article)

@@ -32,13 +32,21 @@ class JwtAuthenticationFilter(
         val jwt = authHeader.substring(7)
 
         try {
-            if (!jwtService.isTokenValid(jwt)) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token")
+            val claims = jwtService.parseValidClaims(jwt)
+            val userEmail = claims?.subject ?: jwtService.extractUsername(jwt)
+            val jti = claims?.id ?: jwtService.extractJti(jwt)
+            val tokenType = claims?.get(JwtService.CLAIM_TOKEN_TYPE, String::class.java)
+                ?: jwtService.extractTokenType(jwt)
+
+            if (tokenType != null && tokenType != JwtService.TYPE_ACCESS) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token type")
                 return
             }
 
-            val userEmail = jwtService.extractUsername(jwt)
-            val jti = jwtService.extractJti(jwt)
+            if (claims == null && !jwtService.isTokenValid(jwt)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token")
+                return
+            }
 
             if (userEmail != null && SecurityContextHolder.getContext().authentication == null) {
                 val blacklisted = try {
@@ -54,8 +62,8 @@ class JwtAuthenticationFilter(
                 }
 
                 val userDetails = userDetailsService.loadUserByUsername(userEmail)
-                if (!jwtService.isTokenValid(jwt, userDetails)) {
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token")
+                if (!userDetails.isEnabled || userDetails.username != userEmail) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token or user disabled")
                     return
                 }
 

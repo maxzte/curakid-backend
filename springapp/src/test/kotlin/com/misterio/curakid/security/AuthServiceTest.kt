@@ -68,9 +68,10 @@ class AuthServiceTest {
     @Test
     fun `register should throw if email already exists`() {
         val request = RegisterRequest("test@test.com", "pass", "Name", ConsentRequest(true, true, Instant.now().toString(), "1.0", "1.0.0", "uk-UA"))
-        whenever(userRepository.existsByEmail(any())).thenReturn(true)
+        val existingActiveUser = User(email = "test@test.com", passwordHash = "hash", name = "Name", isActive = true)
+        whenever(userRepository.findByEmail(any())).thenReturn(Optional.of(existingActiveUser))
 
-        assertThrows<RuntimeException> {
+        assertThrows<org.springframework.web.server.ResponseStatusException> {
             authService.register(request, mock<HttpServletRequest>())
         }
     }
@@ -78,7 +79,7 @@ class AuthServiceTest {
     @Test
     fun `login should return tokens on success`() {
         val request = LoginRequest("test@test.com", "pass")
-        val user = User(email = "test@test.com", passwordHash = "hash", name = "Name").apply { id = UUID.randomUUID() }
+        val user = User(email = "test@test.com", passwordHash = "hash", name = "Name", isActive = true).apply { id = UUID.randomUUID() }
 
         whenever(userRepository.findByEmail(any())).thenReturn(Optional.of(user))
         whenever(jwtService.generateAccessToken(user)).thenReturn("access-token")
@@ -104,10 +105,11 @@ class AuthServiceTest {
     @Test
     fun `refreshToken should return new access token if valid`() {
         val refreshTokenStr = "valid-refresh-token"
-        val user = User(email = "test@test.com").apply { id = UUID.randomUUID() }
+        val user = User(email = "test@test.com", isActive = true).apply { id = UUID.randomUUID() }
         val refreshTokenObj = RefreshToken(user = user, token = refreshTokenStr, expiryDate = Instant.now().plusSeconds(3600))
 
         whenever(refreshTokenRepository.findByToken(refreshTokenStr)).thenReturn(Optional.of(refreshTokenObj))
+        whenever(jwtService.extractTokenType(refreshTokenStr)).thenReturn(JwtService.TYPE_REFRESH)
         whenever(jwtService.generateAccessToken(user)).thenReturn("new-access-token")
         whenever(jwtService.generateRefreshToken(user)).thenReturn(refreshTokenStr)
 
@@ -138,5 +140,36 @@ class AuthServiceTest {
 
         verify(tokenBlacklistService).addToBlacklist(eq("jti-123"), any())
         verify(refreshTokenRepository).delete(mockToken)
+    }
+
+    @Test
+    fun `register should resend verification code if user exists but unverified`() {
+        val request = RegisterRequest("pending@test.com", "pass", "Name", ConsentRequest(true, true, Instant.now().toString(), "1.0", "1.0.0", "uk-UA"))
+        val unverifiedUser = User(email = "pending@test.com", passwordHash = "oldhash", name = "Name", isActive = false)
+        whenever(userRepository.findByEmail("pending@test.com")).thenReturn(Optional.of(unverifiedUser))
+        whenever(passwordEncoder.encode("pass")).thenReturn("newhash")
+
+        val httpServletRequest = mock<HttpServletRequest>()
+
+        val response = authService.register(request, httpServletRequest)
+
+        assertEquals("Registration successful. Please check your email for verification code.", response.message)
+        verify(emailService).sendVerificationEmail(eq("pending@test.com"), eq("Name"), any())
+        verify(userRepository).save(unverifiedUser)
+    }
+
+    @Test
+    fun `refreshToken should throw 401 when token type is access instead of refresh`() {
+        val tokenStr = "access-token-passed-to-refresh"
+        val user = User(email = "test@test.com", isActive = true).apply { id = UUID.randomUUID() }
+        val refreshTokenObj = RefreshToken(user = user, token = tokenStr, expiryDate = Instant.now().plusSeconds(3600))
+
+        whenever(refreshTokenRepository.findByToken(tokenStr)).thenReturn(Optional.of(refreshTokenObj))
+        whenever(jwtService.extractTokenType(tokenStr)).thenReturn(JwtService.TYPE_ACCESS)
+
+        assertThrows<org.springframework.web.server.ResponseStatusException> {
+            authService.refreshToken(RefreshTokenRequest(tokenStr))
+        }
+        verify(refreshTokenRepository).delete(refreshTokenObj)
     }
 }

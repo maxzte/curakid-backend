@@ -17,9 +17,7 @@ class LifePeriodQuestionService(
     private val log = LoggerFactory.getLogger(LifePeriodQuestionService::class.java)
 
     companion object {
-        private val internalMapper = ObjectMapper()
-
-        fun parseDescription(json: String?): LifePeriodDescription {
+        fun parseDescription(json: String?, mapper: ObjectMapper = ObjectMapper()): LifePeriodDescription {
             if (json.isNullOrBlank()) return LifePeriodDescription(
                 "",
                 "",
@@ -27,7 +25,7 @@ class LifePeriodQuestionService(
                 emptyList()
             )
             return try {
-                val root = internalMapper.readTree(json)
+                val root = mapper.readTree(json)
                 val ua = root.get("ua") ?: root
                 LifePeriodDescription(
                     title = ua.get("title")?.asString() ?: "",
@@ -45,7 +43,7 @@ class LifePeriodQuestionService(
             }
         }
 
-        fun parseDescription(objectMapper: Any?, json: String?): LifePeriodDescription {
+        fun parseDescription(json: String?, mapper: Any?): LifePeriodDescription {
             return parseDescription(json)
         }
     }

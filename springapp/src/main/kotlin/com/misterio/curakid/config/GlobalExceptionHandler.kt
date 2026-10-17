@@ -83,6 +83,13 @@ class GlobalExceptionHandler {
             HttpStatus.FORBIDDEN
         )
 
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException::class)
+    fun handleAuthenticationException(ex: org.springframework.security.core.AuthenticationException): ResponseEntity<ErrorResponse> =
+        ResponseEntity(
+            ErrorResponse(ex.message ?: "Невірні облікові дані", 401),
+            HttpStatus.UNAUTHORIZED
+        )
+
     @ExceptionHandler(Exception::class)
     fun handleGenericException(ex: Exception): ResponseEntity<ErrorResponse> {
         log.error("Unhandled internal server error: {}", ex.message, ex)

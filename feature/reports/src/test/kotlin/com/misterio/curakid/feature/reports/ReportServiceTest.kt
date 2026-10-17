@@ -82,7 +82,8 @@ class ReportServiceTest {
             percentileCalculator = percentileCalculator,
             transactionTemplate = transactionTemplate,
             measurementCalculator = measurementCalculator,
-            taskExecutor = org.springframework.core.task.SyncTaskExecutor()
+            taskExecutor = org.springframework.core.task.SyncTaskExecutor(),
+            objectMapper = com.fasterxml.jackson.databind.ObjectMapper()
         )
     }
 

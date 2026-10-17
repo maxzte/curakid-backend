@@ -53,8 +53,8 @@ class ReportService(
     private val transactionTemplate: TransactionTemplate,
     private val measurementCalculator: MeasurementCalculator,
     @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor") private val taskExecutor: org.springframework.core.task.TaskExecutor,
+    private val objectMapper: ObjectMapper,
 ) : ReportProvider {
-    private val objectMapper = ObjectMapper()
     private val log = LoggerFactory.getLogger(ReportService::class.java)
 
     fun getReports(childId: UUID, user: User): List<ReportResponse> {
@@ -193,7 +193,7 @@ class ReportService(
         val ageDays = ChronoUnit.DAYS.between(birthDatePlusMonths, today).toInt()
 
         val latestMeasurement =
-            measurementRepository.findAllByChildOrderByMeasurementDateAsc(child).lastOrNull()
+            measurementRepository.findFirstByChildOrderByMeasurementDateDesc(child).orElse(null)
         val history = if (latestMeasurement != null) {
             measurementRepository.findTop5ByChildAndMeasurementDateBeforeOrderByMeasurementDateDesc(
                 child, latestMeasurement.measurementDate
@@ -748,16 +748,6 @@ class ReportService(
         res["hcfaZscore"] = zNorms
         res["wfhZscore"] = zNorms
 
-        // Skill score standard thresholds (0-100%)
-        val skillNorms = mapOf("P3" to 40.0, "P15" to 60.0, "P50" to 85.0)
-        res["motorGrossScore"] = skillNorms
-        res["motorFineScore"] = skillNorms
-        res["speechScore"] = skillNorms
-        res["cognitiveScore"] = skillNorms
-        res["socialScore"] = skillNorms
-        res["selfCareScore"] = skillNorms
-        res["sensoryScore"] = skillNorms
-
         return res
     }
 
@@ -780,9 +770,9 @@ class ReportService(
         addNorms("BMI", ChartType.BMI)
         addNorms("HCFA (cm)", ChartType.HCFA)
 
-        val latest = measurementRepository.findAllByChildOrderByMeasurementDateAsc(
+        val latest = measurementRepository.findFirstByChildOrderByMeasurementDateDesc(
             childRepository.getReferenceById(context.childId)
-        ).lastOrNull()
+        ).orElse(null)
         latest?.heightCm?.let { height ->
             percentileCalculator.getParamsForHeight(gender, height.toDouble(), ageDays)?.let { p ->
                 res["WFH (kg)"] = mapOf(

@@ -49,8 +49,24 @@ class AuthService(
 
     @Transactional
     fun register(request: RegisterRequest, httpRequest: HttpServletRequest): MessageResponse {
-        if (userRepository.existsByEmail(request.email)) {
-            throw RuntimeException("Email already exists")
+        val existingUser = userRepository.findByEmail(request.email).orElse(null)
+        if (existingUser != null) {
+            if (existingUser.isActive) {
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Email already exists")
+            }
+            if (existingUser.deletedAt != null) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Account cannot be re-registered")
+            }
+            // User registered earlier but never verified email -> re-send fresh verification code
+            val newCode = generateSixDigitCode()
+            existingUser.verificationCode = newCode
+            existingUser.verificationCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
+            existingUser.passwordHash = passwordEncoder.encode(request.password)
+                ?: throw IllegalStateException("Password encoding failed")
+            existingUser.name = request.name
+            userRepository.save(existingUser)
+            emailService.sendVerificationEmail(existingUser.email, existingUser.name, newCode)
+            return MessageResponse("Registration successful. Please check your email for verification code.")
         }
 
         require(request.consent.termsAccepted) {
@@ -61,7 +77,7 @@ class AuthService(
         }
 
         val timestamp = Instant.now()
-        val ip = httpRequest.remoteAddr
+        val ip = extractClientIp(httpRequest)
         val userAgent = httpRequest.getHeader("User-Agent")
 
         val verificationCode = generateSixDigitCode()
@@ -105,17 +121,29 @@ class AuthService(
         return MessageResponse("Registration successful. Please check your email for verification code.")
     }
 
+    private fun extractClientIp(request: HttpServletRequest): String {
+        val xForwardedFor = request.getHeader("X-Forwarded-For")
+        if (!xForwardedFor.isNullOrBlank()) {
+            return xForwardedFor.split(",").first().trim()
+        }
+        val xRealIp = request.getHeader("X-Real-IP")
+        if (!xRealIp.isNullOrBlank()) {
+            return xRealIp.trim()
+        }
+        return request.remoteAddr ?: "unknown"
+    }
+
     @Transactional
     fun verifyEmail(request: VerifyEmailRequest): AuthResponse {
         val user = userRepository.findByEmail(request.email)
-            .orElseThrow { RuntimeException("User not found") }
+            .orElseThrow { NoSuchElementException("User not found") }
 
         if (user.isActive) {
-            throw RuntimeException("Email already verified")
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already verified")
         }
 
         if (user.verificationCode != request.code || user.verificationCodeExpiry?.isBefore(Instant.now()) == true) {
-            throw RuntimeException("Invalid or expired verification code")
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired verification code")
         }
 
         user.isActive = true
@@ -150,10 +178,10 @@ class AuthService(
     @Transactional
     fun resetPassword(request: ResetPasswordRequest): MessageResponse {
         val user = userRepository.findByEmail(request.email)
-            .orElseThrow { RuntimeException("User not found") }
+            .orElseThrow { NoSuchElementException("User not found") }
 
         if (user.resetCode != request.code || user.resetCodeExpiry?.isBefore(Instant.now()) == true) {
-            throw RuntimeException("Invalid or expired reset code")
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired reset code")
         }
 
         user.passwordHash = passwordEncoder.encode(request.newPassword)
@@ -172,7 +200,11 @@ class AuthService(
         )
 
         val user = userRepository.findByEmail(request.email)
-            .orElseThrow { RuntimeException("User not found") }
+            .orElseThrow { NoSuchElementException("User not found") }
+
+        if (!user.isActive) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Account not verified")
+        }
 
         val accessToken = jwtService.generateAccessToken(user)
         val refreshToken = generateAndSaveRefreshToken(user)
@@ -183,15 +215,26 @@ class AuthService(
     @Transactional
     fun refreshToken(request: RefreshTokenRequest): AuthResponse {
         val refreshToken = refreshTokenRepository.findByToken(request.refreshToken)
-            .orElseThrow { RuntimeException("Refresh token not found") }
+            .orElseThrow { ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found") }
 
         if (refreshToken.expiryDate < Instant.now()) {
             refreshTokenRepository.delete(refreshToken)
-            throw RuntimeException("Refresh token expired")
+            throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired")
+        }
+
+        val tokenType = jwtService.extractTokenType(request.refreshToken)
+        if (tokenType != null && tokenType != JwtService.TYPE_REFRESH) {
+            refreshTokenRepository.delete(refreshToken)
+            throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token type for refresh")
         }
 
         val user = refreshToken.user
             ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Token has no user")
+
+        if (!user.isActive) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "User account is inactive")
+        }
+
         val accessToken = jwtService.generateAccessToken(user)
         val newRefreshToken = generateAndSaveRefreshToken(user)
 
@@ -222,7 +265,7 @@ class AuthService(
     @Transactional
     fun deleteMe(userId: UUID) {
         val user = userRepository.findById(userId).orElseThrow {
-            RuntimeException("User not found")
+            NoSuchElementException("User not found")
         }
         
         // Anonymize user data to free up email and comply with GDPR

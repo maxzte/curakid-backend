@@ -57,22 +57,27 @@ class WhoZScoreCalculator {
         loadLmsData("zscore/hcfa-e-girls.xlsx", hcfaGirls)
     }
 
+    private fun extractLmsParams(row: org.apache.poi.ss.usermodel.Row): LmsParams {
+        val l = row.getCell(1)?.numericCellValue ?: 0.0
+        val m = row.getCell(2)?.numericCellValue ?: 0.0
+        val s = row.getCell(3)?.numericCellValue ?: 0.0
+        return LmsParams(l, m, s)
+    }
+
     private fun loadWfhLmsData(path: String, map: MutableMap<Int, LmsParams>) {
         ClassPathResource(path).inputStream.use { inputStream ->
-            val workbook = WorkbookFactory.create(inputStream)
-            val sheet = workbook.getSheetAt(0)
-            for (row in sheet) {
-                if (row.rowNum == 0) continue // Skip header
-                val heightCell = row.getCell(0) ?: continue
+            WorkbookFactory.create(inputStream).use { workbook ->
+                val sheet = workbook.getSheetAt(0)
+                for (row in sheet) {
+                    if (row.rowNum == 0) continue // Skip header
+                    val heightCell = row.getCell(0) ?: continue
 
-                try {
-                    val heightKey = (heightCell.numericCellValue * 10).roundToInt()
-                    val l = row.getCell(1)?.numericCellValue ?: 0.0
-                    val m = row.getCell(2)?.numericCellValue ?: 0.0
-                    val s = row.getCell(3)?.numericCellValue ?: 0.0
-                    map[heightKey] = LmsParams(l, m, s)
-                } catch (e: Exception) {
-                    continue
+                    try {
+                        val heightKey = (heightCell.numericCellValue * 10).roundToInt()
+                        map[heightKey] = extractLmsParams(row)
+                    } catch (_: Exception) {
+                        continue
+                    }
                 }
             }
         }
@@ -80,22 +85,18 @@ class WhoZScoreCalculator {
 
     private fun loadLmsData(path: String, map: MutableMap<Int, LmsParams>) {
         ClassPathResource(path).inputStream.use { inputStream ->
-            val workbook = WorkbookFactory.create(inputStream)
-            val sheet = workbook.getSheetAt(0)
-            for (row in sheet) {
-                if (row.rowNum == 0) continue // Skip header
-                val dayCell = row.getCell(0) ?: continue
+            WorkbookFactory.create(inputStream).use { workbook ->
+                val sheet = workbook.getSheetAt(0)
+                for (row in sheet) {
+                    if (row.rowNum == 0) continue // Skip header
+                    val dayCell = row.getCell(0) ?: continue
 
-                // POI might treat some cells as text if not careful, but these are numbers
-                try {
-                    val day = dayCell.numericCellValue.toInt()
-                    val l = row.getCell(1)?.numericCellValue ?: 0.0
-                    val m = row.getCell(2)?.numericCellValue ?: 0.0
-                    val s = row.getCell(3)?.numericCellValue ?: 0.0
-                    map[day] = LmsParams(l, m, s)
-                } catch (e: Exception) {
-                    // Ignore rows that don't parse correctly (e.g., empty rows or text)
-                    continue
+                    try {
+                        val day = dayCell.numericCellValue.toInt()
+                        map[day] = extractLmsParams(row)
+                    } catch (_: Exception) {
+                        continue
+                    }
                 }
             }
         }
@@ -199,8 +200,8 @@ class WhoZScoreCalculator {
     ): LmsParams {
         val isMale = gender != Gender.FEMALE
         val map = if (isMale) boysMap else girlsMap
-        // Fallback to 0 days if not found
-        return map[ageDays] ?: map.values.lastOrNull() ?: LmsParams(1.0, 1.0, 1.0)
+        // Fallback to nearest age day if exact key not found
+        return map[ageDays] ?: map.minByOrNull { kotlin.math.abs(it.key - ageDays) }?.value ?: LmsParams(1.0, 1.0, 1.0)
     }
 
     private fun computeZscore(value: Double, params: LmsParams): BigDecimal {

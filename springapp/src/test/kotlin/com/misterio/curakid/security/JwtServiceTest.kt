@@ -56,4 +56,32 @@ class JwtServiceTest {
         val token = jwtService.generateAccessToken(user1)
         assertFalse(jwtService.isTokenValid(token, user2))
     }
+
+    @Test
+    fun `generateAccessToken should set token type to access and contain jti`() {
+        val user = User(email = "user@test.com").apply { id = UUID.randomUUID() }
+        val token = jwtService.generateAccessToken(user)
+
+        assertEquals(JwtService.TYPE_ACCESS, jwtService.extractTokenType(token))
+        assertNotNull(jwtService.extractJti(token))
+        
+        val claims = jwtService.parseValidClaims(token)
+        assertNotNull(claims)
+        assertEquals("user@test.com", claims?.subject)
+        assertEquals(JwtService.TYPE_ACCESS, claims?.get(JwtService.CLAIM_TOKEN_TYPE, String::class.java))
+    }
+
+    @Test
+    fun `generateRefreshToken should set token type to refresh and contain jti`() {
+        val user = User(email = "user@test.com").apply { id = UUID.randomUUID() }
+        val token = jwtService.generateRefreshToken(user)
+
+        assertEquals(JwtService.TYPE_REFRESH, jwtService.extractTokenType(token))
+        assertNotNull(jwtService.extractJti(token))
+    }
+
+    @Test
+    fun `parseValidClaims should return null for invalid or tampered token`() {
+        assertNull(jwtService.parseValidClaims("invalid.token.string"))
+    }
 }

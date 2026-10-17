@@ -14,7 +14,8 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 @Component
 class AdminUiAuthFilter(
     private val jwtService: JwtService,
-    private val userDetailsService: UserDetailsService
+    private val userDetailsService: UserDetailsService,
+    private val tokenBlacklistService: TokenBlacklistService
 ) : OncePerRequestFilter() {
 
     override fun doFilterInternal(
@@ -40,18 +41,35 @@ class AdminUiAuthFilter(
         }
 
         try {
-            if (!jwtService.isTokenValid(token)) {
+            val claims = jwtService.parseValidClaims(token)
+            if (claims == null) {
                 response.sendRedirect("/admin/ui/login")
                 return
             }
 
-            val email = jwtService.extractUsername(token)
+            val tokenType = claims.get(JwtService.CLAIM_TOKEN_TYPE, String::class.java)
+            if (tokenType != null && tokenType != JwtService.TYPE_ACCESS) {
+                response.sendRedirect("/admin/ui/login")
+                return
+            }
+
+            val jti = claims.id
+            if (jti != null && tokenBlacklistService.isBlacklisted(jti)) {
+                response.sendRedirect("/admin/ui/login")
+                return
+            }
+
+            val email = claims.subject
             if (email == null) {
                 response.sendRedirect("/admin/ui/login")
                 return
             }
 
             val user = userDetailsService.loadUserByUsername(email)
+            if (!user.isEnabled) {
+                response.sendRedirect("/admin/ui/login")
+                return
+            }
             val isAdmin = user.authorities.any { it.authority == "ROLE_ADMIN" }
             if (!isAdmin) {
                 response.sendRedirect("/admin/ui/login")

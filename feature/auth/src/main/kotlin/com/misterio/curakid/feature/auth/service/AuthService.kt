@@ -5,6 +5,9 @@ import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.auth.UserConsent
 import com.misterio.curakid.core.database.auth.UserConsentRepository
 import com.misterio.curakid.core.database.auth.UserRepository
+import com.misterio.curakid.core.database.children.ChildRepository
+import com.misterio.curakid.core.database.event.EventRepository
+import com.misterio.curakid.core.database.notification.DeviceTokenRepository
 import com.misterio.curakid.core.database.token.RefreshToken
 import com.misterio.curakid.core.database.token.RefreshTokenRepository
 import com.misterio.curakid.core.security.JwtService
@@ -41,8 +44,15 @@ class AuthService(
     private val authenticationManager: AuthenticationManager,
     private val tokenBlacklistService: TokenBlacklistService,
     private val emailService: EmailService,
-    @Value("\${jwt.refresh-token-expiration:604800000}") private val refreshExpiration: Long, // 7 days
+    private val childRepository: ChildRepository? = null,
+    private val eventRepository: EventRepository? = null,
+    private val deviceTokenRepository: DeviceTokenRepository? = null,
+    @Value("\${jwt.refresh-token-expiration:604800000}") private val refreshExpiration: Long = 604800000L, // 7 days
 ) {
+    companion object {
+        private const val MAX_OTP_ATTEMPTS = 5
+    }
+
     private val secureRandom = java.security.SecureRandom()
 
     private fun generateSixDigitCode(): String = String.format("%06d", secureRandom.nextInt(1_000_000))
@@ -61,6 +71,7 @@ class AuthService(
             val newCode = generateSixDigitCode()
             existingUser.verificationCode = newCode
             existingUser.verificationCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
+            existingUser.failedVerificationAttempts = 0
             existingUser.passwordHash = passwordEncoder.encode(request.password)
                 ?: throw IllegalStateException("Password encoding failed")
             existingUser.name = request.name
@@ -90,6 +101,7 @@ class AuthService(
         ).apply {
             this.verificationCode = verificationCode
             this.verificationCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
+            this.failedVerificationAttempts = 0
         }
 
         val u = userRepository.save(user)
@@ -142,13 +154,26 @@ class AuthService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already verified")
         }
 
-        if (user.verificationCode != request.code || user.verificationCodeExpiry?.isBefore(Instant.now()) == true) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired verification code")
+        val now = Instant.now()
+        val isExpired = user.verificationCodeExpiry?.isBefore(now) == true
+        val isCodeMismatch = user.verificationCode != request.code
+
+        if (isCodeMismatch || isExpired) {
+            user.failedVerificationAttempts++
+            if (user.failedVerificationAttempts >= MAX_OTP_ATTEMPTS) {
+                user.verificationCode = null
+                user.verificationCodeExpiry = null
+                userRepository.save(user)
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Забагато невдалих спроб. Код анульовано. Запросіть новий код.")
+            }
+            userRepository.save(user)
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Невірний або прострочений код підтвердження")
         }
 
         user.isActive = true
         user.verificationCode = null
         user.verificationCodeExpiry = null
+        user.failedVerificationAttempts = 0
         userRepository.save(user)
 
         val accessToken = jwtService.generateAccessToken(user)
@@ -168,6 +193,7 @@ class AuthService(
         val resetCode = generateSixDigitCode()
         user.resetCode = resetCode
         user.resetCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
+        user.failedResetAttempts = 0
         userRepository.save(user)
 
         emailService.sendPasswordResetEmail(user.email, user.name, resetCode)
@@ -180,14 +206,27 @@ class AuthService(
         val user = userRepository.findByEmail(request.email)
             .orElseThrow { NoSuchElementException("User not found") }
 
-        if (user.resetCode != request.code || user.resetCodeExpiry?.isBefore(Instant.now()) == true) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired reset code")
+        val now = Instant.now()
+        val isExpired = user.resetCodeExpiry?.isBefore(now) == true
+        val isCodeMismatch = user.resetCode != request.code
+
+        if (isCodeMismatch || isExpired) {
+            user.failedResetAttempts++
+            if (user.failedResetAttempts >= MAX_OTP_ATTEMPTS) {
+                user.resetCode = null
+                user.resetCodeExpiry = null
+                userRepository.save(user)
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Забагато невдалих спроб. Код відновлення анульовано. Запросіть новий код.")
+            }
+            userRepository.save(user)
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Невірний або прострочений код скидання паролю")
         }
 
         user.passwordHash = passwordEncoder.encode(request.newPassword)
             ?: throw IllegalStateException("Password encoding failed")
         user.resetCode = null
         user.resetCodeExpiry = null
+        user.failedResetAttempts = 0
         userRepository.save(user)
 
         return MessageResponse("Password reset successful. You can now login with your new password.")
@@ -267,16 +306,44 @@ class AuthService(
         val user = userRepository.findById(userId).orElseThrow {
             NoSuchElementException("User not found")
         }
+
+        val now = Instant.now()
+        
+        // Revoke all refresh tokens
+        refreshTokenRepository.deleteByUser(user)
+        refreshTokenRepository.flush()
+
+        // Deactivate all push notification tokens
+        deviceTokenRepository?.deleteAllByUserId(userId)
+
+        // Soft-delete children and their associated events
+        val children = childRepository?.findAllByUser(user) ?: emptyList()
+        for (child in children) {
+            val events = eventRepository?.findAllByChild(child) ?: emptyList()
+            events.forEach { event ->
+                event.deletedAt = now
+            }
+            if (events.isNotEmpty()) {
+                eventRepository?.saveAll(events)
+            }
+            child.deletedAt = now
+            child.notes = emptyList() // Clear free-text medical notes for privacy
+        }
+        if (children.isNotEmpty()) {
+            childRepository?.saveAll(children)
+        }
         
         // Anonymize user data to free up email and comply with GDPR
-        user.email = "deleted_${user.id}_${Instant.now().epochSecond}@deleted.curakid.com"
+        user.email = "deleted_${user.id}_${now.epochSecond}@deleted.curakid.com"
         user.name = "Deleted User"
         user.passwordHash = "DELETED"
-        user.deletedAt = Instant.now()
+        user.deletedAt = now
         user.isActive = false
+        user.verificationCode = null
+        user.resetCode = null
 
         userRepository.save(user)
-        userConsentRepository.revokeAllByUserId(userId, Instant.now())
+        userConsentRepository.revokeAllByUserId(userId, now)
     }
 
     private fun generateAndSaveRefreshToken(user: User): String {

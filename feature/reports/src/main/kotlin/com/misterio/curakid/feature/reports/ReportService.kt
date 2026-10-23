@@ -20,6 +20,7 @@ import com.misterio.curakid.core.essential.appendAnthropometry
 import com.misterio.curakid.core.essential.appendNorms
 import com.misterio.curakid.core.essential.appendSection
 import com.misterio.curakid.core.essential.appendSkills
+import com.misterio.curakid.core.essential.sanitizeUserInput
 import com.misterio.curakid.core.essential.common.analysis.*
 import com.misterio.curakid.core.medical.ChartType
 import com.misterio.curakid.core.medical.MeasurementCalculator
@@ -747,10 +748,10 @@ class ReportService(
     private fun buildChildData(child: Child): ChildData = ChildData(
         gender = child.gender,
         isPremature = child.isPremature,
-        allergies = child.allergies.toList(),
-        chronicConditions = child.chronicConditions.toList(),
-        pastIllnesses = child.pastIllnesses.toList(),
-        notes = child.notes.toList()
+        allergies = child.allergies.map { sanitizeUserInput(it) },
+        chronicConditions = child.chronicConditions.map { sanitizeUserInput(it) },
+        pastIllnesses = child.pastIllnesses.map { sanitizeUserInput(it) },
+        notes = child.notes.map { sanitizeUserInput(it) }
     )
 
     private fun buildFisNorms(context: ReportContext): Map<String, Map<String, Double>> {

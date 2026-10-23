@@ -11,6 +11,7 @@ import com.misterio.curakid.core.essential.STYLE_SECTION
 import com.misterio.curakid.core.essential.appendAnthropometry
 import com.misterio.curakid.core.essential.appendNorms
 import com.misterio.curakid.core.essential.appendSection
+import com.misterio.curakid.core.essential.sanitizeUserInput
 import com.misterio.curakid.core.medical.ChartType
 import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import org.slf4j.LoggerFactory
@@ -84,19 +85,23 @@ class ChatService(
         val recentHistory = chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(child, sessionStart)
             .takeLast(6)
 
+        val cleanUserMessage = sanitizeUserInput(userMessage)
+
         val fullUserPrompt = if (recentHistory.isNotEmpty()) {
             buildString {
                 appendLine("# ПОПЕРЕДНІЙ ДІАЛОГ СЕСІЇ:")
                 recentHistory.forEach { msg ->
-                    appendLine("Батьки: ${msg.userText}")
+                    appendLine("Батьки: ${sanitizeUserInput(msg.userText)}")
                     appendLine("Педіатр (ти): ${msg.aiText}")
                 }
                 appendLine()
                 appendLine("# ПОТОЧНЕ ЗАПИТАННЯ БАТЬКІВ:")
-                appendLine(userMessage)
+                appendLine("<user_query>")
+                appendLine(cleanUserMessage)
+                appendLine("</user_query>")
             }
         } else {
-            userMessage
+            "<user_query>\n$cleanUserMessage\n</user_query>"
         }
 
         val emitter = SseEmitter(60_000L)

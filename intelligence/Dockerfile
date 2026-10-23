@@ -38,4 +38,4 @@ ENV HF_HOME=/app/hf_cache \
 # RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-small')"
 
 EXPOSE 8000
-CMD ["uvicorn", "src.main.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "src.main.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

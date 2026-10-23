@@ -28,7 +28,7 @@ services:
       - SPRING_MAIN_LAZY_INITIALIZATION=true
       - SPRING_JMX_ENABLED=false
       - SPRING_JPA_PROPERTIES_HIBERNATE_QUERY_PLAN_CACHE_MAX_SIZE=64
-      - JAVA_OPTS=-Xmx256m -Xms128m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+      - JAVA_OPTS=-Xmx384m -Xms128m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1" ]
       interval: 15s
@@ -38,7 +38,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 768M
     volumes:
       - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
     networks:
@@ -141,7 +141,7 @@ services:
     image: redis:7-alpine
     container_name: curakid-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password} --maxmemory 256mb --maxmemory-policy volatile-lru
     ports:
       - "6379:6379"
     volumes:

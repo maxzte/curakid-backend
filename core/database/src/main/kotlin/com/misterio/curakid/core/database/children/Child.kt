@@ -44,21 +44,25 @@ class Child(
     @ElementCollection
     @CollectionTable(name = "child_allergies", joinColumns = [JoinColumn(name = "child_id")])
     @Column(name = "allergy", columnDefinition = "TEXT")
+    @org.hibernate.annotations.BatchSize(size = 50)
     var allergies: List<String> = emptyList(),
 
     @ElementCollection
     @CollectionTable(name = "child_chronic_conditions", joinColumns = [JoinColumn(name = "child_id")])
     @Column(name = "condition", columnDefinition = "TEXT")
+    @org.hibernate.annotations.BatchSize(size = 50)
     var chronicConditions: List<String> = emptyList(),
 
     @ElementCollection
     @CollectionTable(name = "child_past_illnesses", joinColumns = [JoinColumn(name = "child_id")])
     @Column(name = "illness", columnDefinition = "TEXT")
+    @org.hibernate.annotations.BatchSize(size = 50)
     var pastIllnesses: List<String> = emptyList(),
 
     @ElementCollection
     @CollectionTable(name = "child_notes", joinColumns = [JoinColumn(name = "child_id")])
     @Column(name = "notes", columnDefinition = "TEXT")
+    @org.hibernate.annotations.BatchSize(size = 50)
     var notes: List<String> = emptyList(),
 
 ) : BaseEntity() {

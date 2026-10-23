@@ -2,6 +2,19 @@ package com.misterio.curakid.core.essential
 
 import java.math.BigDecimal
 
+fun sanitizeUserInput(input: String?): String {
+    if (input.isNullOrBlank()) return ""
+    // Remove or neutralize prompt injection vectors while preserving human-readable text
+    return input
+        .replace(Regex("""(?i)\b(ignore previous instructions|disregard instructions|system prompt|jailbreak)\b"""), "[filtered]")
+        .replace("```", "'''")
+        .replace("<|im_start|>", "")
+        .replace("<|im_end|>", "")
+        .replace("<system>", "")
+        .replace("</system>", "")
+        .trim()
+}
+
 fun StringBuilder.appendSection(
     title: String,
     items: List<String>,

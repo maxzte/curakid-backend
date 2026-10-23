@@ -3,23 +3,39 @@ package com.misterio.curakid.feature.notification
 import com.misterio.curakid.core.database.event.EventRepository
 import com.misterio.curakid.core.essential.common.events.NotificationPayloadConstants
 import com.misterio.curakid.core.essential.logger
+import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 @Component
 class EventReminderScheduler(
     private val eventRepository: EventRepository,
-    private val pushNotificationService: PushNotificationService
+    private val pushNotificationService: PushNotificationService,
+    private val redisTemplate: StringRedisTemplate? = null
 ) {
 
     private val log = logger()
 
+    companion object {
+        private const val LOCK_KEY = "lock:scheduler:event-reminders"
+        private val LOCK_DURATION = Duration.ofMinutes(15)
+    }
+
     @Scheduled(fixedDelayString = "\${notification.scheduler.interval-ms:3600000}")
     @Transactional
     fun sendUpcomingEventReminders() {
+        if (redisTemplate != null) {
+            val acquired = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, "1", LOCK_DURATION)
+            if (acquired != true) {
+                log.debug("Another cluster node is running event reminder scheduler. Skipping.")
+                return
+            }
+        }
+
         val now = Instant.now()
         val windowEnd = now.plus(24, ChronoUnit.HOURS)
 

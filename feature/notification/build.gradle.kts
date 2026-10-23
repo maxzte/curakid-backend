@@ -10,4 +10,5 @@ dependencies {
 
     implementation(libs.firebase.admin)
     implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.data.redis)
 }

@@ -92,18 +92,25 @@ class RateLimitFilter(
         if (method != "POST") return false
         return path == "/api/auth/login" ||
                 path == "/api/auth/register" ||
+                path == "/api/auth/verify-email" ||
                 path == "/api/auth/forgot-password" ||
                 path == "/api/auth/reset-password"
     }
 
     private fun extractClientIp(request: HttpServletRequest): String {
-        val xForwardedFor = request.getHeader("X-Forwarded-For")
-        if (!xForwardedFor.isNullOrBlank()) {
-            return xForwardedFor.split(",").first().trim()
-        }
+        // X-Real-IP is typically set directly by the ingress/reverse-proxy
         val xRealIp = request.getHeader("X-Real-IP")
         if (!xRealIp.isNullOrBlank()) {
             return xRealIp.trim()
+        }
+
+        val xForwardedFor = request.getHeader("X-Forwarded-For")
+        if (!xForwardedFor.isNullOrBlank()) {
+            // In a standard proxy chain, the rightmost client IP before internal hops is the most reliable
+            val ips = xForwardedFor.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            if (ips.isNotEmpty()) {
+                return ips.first()
+            }
         }
         return request.remoteAddr ?: "unknown"
     }

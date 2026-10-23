@@ -1,3 +1,5 @@
 /build
 .kotlin
-*.yaml
+application-local.yaml
+application-*.yaml
+!application.yaml

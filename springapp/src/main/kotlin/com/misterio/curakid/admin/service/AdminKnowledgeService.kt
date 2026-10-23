@@ -38,7 +38,6 @@ class AdminKnowledgeService(
         sourceId = sourceId
     )
 
-    @Transactional
     fun uploadArticle(title: String, content: String, categoryId: UUID): List<AdminArticleResponse> {
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { NoSuchElementException("Category not found") }
@@ -46,6 +45,7 @@ class AdminKnowledgeService(
         val sourceId = UUID.randomUUID()
         val chunks = chunkText(content)
         
+        // Generate embeddings outside of DB transaction to prevent HikariCP connection starvation
         return chunks.map { chunk ->
             val embedding = embeddingProvider.generateEmbedding(chunk)
                 ?: throw IllegalStateException("Failed to generate embedding for the chunk")
@@ -61,7 +61,6 @@ class AdminKnowledgeService(
         }
     }
 
-    @Transactional
     fun uploadArticleFromFile(title: String, content: ByteArray, filename: String, categoryId: UUID, metadata: Map<String, Any>): List<AdminArticleResponse> {
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { NoSuchElementException("Category not found") }
@@ -75,6 +74,7 @@ class AdminKnowledgeService(
         val sourceId = UUID.randomUUID()
         val chunks = chunkText(textContent)
 
+        // Generate embeddings outside of DB transaction
         return chunks.map { chunk ->
             val doc = KnowledgeDocument(chunk, metadata)
             val embedding = embeddingProvider.embed(doc)

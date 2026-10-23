@@ -20,7 +20,6 @@ class PushNotificationService(
 
     private val log = logger()
 
-    @Transactional
     fun sendNotificationToUser(userId: UUID, notificationDto: PushNotificationDto) {
         if (FirebaseApp.getApps().isEmpty()) {
             log.warn("FirebaseApp is not initialized. Skipping push notification to user {}: {}", userId, notificationDto.title)

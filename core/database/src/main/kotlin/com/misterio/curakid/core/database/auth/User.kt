@@ -41,7 +41,13 @@ class User(
     var resetCode: String? = null,
 
     @Column(name = "reset_code_expiry")
-    var resetCodeExpiry: Instant? = null
+    var resetCodeExpiry: Instant? = null,
+
+    @Column(name = "failed_verification_attempts", nullable = false)
+    var failedVerificationAttempts: Int = 0,
+
+    @Column(name = "failed_reset_attempts", nullable = false)
+    var failedResetAttempts: Int = 0
 
 ) : BaseEntity(), UserDetails {
 

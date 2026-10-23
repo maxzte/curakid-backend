@@ -15,3 +15,16 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_child_created
 
 CREATE INDEX IF NOT EXISTS idx_medical_knowledge_category
     ON medical_knowledge (category_id) WHERE deleted_at IS NULL;
+
+-- Vector Similarity Index (HNSW) for fast RAG search
+CREATE INDEX IF NOT EXISTS idx_medical_knowledge_embedding_hnsw
+    ON medical_knowledge USING hnsw (embedding vector_cosine_ops);
+
+-- Full-Text Search GIN Indexes for Hybrid Search (English + Simple/Ukrainian)
+CREATE INDEX IF NOT EXISTS idx_medical_knowledge_fts_en
+    ON medical_knowledge USING gin (to_tsvector('english', title || ' ' || content))
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_medical_knowledge_fts_simple
+    ON medical_knowledge USING gin (to_tsvector('simple', title || ' ' || content))
+    WHERE deleted_at IS NULL;

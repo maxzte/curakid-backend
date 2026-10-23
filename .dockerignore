@@ -38,6 +38,10 @@ docker-compose*
 
 **/.env
 **/.env.*
-!.env.example
+!*.env.example
+
+**/application-local.yaml
+**/application-*.yaml
+!**/application.yaml
 
 serviceAccountKey.json

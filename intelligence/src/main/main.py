@@ -25,6 +25,14 @@ if SENTRY_DSN:
     except Exception as e:
         logger.warning(f"Failed to initialize Sentry: {e}")
 
+# Static ranges defined at module level for performance
+AGE_RANGE = np.arange(0, 73, 1)
+Z_RANGE = np.arange(-4, 4.1, 0.1)
+V_RANGE = np.arange(-1, 1.1, 0.1)
+REG_RANGE = np.arange(0, 2, 1)
+S_RANGE = np.arange(0, 101, 1)
+U_RANGE = np.arange(0, 1.01, 0.01)
+
 app = FastAPI(title="CuraKid Intelligence Service")
 
 import hmac
@@ -79,43 +87,36 @@ def analyze(request: FisRequest):
     """
     try:
         # 1. Define Antecedents (Inputs)
-        # Age in months: 0 to 72
-        age_range = np.arange(0, 73, 1)
-        age_months = ctrl.Antecedent(age_range, 'ageMonths')
+        age_months = ctrl.Antecedent(AGE_RANGE, 'ageMonths')
 
         # Z-scores: range -4 to 4
-        z_range = np.arange(-4, 4.1, 0.1)
-        wfa = ctrl.Antecedent(z_range, 'wfaZscore')
-        hfa = ctrl.Antecedent(z_range, 'hfaZscore')
-        bmi = ctrl.Antecedent(z_range, 'bmiZscore')
-        hcfa = ctrl.Antecedent(z_range, 'hcfaZscore')
-        wfh = ctrl.Antecedent(z_range, 'wfhZscore')
+        wfa = ctrl.Antecedent(Z_RANGE, 'wfaZscore')
+        hfa = ctrl.Antecedent(Z_RANGE, 'hfaZscore')
+        bmi = ctrl.Antecedent(Z_RANGE, 'bmiZscore')
+        hcfa = ctrl.Antecedent(Z_RANGE, 'hcfaZscore')
+        wfh = ctrl.Antecedent(Z_RANGE, 'wfhZscore')
 
         # Velocity: range -1.0 to 1.0 (change per month)
-        v_range = np.arange(-1, 1.1, 0.1)
-        wfa_v = ctrl.Antecedent(v_range, 'wfaVelocity')
-        hfa_v = ctrl.Antecedent(v_range, 'hfaVelocity')
-        bmi_v = ctrl.Antecedent(v_range, 'bmiVelocity')
-        hcfa_v = ctrl.Antecedent(v_range, 'hcfaVelocity')
-        wfh_v = ctrl.Antecedent(v_range, 'wfhVelocity')
+        wfa_v = ctrl.Antecedent(V_RANGE, 'wfaVelocity')
+        hfa_v = ctrl.Antecedent(V_RANGE, 'hfaVelocity')
+        bmi_v = ctrl.Antecedent(V_RANGE, 'bmiVelocity')
+        hcfa_v = ctrl.Antecedent(V_RANGE, 'hcfaVelocity')
+        wfh_v = ctrl.Antecedent(V_RANGE, 'wfhVelocity')
 
         # Regression: binary 0 or 1
-        reg_range = np.arange(0, 2, 1)
-        regression = ctrl.Antecedent(reg_range, 'is_regression')
+        regression = ctrl.Antecedent(REG_RANGE, 'is_regression')
 
         # Skill scores: range 0 to 100
-        s_range = np.arange(0, 101, 1)
-        motor_gross = ctrl.Antecedent(s_range, 'motorGrossScore')
-        motor_fine = ctrl.Antecedent(s_range, 'motorFineScore')
-        speech = ctrl.Antecedent(s_range, 'speechScore')
-        cognitive = ctrl.Antecedent(s_range, 'cognitiveScore')
-        social = ctrl.Antecedent(s_range, 'socialScore')
-        self_care = ctrl.Antecedent(s_range, 'selfCareScore')
-        sensory = ctrl.Antecedent(s_range, 'sensoryScore')
+        motor_gross = ctrl.Antecedent(S_RANGE, 'motorGrossScore')
+        motor_fine = ctrl.Antecedent(S_RANGE, 'motorFineScore')
+        speech = ctrl.Antecedent(S_RANGE, 'speechScore')
+        cognitive = ctrl.Antecedent(S_RANGE, 'cognitiveScore')
+        social = ctrl.Antecedent(S_RANGE, 'socialScore')
+        self_care = ctrl.Antecedent(S_RANGE, 'selfCareScore')
+        sensory = ctrl.Antecedent(S_RANGE, 'sensoryScore')
 
         # 2. Define Consequent (Output)
-        u_range = np.arange(0, 1.01, 0.01)
-        urgency = ctrl.Consequent(u_range, 'urgency')
+        urgency = ctrl.Consequent(U_RANGE, 'urgency')
 
         # 3. Define Trapezoidal Membership Functions
         # For Age

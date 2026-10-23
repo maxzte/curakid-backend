@@ -58,6 +58,7 @@ class ReportServiceTest {
     @Mock lateinit var chatClient: ChatClient
     @Mock lateinit var percentileCalculator: WhoPercentileCalculator
     @Mock lateinit var transactionTemplate: TransactionTemplate
+    @Mock lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
 
     private val measurementCalculator = MeasurementCalculator()
     private lateinit var reportService: ReportService
@@ -83,7 +84,8 @@ class ReportServiceTest {
             transactionTemplate = transactionTemplate,
             measurementCalculator = measurementCalculator,
             taskExecutor = org.springframework.core.task.SyncTaskExecutor(),
-            objectMapper = com.fasterxml.jackson.databind.ObjectMapper()
+            objectMapper = com.fasterxml.jackson.databind.ObjectMapper(),
+            eventPublisher = eventPublisher
         )
     }
 

@@ -17,7 +17,7 @@ class RefreshToken(
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     var user: User? = null,
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, columnDefinition = "TEXT")
     var token: String = "",
 
     @Column(name = "expiry_date", nullable = false)

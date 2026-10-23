@@ -23,6 +23,7 @@ dependencies {
     implementation(projects.feature.event)
     implementation(projects.feature.assessments)
     implementation(projects.feature.chat)
+    implementation(projects.feature.notification)
 
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.thymeleaf)

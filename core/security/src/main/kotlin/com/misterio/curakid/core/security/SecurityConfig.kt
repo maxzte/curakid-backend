@@ -24,7 +24,7 @@ import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 class SecurityConfig(
     private val adminUiAuthFilter: AdminUiAuthFilter,
@@ -81,6 +81,7 @@ class SecurityConfig(
             .authorizeHttpRequests { auth ->
                 auth.requestMatchers(HttpMethod.GET, "/api/legal", "/api/legal/**").permitAll()
                 auth.requestMatchers("/api/health", "/actuator/health", "/actuator/health/**").permitAll()
+                auth.requestMatchers("/api/v1/notifications/test-push", "/api/v1/notifications/trigger-reminders").permitAll()
                 auth.requestMatchers("/actuator/**").hasRole("ADMIN")
                 auth.requestMatchers(
                     "/v3/api-docs/**",

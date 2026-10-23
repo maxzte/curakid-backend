@@ -35,6 +35,9 @@ open class Event(
     @Enumerated(EnumType.STRING)
     open var status: EventStatus = EventStatus.PLANNED,
 
+    @Column(name = "reminder_sent", nullable = false)
+    open var reminderSent: Boolean = false,
+
 ) : BaseEntity()
 
 

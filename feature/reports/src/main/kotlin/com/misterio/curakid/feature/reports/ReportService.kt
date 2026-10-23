@@ -24,6 +24,8 @@ import com.misterio.curakid.core.essential.common.analysis.*
 import com.misterio.curakid.core.medical.ChartType
 import com.misterio.curakid.core.medical.MeasurementCalculator
 import com.misterio.curakid.core.medical.WhoPercentileCalculator
+import com.misterio.curakid.core.essential.common.events.AiReportGeneratedEvent
+import org.springframework.context.ApplicationEventPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.http.ResponseEntity
@@ -54,6 +56,7 @@ class ReportService(
     private val measurementCalculator: MeasurementCalculator,
     @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor") private val taskExecutor: org.springframework.core.task.TaskExecutor,
     private val objectMapper: ObjectMapper,
+    private val eventPublisher: ApplicationEventPublisher,
 ) : ReportProvider {
     private val log = LoggerFactory.getLogger(ReportService::class.java)
 
@@ -434,6 +437,21 @@ class ReportService(
                     // Trigger Evaluation (asynchronous)
                     if (report != null && !generated.isFallback) {
                         evaluateReportAsync(report, context, generated)
+
+                        // Publish event for push notification
+                        val child = report.child
+                        val user = child?.user
+                        if (child != null && user != null) {
+                            eventPublisher.publishEvent(
+                                AiReportGeneratedEvent(
+                                    userId = user.id,
+                                    childId = child.id,
+                                    childName = child.name,
+                                    reportId = report.id,
+                                    isEmergency = context.overrideMeasurementId != null
+                                )
+                            )
+                        }
                     }
                     null
                 }

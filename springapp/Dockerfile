@@ -28,6 +28,7 @@ COPY feature/fis/build.gradle.kts feature/fis/
 COPY feature/knowledge/build.gradle.kts feature/knowledge/
 COPY feature/measurements/build.gradle.kts feature/measurements/
 COPY feature/reports/build.gradle.kts feature/reports/
+COPY feature/notification/build.gradle.kts feature/notification/
 
 # Pre-fetch dependencies (кешується як окремий шар)
 RUN --mount=type=cache,target=/root/.gradle ./gradlew :springapp:dependencies --no-daemon

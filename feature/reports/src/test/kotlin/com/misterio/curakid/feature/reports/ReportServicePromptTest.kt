@@ -36,6 +36,7 @@ class ReportServicePromptTest {
     @Mock lateinit var fuzzyRuleRepository: com.misterio.curakid.core.database.knowledge.FuzzyRuleRepository
     @Mock lateinit var percentileCalculator: com.misterio.curakid.core.medical.WhoPercentileCalculator
     @Mock lateinit var transactionTemplate: TransactionTemplate
+    @Mock lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
 
     private val measurementCalculator = MeasurementCalculator()
     private lateinit var reportService: ReportService
@@ -61,7 +62,8 @@ class ReportServicePromptTest {
             transactionTemplate = transactionTemplate,
             measurementCalculator = measurementCalculator,
             taskExecutor = org.springframework.core.task.SyncTaskExecutor(),
-            objectMapper = com.fasterxml.jackson.databind.ObjectMapper()
+            objectMapper = com.fasterxml.jackson.databind.ObjectMapper(),
+            eventPublisher = eventPublisher
         )
     }
 

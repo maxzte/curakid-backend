@@ -7,8 +7,10 @@ import com.misterio.curakid.core.database.event.Event
 import com.misterio.curakid.core.database.event.EventRepository
 import com.misterio.curakid.core.database.event.EventType
 import com.misterio.curakid.core.database.event.VaccineEventRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.util.*
 
 @Service
@@ -46,7 +48,7 @@ class EventService(
         if (existing.isPresent) {
             val existingEvent = existing.get()
             if (existingEvent.child?.user?.id != user.id) {
-                throw IllegalArgumentException("Event with this ID already exists")
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Event with this ID already exists")
             }
             return existingEvent.toResponse()
         }
@@ -84,7 +86,7 @@ class EventService(
 
             if (existing != null) {
                 if (existing.child?.user?.id != user.id) {
-                    throw IllegalArgumentException("Event with ID ${request.id} already exists")
+                    throw ResponseStatusException(HttpStatus.CONFLICT, "Event with ID ${request.id} already exists")
                 }
                 results.add(existing.toResponse())
             } else {

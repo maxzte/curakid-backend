@@ -6,8 +6,10 @@ import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.essential.common.events.ChildCreatedEvent
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
 
 @Service
@@ -40,7 +42,7 @@ class ChildService(
         if (existing.isPresent) {
             val existingChild = existing.get()
             if (existingChild.user?.id != user.id) {
-                throw IllegalArgumentException("Child with this ID already exists")
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Child with this ID already exists")
             }
             return ChildResponse.from(existingChild)
         }

@@ -18,6 +18,7 @@ import org.springframework.ai.chat.client.ChatClient
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.core.task.TaskExecutor
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
@@ -52,7 +53,7 @@ class ChatService(
             .orElseThrow { NoSuchElementException("Child not found") }
 
         if (child.user?.id != currentUser.id) {
-            throw IllegalArgumentException("Access denied")
+            throw AccessDeniedException("Access denied")
         }
 
         val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
@@ -74,7 +75,7 @@ class ChatService(
             .orElseThrow { NoSuchElementException("Child not found") }
 
         if (child.user?.id != currentUser.id) {
-            throw IllegalArgumentException("Access denied")
+            throw AccessDeniedException("Access denied")
         }
 
         val systemPrompt = buildSystemPrompt(child)

@@ -10,8 +10,10 @@ import com.misterio.curakid.core.essential.common.analysis.ReportProvider
 import com.misterio.curakid.core.medical.MeasurementCalculator
 import com.misterio.curakid.core.medical.WhoZScoreCalculator
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -63,7 +65,7 @@ class MeasurementService(
             if (existing.measurementDate != request.measurementDate) {
                 val conflict = measurementRepository.findByChildAndMeasurementDate(child, request.measurementDate)
                 if (conflict.isPresent && conflict.get().id != existing.id) {
-                    throw IllegalArgumentException("Measurement for this date already exists with a different ID")
+                    throw ResponseStatusException(HttpStatus.CONFLICT, "Measurement for this date already exists with a different ID")
                 }
                 existing.measurementDate = request.measurementDate
             }

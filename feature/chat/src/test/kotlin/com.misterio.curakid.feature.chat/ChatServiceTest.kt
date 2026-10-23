@@ -150,13 +150,13 @@ class ChatServiceTest {
     }
 
     @Test
-    fun `getChatHistory - throws IllegalArgumentException when access denied`() {
+    fun `getChatHistory - throws AccessDeniedException when access denied`() {
         val currentUser = makeUser()
         val child = makeChild(user = makeUser())
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
 
-        Assertions.assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(org.springframework.security.access.AccessDeniedException::class.java) {
             chatService.getChatHistory(child.id!!, currentUser)
         }
     }
@@ -208,14 +208,14 @@ class ChatServiceTest {
     }
 
     @Test
-    fun `streamChatEvents - throws IllegalArgumentException when access denied`() {
+    fun `streamChatEvents - throws AccessDeniedException when access denied`() {
         val currentUser = makeUser()
         val child = makeChild(user = makeUser())
         val request = ChatRequest(id = UUID.randomUUID(), childId = child.id, text = "Текст")
 
         whenever(childRepository.findById(child.id!!)).thenReturn(Optional.of(child))
 
-        Assertions.assertThrows(IllegalArgumentException::class.java) {
+        Assertions.assertThrows(org.springframework.security.access.AccessDeniedException::class.java) {
             chatService.streamChatEvents(request, currentUser)
         }
     }

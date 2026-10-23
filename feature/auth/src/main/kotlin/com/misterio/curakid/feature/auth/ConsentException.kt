@@ -2,16 +2,16 @@ package com.misterio.curakid.feature.auth
 
 class ConsentRequiredException(
     message: String,
-) : Exception()
+) : Exception(message)
 
 class LegalDocumentNotFoundException(
     message: String,
-) : Exception()
+) : Exception(message)
 
 class LegalDocumentAlreadyActivatedException(
     message: String,
-) : Exception()
+) : Exception(message)
 
 class LegalDocumentAlreadyExistException(
     message: String,
-) : Exception()
+) : Exception(message)

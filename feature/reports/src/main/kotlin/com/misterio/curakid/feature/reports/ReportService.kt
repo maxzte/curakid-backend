@@ -26,6 +26,7 @@ import com.misterio.curakid.core.medical.MeasurementCalculator
 import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import com.misterio.curakid.core.essential.common.events.AiReportGeneratedEvent
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.security.access.AccessDeniedException
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.http.ResponseEntity
@@ -557,7 +558,7 @@ class ReportService(
         val summary = periodSummaryRepository.findById(summaryId)
             .orElseThrow { NoSuchElementException("Period summary not found") }
         if (summary.child?.user?.id != user.id) {
-            throw IllegalArgumentException("Access denied")
+            throw AccessDeniedException("Access denied")
         }
         val context = preparePeriodReportContext(summary.child!!.id!!, summaryId)
             ?: throw IllegalStateException("Unable to prepare report context")

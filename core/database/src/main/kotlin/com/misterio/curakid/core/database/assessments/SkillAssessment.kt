@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -24,6 +25,7 @@ import java.time.Instant
         UniqueConstraint(columnNames = ["child_id", "domain", "life_period_id"])
     ]
 )
+@SQLRestriction("deleted_at IS NULL")
 class SkillAssessment(
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -4,10 +4,12 @@ import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.BaseEntity
 import com.misterio.curakid.core.database.measurements.Measurement
 import jakarta.persistence.*
+import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 
 @Entity
 @Table(name = "ai_reports")
+@SQLRestriction("deleted_at IS NULL")
 class AiReport(
 
     @ManyToOne(fetch = FetchType.LAZY)

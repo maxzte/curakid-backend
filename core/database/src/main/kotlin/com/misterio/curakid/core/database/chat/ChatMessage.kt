@@ -8,9 +8,11 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import org.hibernate.annotations.SQLRestriction
 
 @Entity
 @Table(name = "chat_messages")
+@SQLRestriction("deleted_at IS NULL")
 class ChatMessage(
 
     @ManyToOne(fetch = FetchType.LAZY)

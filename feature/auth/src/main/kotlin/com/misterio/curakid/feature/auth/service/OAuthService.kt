@@ -9,8 +9,8 @@ import com.misterio.curakid.core.database.token.RefreshToken
 import com.misterio.curakid.core.database.token.RefreshTokenRepository
 import com.misterio.curakid.core.security.JwtService
 import com.misterio.curakid.feature.auth.AuthResponse
-import com.misterio.curakid.feature.auth.OAuthProvider
-import com.misterio.curakid.feature.auth.OAuthProviderRepository
+import com.misterio.curakid.core.database.auth.OAuthProvider
+import com.misterio.curakid.core.database.auth.OAuthProviderRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -86,22 +86,11 @@ class OAuthService(
 
     private fun generateAndSaveRefreshToken(user: User): String {
         val tokenStr = jwtService.generateRefreshToken(user)
-
-        val refreshToken = refreshTokenRepository.findByUser(user)
-            .map { existing ->
-                existing.apply {
-                    token = tokenStr
-                    expiryDate = Instant.now().plusMillis(jwtService.refreshExpiration)
-                }
-            }
-            .orElseGet {
-                RefreshToken(
-                    user = user,
-                    token = tokenStr,
-                    expiryDate = Instant.now().plusMillis(jwtService.refreshExpiration)
-                )
-            }
-
+        val refreshToken = RefreshToken(
+            user = user,
+            token = tokenStr,
+            expiryDate = Instant.now().plusMillis(jwtService.refreshExpiration)
+        )
         refreshTokenRepository.save(refreshToken)
         return tokenStr
     }

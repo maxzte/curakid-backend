@@ -3,12 +3,16 @@ package com.misterio.curakid.core.database.event
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
+import org.hibernate.annotations.SQLRestriction
 import java.time.Instant
 import java.util.*
 
 @Entity
 @Table(name = "events")
-@Inheritance(strategy = InheritanceType.JOINED)
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "event_kind", discriminatorType = DiscriminatorType.STRING)
+@DiscriminatorValue("EVENT")
+@SQLRestriction("deleted_at IS NULL")
 open class Event(
 
     @Column(nullable = false)

@@ -4,8 +4,9 @@ import com.misterio.curakid.core.database.BaseEntity
 import com.misterio.curakid.core.database.auth.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
-import jakarta.persistence.OneToOne
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import java.time.Instant
 
@@ -13,8 +14,8 @@ import java.time.Instant
 @Table(name = "refresh_tokens")
 class RefreshToken(
 
-    @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
     var user: User? = null,
 
     @Column(nullable = false, unique = true, columnDefinition = "TEXT")

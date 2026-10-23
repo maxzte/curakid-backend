@@ -4,9 +4,11 @@ import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import org.hibernate.annotations.SQLRestriction
 
 @Entity
 @Table(name = "medical_categories")
+@SQLRestriction("deleted_at IS NULL")
 class MedicalCategory(
 
     @Column(name = "name", unique = true, nullable = false)

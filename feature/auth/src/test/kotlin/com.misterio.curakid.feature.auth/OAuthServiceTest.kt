@@ -2,6 +2,8 @@ package com.misterio.curakid.feature.auth
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
+import com.misterio.curakid.core.database.auth.OAuthProvider
+import com.misterio.curakid.core.database.auth.OAuthProviderRepository
 import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.token.RefreshToken
@@ -74,7 +76,6 @@ class OAuthServiceTest {
         whenever(oauthProviderRepository.save(any<OAuthProvider>())).thenAnswer { it.arguments[0] }
         whenever(jwtService.generateAccessToken(any())).thenReturn("access-token")
         whenever(jwtService.generateRefreshToken(any())).thenReturn("refresh-token")
-        whenever(refreshTokenRepository.findByUser(any())).thenReturn(Optional.empty())
         whenever(refreshTokenRepository.save(any<RefreshToken>())).thenAnswer { it.arguments[0] }
 
         val response = service.loginWithGoogle("valid-id-token")
@@ -94,7 +95,6 @@ class OAuthServiceTest {
         whenever(oauthProviderRepository.save(any<OAuthProvider>())).thenAnswer { it.arguments[0] }
         whenever(jwtService.generateAccessToken(any())).thenReturn("access-token")
         whenever(jwtService.generateRefreshToken(any())).thenReturn("refresh-token")
-        whenever(refreshTokenRepository.findByUser(any())).thenReturn(Optional.empty())
         whenever(refreshTokenRepository.save(any<RefreshToken>())).thenAnswer { it.arguments[0] }
 
         val response = service.loginWithGoogle("valid-id-token")
@@ -110,7 +110,6 @@ class OAuthServiceTest {
         whenever(oauthProviderRepository.findByProviderNameAndProviderUserId("google", "google-sub-123")).thenReturn(Optional.of(existingProvider))
         whenever(jwtService.generateAccessToken(any())).thenReturn("access-token")
         whenever(jwtService.generateRefreshToken(any())).thenReturn("refresh-token")
-        whenever(refreshTokenRepository.findByUser(any())).thenReturn(Optional.empty())
         whenever(refreshTokenRepository.save(any<RefreshToken>())).thenAnswer { it.arguments[0] }
 
         service.loginWithGoogle("valid-id-token")
@@ -141,7 +140,6 @@ class OAuthServiceTest {
         whenever(oauthProviderRepository.save(any<OAuthProvider>())).thenAnswer { it.arguments[0] }
         whenever(jwtService.generateAccessToken(any())).thenReturn("access-token")
         whenever(jwtService.generateRefreshToken(any())).thenReturn("refresh-token")
-        whenever(refreshTokenRepository.findByUser(any())).thenReturn(Optional.empty())
         whenever(refreshTokenRepository.save(any<RefreshToken>())).thenAnswer { it.arguments[0] }
 
         val response = service.loginWithGoogle("valid-id-token")

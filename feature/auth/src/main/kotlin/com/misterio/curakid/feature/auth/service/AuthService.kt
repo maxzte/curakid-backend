@@ -107,7 +107,7 @@ class AuthService(
         val u = userRepository.save(user)
         userConsentRepository.saveAll(listOf(
             UserConsent(
-                userId = u.id!!,
+                user = u,
                 consentType = ConsentType.TERMS,
                 accepted = true,
                 consentVersion = request.consent.consentVersion,
@@ -117,7 +117,7 @@ class AuthService(
                 appVersion = request.consent.appVersion
             ),
             UserConsent(
-                userId = u.id!!,
+                user = u,
                 consentType = ConsentType.PRIVACY_POLICY,
                 accepted = true,
                 consentVersion = request.consent.consentVersion,
@@ -275,6 +275,8 @@ class AuthService(
         }
 
         val accessToken = jwtService.generateAccessToken(user)
+        refreshTokenRepository.delete(refreshToken)
+        refreshTokenRepository.flush()
         val newRefreshToken = generateAndSaveRefreshToken(user)
 
         return AuthResponse(accessToken, newRefreshToken, onboardingCompleted = user.onboardingCompleted)
@@ -347,8 +349,6 @@ class AuthService(
     }
 
     private fun generateAndSaveRefreshToken(user: User): String {
-        refreshTokenRepository.deleteByUser(user)
-        refreshTokenRepository.flush()
         val tokenStr = jwtService.generateRefreshToken(user)
         // Using fixed 7 days for now to match default property
         val refreshToken = RefreshToken(

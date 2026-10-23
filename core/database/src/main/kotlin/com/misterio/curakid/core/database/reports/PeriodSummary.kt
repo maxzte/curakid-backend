@@ -4,6 +4,7 @@ import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.development.LifePeriod
 import com.misterio.curakid.core.database.BaseEntity
 import jakarta.persistence.*
+import org.hibernate.annotations.SQLRestriction
 import java.time.LocalDate
 
 /**
@@ -11,7 +12,13 @@ import java.time.LocalDate
  * When a child crosses into a new period, the current PeriodSummary is closed and an AI report is generated.
  */
 @Entity
-@Table(name = "period_summaries")
+@Table(
+    name = "period_summaries",
+    uniqueConstraints = [
+        UniqueConstraint(name = "uq_period_summary_child_period", columnNames = ["child_id", "life_period_id"])
+    ]
+)
+@SQLRestriction("deleted_at IS NULL")
 class PeriodSummary(
 
     @ManyToOne(fetch = FetchType.LAZY)

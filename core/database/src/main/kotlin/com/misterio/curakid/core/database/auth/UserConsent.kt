@@ -9,8 +9,9 @@ import java.util.*
 @Table(name = "user_consents")
 class UserConsent(
 
-    @Column(nullable = false)
-    var userId: UUID = UUID.randomUUID(),
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
+    var user: User? = null,
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)

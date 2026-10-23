@@ -6,7 +6,7 @@ import java.time.Instant
 import java.util.UUID
 
 @Entity
-@Table(name = "vaccine_events")
+@DiscriminatorValue("VACCINE_EVENT")
 class VaccineEvent(
 
     @ManyToOne(fetch = FetchType.LAZY)

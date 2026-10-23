@@ -10,7 +10,7 @@ import java.util.*
 interface UserConsentRepository : JpaRepository<UserConsent, UUID> {
 
     @Modifying
-    @Query("UPDATE UserConsent c SET c.revokedAt = :revokedAt WHERE c.userId = :userId AND c.revokedAt IS NULL")
+    @Query("UPDATE UserConsent c SET c.revokedAt = :revokedAt WHERE c.user.id = :userId AND c.revokedAt IS NULL")
     fun revokeAllByUserId(
         @Param("userId") userId: UUID,
         @Param("revokedAt") revokedAt: Instant

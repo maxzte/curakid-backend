@@ -9,6 +9,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -19,6 +20,7 @@ import java.time.Instant
         UniqueConstraint(columnNames = ["child_id", "measurement_date"])
     ]
 )
+@SQLRestriction("deleted_at IS NULL")
 class Measurement(
 
     @ManyToOne(fetch = FetchType.LAZY)

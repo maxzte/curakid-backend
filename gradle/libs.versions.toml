@@ -39,6 +39,7 @@ jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 google-auth-library = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
 google-api-client = { module = "com.google.api-client:google-api-client", version = "2.7.2" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "spring-boot" }
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis", version.ref = "spring-boot" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version = "5.4.0" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 sentry-spring-boot-starter = { module = "io.sentry:sentry-spring-boot-starter-jakarta", version.ref = "sentry" }

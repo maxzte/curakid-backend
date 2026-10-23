@@ -11,6 +11,7 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.boot.starter.json)
 
     implementation("com.google.guava:guava:33.4.0-jre")

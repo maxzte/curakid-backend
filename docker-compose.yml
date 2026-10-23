@@ -15,6 +15,9 @@ services:
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/curakid}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-postgres}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-postgres_password}
+      - SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST:-redis}
+      - SPRING_DATA_REDIS_PORT=${SPRING_DATA_REDIS_PORT:-6379}
+      - SPRING_DATA_REDIS_PASSWORD=${SPRING_DATA_REDIS_PASSWORD:-redis_password}
       - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
@@ -42,6 +45,8 @@ services:
       - curakid-network
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       intelligence:
         condition: service_healthy
@@ -132,9 +137,27 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: curakid-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - curakid-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_password}", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 networks:
   curakid-network:
     driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:

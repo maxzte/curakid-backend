@@ -78,9 +78,14 @@ class SkillAssessmentService(
         return getPeriodReadiness(child, periodCode)
     }
 
-    private fun evictReadinessForChild(childId: UUID?) {
+    private fun evictReadinessForChild(childId: UUID?, periodCode: String? = null) {
         if (childId == null) return
         val cache = cacheManager?.getCache("assessmentReadiness") ?: return
+
+        if (periodCode != null) {
+            cache.evict("${childId}_$periodCode")
+        }
+
         val nativeMap = cache.nativeCache
         if (nativeMap is Map<*, *>) {
             val prefix = "${childId}_"
@@ -91,9 +96,9 @@ class SkillAssessmentService(
 
     @Transactional
     fun saveAssessmentAnswers(child: Child, periodId: UUID, request: SaveAnswersRequest): SaveAnswersResponse {
-        evictReadinessForChild(child.id)
         val period = lifePeriodRepository.findById(periodId)
             .orElseThrow { IllegalStateException("No life period found for id $periodId") }
+        evictReadinessForChild(child.id, period.code)
 
         // Fetch all questions to determine their domains and prerequisites
         val questionIds = request.answers.map { it.questionId }

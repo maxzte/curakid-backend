@@ -1,4 +1,10 @@
+import os
 import pytest
+
+# Ensure tests run in offline mode without attempting network downloads for HuggingFace models
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 from fastapi.testclient import TestClient
 
 from src.main.main import app
@@ -11,6 +17,8 @@ API_KEY = "test-secret-key"
 def setup_env(monkeypatch):
     """Автоматично виставляє тестовий API-ключ для кожного тесту"""
     monkeypatch.setenv("INTERNAL_API_KEY", API_KEY)
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    monkeypatch.setenv("TRANSFORMERS_OFFLINE", "1")
     import src.main.main
     monkeypatch.setattr(src.main.main, "INTERNAL_API_KEY", API_KEY)
 

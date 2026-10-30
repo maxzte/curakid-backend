@@ -1,31 +1,20 @@
 package com.misterio.curakid
 
-import io.gatling.javaapi.core.CoreDsl.StringBody
-import io.gatling.javaapi.core.CoreDsl.atOnceUsers
-import io.gatling.javaapi.core.CoreDsl.exec
-import io.gatling.javaapi.core.CoreDsl.global
-import io.gatling.javaapi.core.CoreDsl.holdFor
-import io.gatling.javaapi.core.CoreDsl.jsonPath
-import io.gatling.javaapi.core.CoreDsl.nothingFor
-import io.gatling.javaapi.core.CoreDsl.pause
-import io.gatling.javaapi.core.CoreDsl.rampUsers
-import io.gatling.javaapi.core.CoreDsl.reachRps
-import io.gatling.javaapi.core.CoreDsl.scenario
+import io.gatling.javaapi.core.CoreDsl.*
 import io.gatling.javaapi.core.Simulation
-import io.gatling.javaapi.http.HttpDsl.http
-import io.gatling.javaapi.http.HttpDsl.status
-import java.time.Duration
+import io.gatling.javaapi.http.HttpDsl.*
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ThreadLocalRandom
-import kotlin.time.Duration.Companion.seconds
 
 /**
- * Gatling Simulation for Curakid Backend.
- * 1. Auth & Onboarding
- * 2. Growth Tracking (Anthropometry -> Emergency Analysis)
- * 3. Developmental Assessment (Quizzes -> Period Completion)
- * 4. AI Report Generation (RAG -> LLM)
+ * Gatling Load Simulation for Curakid Backend.
+ *
+ * Scenarios:
+ * 1. Auth & Onboarding (/api/v1/auth/register, /api/v1/auth/login, /api/v1/children)
+ * 2. Growth Tracking & Measurements (/api/v1/children/{childId}/measurements)
+ * 3. AI RAG Chat & Real-Time Triage (/api/v1/chat/sessions, /api/v1/chat/triage)
+ * 4. Developmental Assessment & Reports (/api/v1/children/{childId}/assessments, /api/v1/children/{childId}/reports)
  */
 class CurakidSimulation : Simulation() {
 
@@ -35,7 +24,6 @@ class CurakidSimulation : Simulation() {
         .contentTypeHeader("application/json")
 
     // --- Feeders ---
-    // Generate unique emails for each virtual user
     private val emailFeeder = feeder {
         mapOf("email" to "test-user-${UUID.randomUUID()}@gatling.local")
     }
@@ -48,37 +36,44 @@ class CurakidSimulation : Simulation() {
         )
     }
 
-    // --- Common Fragments (ChainBuilder) ---
+    // --- Common Auth & Onboarding Chain ---
     private val authChain = exec(
-        http("Register")
-            .post("/api/auth/register")
+        http("Register User")
+            .post("/api/v1/auth/register")
             .body(StringBody("""{"email": "#{email}", "password": "Password123!", "name": "Gatling User"}"""))
             .check(status().`is`(200))
     )
         .exitHereIfFailed()
         .pause(1)
         .exec(
-            http("Login")
-                .post("/api/auth/login")
+            http("Login User")
+                .post("/api/v1/auth/login")
                 .body(StringBody("""{"email": "#{email}", "password": "Password123!"}"""))
                 .check(status().`is`(200))
                 .check(jsonPath("$.accessToken").saveAs("accessToken"))
         )
         .exitHereIfFailed()
-        .pause(2)
+        .pause(1)
+        .exec(
+            http("Get Profile Me")
+                .get("/api/v1/auth/me")
+                .header("Authorization", "Bearer #{accessToken}")
+                .check(status().`is`(200))
+        )
+        .pause(1)
         .feed(childDataFeeder)
         .exec(
-            http("Create Child")
-                .post("/api/children")
+            http("Create Child Profile")
+                .post("/api/v1/children")
                 .header("Authorization", "Bearer #{accessToken}")
                 .body(
                     StringBody(
                         """{
-                    "name": "#{childName}",
-                    "birthDate": "#{birthDate}",
-                    "gender": "#{gender}",
-                    "isPremature": false
-                }"""
+                            "name": "#{childName}",
+                            "birthDate": "#{birthDate}",
+                            "gender": "#{gender}",
+                            "isPremature": false
+                        }"""
                     )
                 )
                 .check(status().`is`(201))
@@ -86,89 +81,120 @@ class CurakidSimulation : Simulation() {
         )
         .exitHereIfFailed()
 
-    // --- Scenarios ---
+    // --- 1. Auth & Onboarding Scenario ---
     private val authScenario = scenario("User Auth & Onboarding")
         .feed(emailFeeder)
         .exec(authChain)
 
-    private val growthTrackingScenario = scenario("Growth Tracking (Normal Measures)")
+    // --- 2. Growth Tracking Scenario ---
+    private val growthTrackingScenario = scenario("Growth Tracking & Measurements")
         .feed(emailFeeder)
         .exec(authChain)
         .repeat(3).on(
             pause(2)
+                .exec { session ->
+                    session.set("measurementId", UUID.randomUUID().toString())
+                }
                 .exec(
                     http("Add Measurement")
-                        .post("/api/children/#{childId}/measurements")
+                        .post("/api/v1/children/#{childId}/measurements")
                         .header("Authorization", "Bearer #{accessToken}")
                         .body(StringBody { session ->
+                            val measurementId = session.getString("measurementId")
                             val weight = ThreadLocalRandom.current().nextDouble(9.0, 10.5)
                             val height = ThreadLocalRandom.current().nextDouble(74.0, 77.0)
-                            val today = Instant.now().toString()
+                            val headCirc = ThreadLocalRandom.current().nextDouble(44.0, 47.0)
+                            val now = Instant.now().toString()
 
                             """{
+                                "id": "$measurementId",
                                 "weightKg": $weight,
                                 "heightCm": $height,
-                                "measurementDate": "$today"
+                                "headCircCm": $headCirc,
+                                "measurementDate": "$now"
                             }"""
                         })
                         .check(status().`is`(201))
-                        .check(jsonPath("$.aiReportId").optional().saveAs("emergencyReportId"))
                 )
-//            .doIf { session -> session.contains("emergencyReportId") }.then(
-//                exec(
-//                    http("Get Emergency Report")
-//                        .get("/api/reports/#{emergencyReportId}")
-//                        .header("Authorization", "Bearer #{accessToken}")
-//                        .check(status().`is`(200))
-//                )
-//            )
+                .pause(1)
+                .exec(
+                    http("Get Measurements List")
+                        .get("/api/v1/children/#{childId}/measurements")
+                        .header("Authorization", "Bearer #{accessToken}")
+                        .check(status().`is`(200))
+                )
         )
 
-    private val assessmentScenario = scenario("Developmental Assessment Flow")
+    // --- 3. AI RAG Chat & Triage Scenario ---
+    private val chatScenario = scenario("AI RAG Chat & Real-Time Triage")
+        .feed(emailFeeder)
+        .exec(authChain)
+        .pause(1)
+        .exec(
+            http("Create Chat Session")
+                .post("/api/v1/chat/sessions")
+                .header("Authorization", "Bearer #{accessToken}")
+                .body(StringBody("""{"childId": "#{childId}", "title": "Load Test Chat"}"""))
+                .check(status().`is`(200))
+                .check(jsonPath("$.id").saveAs("sessionId"))
+        )
+        .pause(1)
+        .exec(
+            http("Perform Chat Triage")
+                .post("/api/v1/chat/triage")
+                .header("Authorization", "Bearer #{accessToken}")
+                .body(
+                    StringBody(
+                        """{
+                            "message": "У малюка нежить та незначна температура",
+                            "childContext": {"ageMonths": 12, "allergies": []}
+                        }"""
+                    )
+                )
+                .check(status().`is`(200))
+        )
+        .pause(2)
+        .exec(
+            http("Send Chat Message")
+                .post("/api/v1/chat/sessions/#{sessionId}/messages")
+                .header("Authorization", "Bearer #{accessToken}")
+                .body(StringBody("""{"content": "Які профілактичні заходи доречні при перших симптомах застуди?"}"""))
+                .check(status().`is`(200))
+        )
+
+    // --- 4. Developmental Assessment Scenario ---
+    private val assessmentScenario = scenario("Developmental Assessment & Reports")
         .feed(emailFeeder)
         .exec(authChain)
         .pause(2)
         .exec(
-            http("Get Assessments")
-                .get("/api/children/#{childId}/assessments")
+            http("Get Child Assessments")
+                .get("/api/v1/children/#{childId}/assessments")
                 .header("Authorization", "Bearer #{accessToken}")
                 .check(status().`is`(200))
         )
         .pause(1)
-//        .exec(
-//            http("Complete Period")
-//                .post("/api/children/#{childId}/assessments/complete")
-//                .header("Authorization", "Bearer #{accessToken}")
-//                .body(StringBody("""{"periodCode": "M6", "allowEarlyTransition": true}"""))
-//                .check(status().`in`(200, 202))
-//                .check(jsonPath("$.reportId").optional().saveAs("finalReportId"))
-//        )
+        .exec(
+            http("Get Child Reports")
+                .get("/api/v1/children/#{childId}/reports")
+                .header("Authorization", "Bearer #{accessToken}")
+                .check(status().`is`(200))
+        )
 
     // --- Load Simulation Setup ---
     init {
         setUp(
             authScenario.injectOpen(atOnceUsers(2), rampUsers(5).during(10)),
-            growthTrackingScenario.injectOpen(rampUsers(30).during(30), nothingFor(15), rampUsers(100).during(60)),
-            assessmentScenario.injectOpen(nothingFor(30), rampUsers(50).during(30))
+            growthTrackingScenario.injectOpen(rampUsers(20).during(20), nothingFor(10), rampUsers(50).during(30)),
+            chatScenario.injectOpen(nothingFor(15), rampUsers(15).during(30)),
+            assessmentScenario.injectOpen(nothingFor(20), rampUsers(25).during(20))
         ).protocols(httpProtocol)
             .assertions(
-                global().responseTime().mean().lt(800),
-                global().responseTime().percentile(95.0).lt(1500),
+                global().responseTime().mean().lt(500),
+                global().responseTime().percentile(95.0).lt(1200),
                 global().successfulRequests().percent().gt(99.0)
             )
-//        setUp(
-//            authScenario.injectOpen(atOnceUsers(5), rampUsers(10).during(15)),
-//            growthTrackingScenario.injectOpen(rampUsers(30).during(30)),
-//            assessmentScenario.injectOpen(rampUsers(20).during(20))
-//        )
-//            .throttle(
-//                reachRps(150).during(30L),
-//                holdFor(120L)
-//            )
-//            .maxDuration(Duration.ofMinutes(5))
-//            .protocols(httpProtocol)
     }
 
-    // Helper to create a feeder from a generator function
     private fun feeder(f: () -> Map<String, Any?>) = generateSequence(f).iterator()
 }

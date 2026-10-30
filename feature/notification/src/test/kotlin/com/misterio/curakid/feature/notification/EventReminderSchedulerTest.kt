@@ -18,7 +18,7 @@ import java.util.*
 class EventReminderSchedulerTest {
 
     private lateinit var eventRepository: EventRepository
-    private lateinit var pushNotificationService: PushNotificationService
+    private lateinit var notificationProducer: NotificationProducer
     private lateinit var scheduler: EventReminderScheduler
 
     private val user = User(
@@ -35,8 +35,8 @@ class EventReminderSchedulerTest {
     @BeforeEach
     fun setUp() {
         eventRepository = mock()
-        pushNotificationService = mock()
-        scheduler = EventReminderScheduler(eventRepository, pushNotificationService)
+        notificationProducer = mock()
+        scheduler = EventReminderScheduler(eventRepository, notificationProducer)
     }
 
     @Test
@@ -52,25 +52,25 @@ class EventReminderSchedulerTest {
             reminderSent = false
         ).apply { id = eventId }
 
-        whenever(eventRepository.findPendingReminders(any(), any())).thenReturn(listOf(event))
+        whenever(eventRepository.findPendingReminders(any(), any(), any())).thenReturn(listOf(event))
 
         scheduler.sendUpcomingEventReminders()
 
-        // 1. Verify push notification sent with deep link payload
-        verify(pushNotificationService).sendNotificationToUser(
-            eq(user.id),
+        // 1. Verify notification enqueued to Kafka with deep link payload
+        verify(notificationProducer).enqueue(
             argThat {
+                this.userId == user.id &&
                 this.title.contains("Марко") &&
                 this.body.contains("Планова вакцинація КПК-1") &&
                 this.data[NotificationPayloadConstants.KEY_TYPE] == NotificationPayloadConstants.TYPE_EVENT_REMINDER &&
                 this.data[NotificationPayloadConstants.KEY_EVENT_ID] == eventId.toString() &&
-                this.data[NotificationPayloadConstants.KEY_CHILD_ID] == child.id.toString()
+                this.data[NotificationPayloadConstants.KEY_CHILD_ID] == child.id.toString() &&
+                this.isUrgent
             }
         )
 
-        // 2. Verify idempotency: event is marked reminderSent = true and saved
-        assertTrue(event.reminderSent)
-        verify(eventRepository).save(event)
+        // 2. Verify idempotency: bulk markRemindersSent is called with event id
+        verify(eventRepository).markRemindersSent(listOf(eventId))
     }
 
     @Test
@@ -79,7 +79,7 @@ class EventReminderSchedulerTest {
 
         scheduler.sendUpcomingEventReminders()
 
-        verifyNoInteractions(pushNotificationService)
+        verifyNoInteractions(notificationProducer)
         verify(eventRepository, never()).save(any())
     }
 }

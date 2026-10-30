@@ -1,18 +1,23 @@
 package com.misterio.curakid.feature.notification
 
 import com.misterio.curakid.core.database.auth.User
+import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.notification.DeviceToken
 import com.misterio.curakid.core.database.notification.DeviceTokenRepository
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.Instant
+import java.util.Optional
 import java.util.UUID
 
 class DeviceTokenServiceTest {
 
     private lateinit var deviceTokenRepository: DeviceTokenRepository
+    private lateinit var userRepository: UserRepository
+    private lateinit var transactionManager: PlatformTransactionManager
     private lateinit var deviceTokenService: DeviceTokenService
 
     private val user = User(
@@ -26,7 +31,11 @@ class DeviceTokenServiceTest {
     @BeforeEach
     fun setUp() {
         deviceTokenRepository = mock()
-        deviceTokenService = DeviceTokenService(deviceTokenRepository)
+        userRepository = mock()
+        transactionManager = mock()
+
+        whenever(userRepository.findById(user.id)).thenReturn(Optional.of(user))
+        deviceTokenService = DeviceTokenService(deviceTokenRepository, userRepository, transactionManager)
     }
 
     @Test

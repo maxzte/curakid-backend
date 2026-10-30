@@ -9,13 +9,15 @@ import java.util.*
 
 class NotificationEventListenerTest {
 
+    private lateinit var notificationProducer: NotificationProducer
     private lateinit var pushNotificationService: PushNotificationService
     private lateinit var listener: NotificationEventListener
 
     @BeforeEach
     fun setUp() {
+        notificationProducer = mock()
         pushNotificationService = mock()
-        listener = NotificationEventListener(pushNotificationService)
+        listener = NotificationEventListener(notificationProducer, pushNotificationService)
     }
 
     @Test
@@ -33,13 +35,14 @@ class NotificationEventListenerTest {
 
         listener.handleAiReportGenerated(event)
 
-        verify(pushNotificationService).sendNotificationToUser(
-            eq(userId),
+        verify(notificationProducer).enqueue(
             argThat {
+                this.userId == userId &&
                 this.title.contains("Марко") &&
                 this.data[NotificationPayloadConstants.KEY_TYPE] == NotificationPayloadConstants.TYPE_AI_REPORT_READY &&
                 this.data[NotificationPayloadConstants.KEY_REPORT_ID] == reportId.toString() &&
-                this.data[NotificationPayloadConstants.KEY_CHILD_ID] == childId.toString()
+                this.data[NotificationPayloadConstants.KEY_CHILD_ID] == childId.toString() &&
+                !this.isUrgent
             }
         )
     }
@@ -59,10 +62,11 @@ class NotificationEventListenerTest {
 
         listener.handleAiReportGenerated(event)
 
-        verify(pushNotificationService).sendNotificationToUser(
-            eq(userId),
+        verify(notificationProducer).enqueue(
             argThat {
-                this.title.contains("Увага") || this.title.contains("Терміново")
+                this.userId == userId &&
+                (this.title.contains("Увага") || this.title.contains("Терміново")) &&
+                this.isUrgent
             }
         )
     }

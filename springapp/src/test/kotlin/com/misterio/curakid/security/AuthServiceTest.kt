@@ -22,6 +22,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.junit.jupiter.MockitoSettings
+import org.mockito.quality.Strictness
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
@@ -31,12 +33,14 @@ import org.mockito.kotlin.whenever
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.Instant
 import java.util.Date
 import java.util.Optional
 import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AuthServiceTest {
 
     @Mock lateinit var userRepository: UserRepository
@@ -47,6 +51,7 @@ class AuthServiceTest {
     @Mock lateinit var authenticationManager: AuthenticationManager
     @Mock lateinit var tokenBlacklistService: TokenBlacklistService
     @Mock lateinit var emailService: EmailService
+    @Mock lateinit var transactionManager: PlatformTransactionManager
 
     private lateinit var authService: AuthService
 
@@ -62,6 +67,7 @@ class AuthServiceTest {
             tokenBlacklistService = tokenBlacklistService,
             emailService = emailService,
             refreshExpiration = 604800000L,
+            transactionManager = transactionManager
         )
     }
 

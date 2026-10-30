@@ -1,6 +1,5 @@
 package com.misterio.curakid.feature.auth.controller
 
-import com.misterio.curakid.core.database.currentUser
 import com.misterio.curakid.feature.auth.AuthResponse
 import com.misterio.curakid.feature.auth.ForgotPasswordRequest
 import com.misterio.curakid.feature.auth.LoginRequest
@@ -24,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 class AuthController(
     private val authService: AuthService,
     private val oauthService: OAuthService
@@ -58,27 +57,21 @@ class AuthController(
     }
 
     @PostMapping("/refresh")
-    fun refreshToken(@RequestBody request: RefreshTokenRequest): ResponseEntity<AuthResponse> {
+    fun refreshToken(@Valid @RequestBody request: RefreshTokenRequest): ResponseEntity<AuthResponse> {
         return ResponseEntity.ok(authService.refreshToken(request))
     }
 
     @PostMapping("/logout")
     fun logout(
         @RequestHeader("Authorization") authHeader: String?,
-        @RequestBody refreshToken: RefreshTokenRequest
+        @Valid @RequestBody refreshToken: RefreshTokenRequest
     ): ResponseEntity<Void> {
         authService.logout(authHeader, refreshToken.refreshToken)
         return ResponseEntity.noContent().build()
     }
 
     @PostMapping("/oauth/google")
-    fun googleLogin(@RequestBody request: OAuthRequest): ResponseEntity<AuthResponse> {
+    fun googleLogin(@Valid @RequestBody request: OAuthRequest): ResponseEntity<AuthResponse> {
         return ResponseEntity.ok(oauthService.loginWithGoogle(request.idToken))
-    }
-
-    @DeleteMapping("/delete/me")
-    fun deleteUser(auth: Authentication): ResponseEntity<Void> {
-        authService.deleteMe(auth.currentUser().id ?: return ResponseEntity.noContent().build())
-        return ResponseEntity.noContent().build()
     }
 }

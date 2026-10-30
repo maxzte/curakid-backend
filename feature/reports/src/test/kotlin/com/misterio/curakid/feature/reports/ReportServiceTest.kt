@@ -19,6 +19,7 @@ import com.misterio.curakid.core.medical.MeasurementCalculator
 import com.misterio.curakid.core.medical.WhoPercentileCalculator
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -29,13 +30,13 @@ import org.mockito.quality.Strictness
 import org.mockito.kotlin.any
 import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.ai.chat.client.ChatClient
-import org.springframework.transaction.TransactionStatus
-import org.springframework.transaction.support.TransactionCallback
-import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.context.ApplicationEventPublisher
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.transaction.PlatformTransactionManager
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -57,35 +58,51 @@ class ReportServiceTest {
     @Mock lateinit var knowledgeProvider: KnowledgeProvider
     @Mock lateinit var chatClient: ChatClient
     @Mock lateinit var percentileCalculator: WhoPercentileCalculator
-    @Mock lateinit var transactionTemplate: TransactionTemplate
-    @Mock lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
+    @Mock lateinit var transactionManager: PlatformTransactionManager
+    @Mock lateinit var eventPublisher: ApplicationEventPublisher
 
     private val measurementCalculator = MeasurementCalculator()
+    private lateinit var reportContextBuilder: ReportContextBuilder
+    private lateinit var reportGenerationEngine: ReportGenerationEngine
     private lateinit var reportService: ReportService
 
     @BeforeEach
     fun setUp() {
-        whenever(transactionTemplate.execute(any<TransactionCallback<Any>>())).thenAnswer {
-            (it.arguments[0] as TransactionCallback<Any>).doInTransaction(mock<TransactionStatus>())
-        }
+        reportContextBuilder = ReportContextBuilder(
+            childRepository = childRepository,
+            measurementRepository = measurementRepository,
+            assessmentRepository = assessmentRepository,
+            lifePeriodRepository = lifePeriodRepository,
+            periodSummaryRepository = periodSummaryRepository,
+            fuzzyRuleRepository = fuzzyRuleRepository,
+            percentileCalculator = percentileCalculator,
+            measurementCalculator = measurementCalculator,
+            cacheManager = null
+        )
+
+        reportGenerationEngine = ReportGenerationEngine(
+            intelligenceProvider = intelligenceProvider,
+            knowledgeProvider = knowledgeProvider,
+            chatClient = chatClient,
+            promptBuilder = ReportPromptBuilder(),
+            reportEvaluator = ReportEvaluator(
+                intelligenceProvider = intelligenceProvider,
+                aiReportRepository = aiReportRepository,
+                transactionManager = transactionManager
+            ),
+            reportContextBuilder = reportContextBuilder
+        )
 
         reportService = ReportService(
             aiReportRepository = aiReportRepository,
             periodSummaryRepository = periodSummaryRepository,
-            measurementRepository = measurementRepository,
-            assessmentRepository = assessmentRepository,
-            lifePeriodRepository = lifePeriodRepository,
-            intelligenceProvider = intelligenceProvider,
-            knowledgeProvider = knowledgeProvider,
-            chatClient = chatClient,
             childRepository = childRepository,
-            fuzzyRuleRepository = fuzzyRuleRepository,
-            percentileCalculator = percentileCalculator,
-            transactionTemplate = transactionTemplate,
-            measurementCalculator = measurementCalculator,
+            measurementRepository = measurementRepository,
+            transactionManager = transactionManager,
             taskExecutor = org.springframework.core.task.SyncTaskExecutor(),
-            objectMapper = com.fasterxml.jackson.databind.ObjectMapper(),
-            eventPublisher = eventPublisher
+            eventPublisher = eventPublisher,
+            reportContextBuilder = reportContextBuilder,
+            reportGenerationEngine = reportGenerationEngine
         )
     }
 
@@ -176,10 +193,43 @@ class ReportServiceTest {
         whenever(childRepository.findById(childId)).thenReturn(Optional.of(child))
         whenever(periodSummaryRepository.findById(periodId)).thenReturn(Optional.of(summary))
         whenever(lifePeriodRepository.findAll()).thenReturn(listOf(prevPeriod, currPeriod))
+        whenever(lifePeriodRepository.findFirstByMaxMonths(12)).thenReturn(Optional.of(prevPeriod))
         whenever(assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)).thenReturn(listOf(currAssessment, prevAssessment))
 
-        val context = reportService.preparePeriodReportContext(childId, periodId)
+        val context = reportContextBuilder.preparePeriodReportContext(childId, periodId)
         assertNotNull(context)
         assertEquals(true, context!!.domainScores!!.regressions["MOTOR_GROSS"])
+    }
+
+    @Test
+    fun `regenerateReport should throw AccessDeniedException and never save when summary belongs to another user`() {
+        // Given
+        val user = com.misterio.curakid.core.database.auth.User(email = "user@example.com").apply { id = UUID.randomUUID() }
+        val otherUser = com.misterio.curakid.core.database.auth.User(email = "other@example.com").apply { id = UUID.randomUUID() }
+        val foreignChild = Child(user = otherUser, name = "Foreign Child").apply { id = UUID.randomUUID() }
+        val summaryId = UUID.randomUUID()
+        val summary = PeriodSummary(child = foreignChild).apply { id = summaryId }
+
+        whenever(periodSummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary))
+
+        // When / Then
+        assertThrows(AccessDeniedException::class.java) {
+            reportService.regenerateReport(user, summaryId)
+        }
+        verify(aiReportRepository, never()).save(any())
+    }
+
+    @Test
+    fun `triggerPeriodReportGeneration should throw NoSuchElementException and never save when child does not belong to user`() {
+        // Given
+        val user = com.misterio.curakid.core.database.auth.User(email = "user@example.com").apply { id = UUID.randomUUID() }
+        val foreignChildId = UUID.randomUUID()
+        whenever(childRepository.findByIdAndUser(foreignChildId, user)).thenReturn(Optional.empty())
+
+        // When / Then
+        assertThrows(NoSuchElementException::class.java) {
+            reportService.triggerPeriodReportGeneration(foreignChildId, user)
+        }
+        verify(aiReportRepository, never()).save(any())
     }
 }

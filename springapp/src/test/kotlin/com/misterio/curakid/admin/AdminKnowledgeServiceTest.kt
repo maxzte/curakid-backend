@@ -40,7 +40,7 @@ class AdminKnowledgeServiceTest {
         val category = MedicalCategory(name = "nutrition", displayName = "Харчування").apply { id = categoryId }
         whenever(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category))
         whenever(embeddingProvider.generateEmbedding(any())).thenReturn(listOf(0.1f, 0.2f, 0.3f))
-        whenever(knowledgeRepository.save(any<MedicalKnowledge>())).thenAnswer { it.arguments[0] }
+        whenever(knowledgeRepository.saveAll(any<Iterable<MedicalKnowledge>>())).thenAnswer { (it.arguments[0] as Iterable<MedicalKnowledge>).toList() }
 
         val results = service.uploadArticle("Healthy Diet", "Eat vegetables and fruits daily", categoryId)
 
@@ -48,7 +48,7 @@ class AdminKnowledgeServiceTest {
         assertEquals("Healthy Diet", results[0].title)
         assertEquals("Eat vegetables and fruits daily", results[0].content)
         verify(embeddingProvider).generateEmbedding(any())
-        verify(knowledgeRepository).save(any<MedicalKnowledge>())
+        verify(knowledgeRepository).saveAll(any<Iterable<MedicalKnowledge>>())
     }
 
     @Test
@@ -59,7 +59,7 @@ class AdminKnowledgeServiceTest {
 
         whenever(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category))
         whenever(embeddingProvider.generateEmbedding(any())).thenReturn(listOf(0.1f, 0.2f, 0.3f))
-        whenever(knowledgeRepository.save(any<MedicalKnowledge>())).thenAnswer { it.arguments[0] }
+        whenever(knowledgeRepository.saveAll(any<Iterable<MedicalKnowledge>>())).thenAnswer { (it.arguments[0] as Iterable<MedicalKnowledge>).toList() }
 
         val results = service.uploadArticle("Long Article", longText, categoryId)
 
@@ -97,7 +97,7 @@ class AdminKnowledgeServiceTest {
 
         whenever(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category))
         whenever(embeddingProvider.embed(any())).thenReturn(listOf(0.1f, 0.2f, 0.3f))
-        whenever(knowledgeRepository.save(any<MedicalKnowledge>())).thenAnswer { it.arguments[0] }
+        whenever(knowledgeRepository.saveAll(any<Iterable<MedicalKnowledge>>())).thenAnswer { (it.arguments[0] as Iterable<MedicalKnowledge>).toList() }
 
         val results = service.uploadArticleFromFile("From File", content, "notes.txt", categoryId, emptyMap())
 

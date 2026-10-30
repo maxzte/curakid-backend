@@ -20,15 +20,19 @@ import com.misterio.curakid.feature.auth.MessageResponse
 import com.misterio.curakid.feature.auth.RefreshTokenRequest
 import com.misterio.curakid.feature.auth.RegisterRequest
 import com.misterio.curakid.feature.auth.ResetPasswordRequest
+import com.misterio.curakid.feature.auth.UpdateUserRequest
+import com.misterio.curakid.feature.auth.UserResponse
 import com.misterio.curakid.feature.auth.VerifyEmailRequest
 import jakarta.servlet.http.HttpServletRequest
+import com.misterio.curakid.core.database.readTx
+import com.misterio.curakid.core.database.writeTx
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.web.server.ResponseStatusException
 import java.time.Duration
 import java.time.Instant
@@ -47,7 +51,8 @@ class AuthService(
     private val childRepository: ChildRepository? = null,
     private val eventRepository: EventRepository? = null,
     private val deviceTokenRepository: DeviceTokenRepository? = null,
-    @Value("\${jwt.refresh-token-expiration:604800000}") private val refreshExpiration: Long = 604800000L, // 7 days
+    @Value($$"${jwt.refresh-token-expiration:604800000}") private val refreshExpiration: Long = 604800000L,
+    private val transactionManager: PlatformTransactionManager
 ) {
     companion object {
         private const val MAX_OTP_ATTEMPTS = 5
@@ -57,9 +62,11 @@ class AuthService(
 
     private fun generateSixDigitCode(): String = String.format("%06d", secureRandom.nextInt(1_000_000))
 
-    @Transactional
     fun register(request: RegisterRequest, httpRequest: HttpServletRequest): MessageResponse {
-        val existingUser = userRepository.findByEmail(request.email).orElse(null)
+        val existingUser = transactionManager.readTx {
+            userRepository.findByEmail(request.email).orElse(null)
+        }
+
         if (existingUser != null) {
             if (existingUser.isActive) {
                 throw ResponseStatusException(HttpStatus.CONFLICT, "Email already exists")
@@ -75,7 +82,10 @@ class AuthService(
             existingUser.passwordHash = passwordEncoder.encode(request.password)
                 ?: throw IllegalStateException("Password encoding failed")
             existingUser.name = request.name
-            userRepository.save(existingUser)
+
+            transactionManager.writeTx {
+                userRepository.save(existingUser)
+            }
             emailService.sendVerificationEmail(existingUser.email, existingUser.name, newCode)
             return MessageResponse("Registration successful. Please check your email for verification code.")
         }
@@ -104,29 +114,31 @@ class AuthService(
             this.failedVerificationAttempts = 0
         }
 
-        val u = userRepository.save(user)
-        userConsentRepository.saveAll(listOf(
-            UserConsent(
-                user = u,
-                consentType = ConsentType.TERMS,
-                accepted = true,
-                consentVersion = request.consent.consentVersion,
-                acceptedAt = timestamp,
-                ipAddress = ip,
-                userAgent = userAgent,
-                appVersion = request.consent.appVersion
-            ),
-            UserConsent(
-                user = u,
-                consentType = ConsentType.PRIVACY_POLICY,
-                accepted = true,
-                consentVersion = request.consent.consentVersion,
-                acceptedAt = timestamp,
-                ipAddress = ip,
-                userAgent = userAgent,
-                appVersion = request.consent.appVersion
-            )
-        ))
+        transactionManager.writeTx {
+            val u = userRepository.save(user)
+            userConsentRepository.saveAll(listOf(
+                UserConsent(
+                    user = u,
+                    consentType = ConsentType.TERMS,
+                    accepted = true,
+                    consentVersion = request.consent.consentVersion,
+                    acceptedAt = timestamp,
+                    ipAddress = ip,
+                    userAgent = userAgent,
+                    appVersion = request.consent.appVersion
+                ),
+                UserConsent(
+                    user = u,
+                    consentType = ConsentType.PRIVACY_POLICY,
+                    accepted = true,
+                    consentVersion = request.consent.consentVersion,
+                    acceptedAt = timestamp,
+                    ipAddress = ip,
+                    userAgent = userAgent,
+                    appVersion = request.consent.appVersion
+                )
+            ))
+        }
 
         emailService.sendVerificationEmail(user.email, user.name, verificationCode)
 
@@ -134,21 +146,14 @@ class AuthService(
     }
 
     private fun extractClientIp(request: HttpServletRequest): String {
-        val xForwardedFor = request.getHeader("X-Forwarded-For")
-        if (!xForwardedFor.isNullOrBlank()) {
-            return xForwardedFor.split(",").first().trim()
-        }
-        val xRealIp = request.getHeader("X-Real-IP")
-        if (!xRealIp.isNullOrBlank()) {
-            return xRealIp.trim()
-        }
         return request.remoteAddr ?: "unknown"
     }
 
-    @Transactional
     fun verifyEmail(request: VerifyEmailRequest): AuthResponse {
-        val user = userRepository.findByEmail(request.email)
-            .orElseThrow { NoSuchElementException("User not found") }
+        val user = requireNotNull(transactionManager.readTx {
+            userRepository.findByEmail(request.email)
+                .orElseThrow { NoSuchElementException("User not found") }
+        })
 
         if (user.isActive) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already verified")
@@ -163,10 +168,10 @@ class AuthService(
             if (user.failedVerificationAttempts >= MAX_OTP_ATTEMPTS) {
                 user.verificationCode = null
                 user.verificationCodeExpiry = null
-                userRepository.save(user)
+                transactionManager.writeTx { userRepository.save(user) }
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Забагато невдалих спроб. Код анульовано. Запросіть новий код.")
             }
-            userRepository.save(user)
+            transactionManager.writeTx { userRepository.save(user) }
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Невірний або прострочений код підтвердження")
         }
 
@@ -174,17 +179,19 @@ class AuthService(
         user.verificationCode = null
         user.verificationCodeExpiry = null
         user.failedVerificationAttempts = 0
-        userRepository.save(user)
+
+        val refreshToken = requireNotNull(transactionManager.writeTx {
+            userRepository.save(user)
+            generateAndSaveRefreshToken(user)
+        })
 
         val accessToken = jwtService.generateAccessToken(user)
-        val refreshToken = generateAndSaveRefreshToken(user)
 
         return AuthResponse(accessToken, refreshToken, onboardingCompleted = false)
     }
 
-    @Transactional
     fun forgotPassword(request: ForgotPasswordRequest): MessageResponse {
-        val userOptional = userRepository.findByEmail(request.email)
+        val userOptional = requireNotNull(transactionManager.readTx { userRepository.findByEmail(request.email) })
         if (userOptional.isEmpty) {
             return MessageResponse("Password reset code sent to your email.")
         }
@@ -194,17 +201,19 @@ class AuthService(
         user.resetCode = resetCode
         user.resetCodeExpiry = Instant.now().plus(Duration.ofMinutes(15))
         user.failedResetAttempts = 0
-        userRepository.save(user)
+
+        transactionManager.writeTx { userRepository.save(user) }
 
         emailService.sendPasswordResetEmail(user.email, user.name, resetCode)
 
         return MessageResponse("Password reset code sent to your email.")
     }
 
-    @Transactional
     fun resetPassword(request: ResetPasswordRequest): MessageResponse {
-        val user = userRepository.findByEmail(request.email)
-            .orElseThrow { NoSuchElementException("User not found") }
+        val user = requireNotNull(transactionManager.readTx {
+            userRepository.findByEmail(request.email)
+                .orElseThrow { NoSuchElementException("User not found") }
+        })
 
         val now = Instant.now()
         val isExpired = user.resetCodeExpiry?.isBefore(now) == true
@@ -215,10 +224,10 @@ class AuthService(
             if (user.failedResetAttempts >= MAX_OTP_ATTEMPTS) {
                 user.resetCode = null
                 user.resetCodeExpiry = null
-                userRepository.save(user)
+                transactionManager.writeTx { userRepository.save(user) }
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Забагато невдалих спроб. Код відновлення анульовано. Запросіть новий код.")
             }
-            userRepository.save(user)
+            transactionManager.writeTx { userRepository.save(user) }
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Невірний або прострочений код скидання паролю")
         }
 
@@ -227,62 +236,68 @@ class AuthService(
         user.resetCode = null
         user.resetCodeExpiry = null
         user.failedResetAttempts = 0
-        userRepository.save(user)
+
+        transactionManager.writeTx { userRepository.save(user) }
 
         return MessageResponse("Password reset successful. You can now login with your new password.")
     }
 
-    @Transactional
     fun login(request: LoginRequest): AuthResponse {
         authenticationManager.authenticate(
             UsernamePasswordAuthenticationToken(request.email, request.password)
         )
 
-        val user = userRepository.findByEmail(request.email)
-            .orElseThrow { NoSuchElementException("User not found") }
+        val user = requireNotNull(transactionManager.readTx {
+            userRepository.findByEmail(request.email)
+                .orElseThrow { NoSuchElementException("User not found") }
+        })
 
         if (!user.isActive) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Account not verified")
         }
 
         val accessToken = jwtService.generateAccessToken(user)
-        val refreshToken = generateAndSaveRefreshToken(user)
+        val refreshToken = requireNotNull(transactionManager.writeTx { generateAndSaveRefreshToken(user) })
 
         return AuthResponse(accessToken, refreshToken, onboardingCompleted = user.onboardingCompleted)
     }
 
-    @Transactional
     fun refreshToken(request: RefreshTokenRequest): AuthResponse {
-        val refreshToken = refreshTokenRepository.findByToken(request.refreshToken)
-            .orElseThrow { ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found") }
+        val claims = jwtService.parseValidClaims(request.refreshToken)
+
+        val (refreshToken, user) = requireNotNull(transactionManager.readTx {
+            val token = refreshTokenRepository.findByToken(request.refreshToken)
+                .orElseThrow { ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found") }
+            val u = token.user ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Token has no user")
+            Pair(token, u)
+        })
 
         if (refreshToken.expiryDate < Instant.now()) {
-            refreshTokenRepository.delete(refreshToken)
+            transactionManager.writeTx { refreshTokenRepository.delete(refreshToken) }
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired")
         }
 
-        val tokenType = jwtService.extractTokenType(request.refreshToken)
+        val tokenType = (claims?.get("type") as? String) ?: jwtService.extractTokenType(request.refreshToken)
         if (tokenType != null && tokenType != JwtService.TYPE_REFRESH) {
-            refreshTokenRepository.delete(refreshToken)
+            transactionManager.writeTx { refreshTokenRepository.delete(refreshToken) }
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token type for refresh")
         }
-
-        val user = refreshToken.user
-            ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Token has no user")
 
         if (!user.isActive) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "User account is inactive")
         }
 
         val accessToken = jwtService.generateAccessToken(user)
-        refreshTokenRepository.delete(refreshToken)
-        refreshTokenRepository.flush()
-        val newRefreshToken = generateAndSaveRefreshToken(user)
+
+        val newRefreshToken = requireNotNull(transactionManager.writeTx {
+            refreshTokenRepository.delete(refreshToken)
+            refreshTokenRepository.flush()
+            generateAndSaveRefreshToken(user)
+        })
 
         return AuthResponse(accessToken, newRefreshToken, onboardingCompleted = user.onboardingCompleted)
     }
 
-    @Transactional
     fun logout(authHeader: String?, refreshToken: String) {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             try {
@@ -298,59 +313,89 @@ class AuthService(
             }
         }
 
-        refreshTokenRepository.findByToken(refreshToken).ifPresent {
-            refreshTokenRepository.delete(it)
+        transactionManager.writeTx {
+            refreshTokenRepository.findByToken(refreshToken).ifPresent {
+                refreshTokenRepository.delete(it)
+            }
         }
     }
 
-    @Transactional
     fun deleteMe(userId: UUID) {
-        val user = userRepository.findById(userId).orElseThrow {
-            NoSuchElementException("User not found")
-        }
+        val (user, children) = requireNotNull(transactionManager.readTx {
+            val u = userRepository.findById(userId).orElseThrow {
+                NoSuchElementException("User not found")
+            }
+            val c = childRepository?.findAllByUser(u) ?: emptyList()
+            Pair(u, c)
+        })
 
         val now = Instant.now()
-        
-        // Revoke all refresh tokens
-        refreshTokenRepository.deleteByUser(user)
-        refreshTokenRepository.flush()
 
-        // Deactivate all push notification tokens
-        deviceTokenRepository?.deleteAllByUserId(userId)
+        transactionManager.writeTx {
+            // Revoke all refresh tokens
+            refreshTokenRepository.deleteByUser(user)
+            refreshTokenRepository.flush()
 
-        // Soft-delete children and their associated events
-        val children = childRepository?.findAllByUser(user) ?: emptyList()
-        for (child in children) {
-            val events = eventRepository?.findAllByChild(child) ?: emptyList()
-            events.forEach { event ->
-                event.deletedAt = now
+            // Deactivate all push notification tokens
+            deviceTokenRepository?.deleteAllByUserId(userId)
+
+            // Soft-delete children and their associated events
+            for (child in children) {
+                val events = eventRepository?.findAllByChild(child) ?: emptyList()
+                events.forEach { event ->
+                    event.deletedAt = now
+                }
+                if (events.isNotEmpty()) {
+                    eventRepository?.saveAll(events)
+                }
+                child.deletedAt = now
+                child.name = "Deleted Child"
+                child.isActive = false
+                child.notes = emptyList() // Clear free-text medical notes for privacy
             }
-            if (events.isNotEmpty()) {
-                eventRepository?.saveAll(events)
+            if (children.isNotEmpty()) {
+                childRepository?.saveAll(children)
             }
-            child.deletedAt = now
-            child.notes = emptyList() // Clear free-text medical notes for privacy
-        }
-        if (children.isNotEmpty()) {
-            childRepository?.saveAll(children)
-        }
-        
-        // Anonymize user data to free up email and comply with GDPR
-        user.email = "deleted_${user.id}_${now.epochSecond}@deleted.curakid.com"
-        user.name = "Deleted User"
-        user.passwordHash = "DELETED"
-        user.deletedAt = now
-        user.isActive = false
-        user.verificationCode = null
-        user.resetCode = null
 
-        userRepository.save(user)
-        userConsentRepository.revokeAllByUserId(userId, now)
+            // Anonymize user data to free up email and comply with GDPR
+            user.email = "deleted_${user.id}_${now.epochSecond}@deleted.curakid.com"
+            user.name = "Deleted User"
+            user.passwordHash = "DELETED"
+            user.deletedAt = now
+            user.isActive = false
+            user.verificationCode = null
+            user.resetCode = null
+
+            userRepository.save(user)
+            userConsentRepository.revokeAllByUserId(userId, now)
+        }
+    }
+
+    fun getUser(userId: UUID): UserResponse {
+        val user = transactionManager.readTx {
+            userRepository.findById(userId).orElseThrow {
+                NoSuchElementException("User not found")
+            }
+        }
+        return UserResponse.from(user)
+    }
+
+    fun updateUser(userId: UUID, request: UpdateUserRequest): UserResponse {
+        val user = transactionManager.writeTx {
+            val u = userRepository.findById(userId).orElseThrow {
+                NoSuchElementException("User not found")
+            }
+            u.name = request.name
+            userRepository.save(u)
+        }
+        return UserResponse.from(user)
     }
 
     private fun generateAndSaveRefreshToken(user: User): String {
+        refreshTokenRepository.deleteByUser(user)
+        refreshTokenRepository.flush()
+
         val tokenStr = jwtService.generateRefreshToken(user)
-        // Using fixed 7 days for now to match default property
         val refreshToken = RefreshToken(
             user = user,
             token = tokenStr,

@@ -22,11 +22,25 @@ import java.util.UUID
 class AdminVaccineServiceTest {
 
     @Mock lateinit var repository: VaccineTemplateRepository
+    @Mock lateinit var vaccineCalendarClient: com.misterio.curakid.admin.vaccines.VaccineCalendarClient
+    @Mock lateinit var vaccineCalendarParser: com.misterio.curakid.admin.vaccines.VaccineCalendarParser
+    @Mock lateinit var vaccineCalendarDiffService: com.misterio.curakid.admin.vaccines.VaccineCalendarDiffService
+    @Mock lateinit var childRepository: com.misterio.curakid.core.database.children.ChildRepository
+    @Mock lateinit var vaccineEventRepository: com.misterio.curakid.core.database.event.VaccineEventRepository
+    @Mock lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
     private lateinit var service: AdminVaccineService
 
     @BeforeEach
     fun setUp() {
-        service = AdminVaccineService(repository)
+        service = AdminVaccineService(
+            repository,
+            vaccineCalendarClient,
+            vaccineCalendarParser,
+            vaccineCalendarDiffService,
+            childRepository,
+            vaccineEventRepository,
+            eventPublisher
+        )
     }
 
     @Test
@@ -110,5 +124,41 @@ class AdminVaccineServiceTest {
         assertThrows<NoSuchElementException> {
             service.deleteTemplate(id)
         }
+    }
+
+    @Test
+    fun `backfillForExistingChildren only queries active children and creates events`() {
+        val user = com.misterio.curakid.core.database.auth.User(
+            email = "user@test.com", passwordHash = "hash", name = "User"
+        )
+        val activeChild = com.misterio.curakid.core.database.children.Child(
+            user = user,
+            name = "Baby",
+            birthDate = java.time.LocalDate.now().minusMonths(2),
+            gender = com.misterio.curakid.core.database.children.Gender.FEMALE
+        ).apply { id = UUID.randomUUID() }
+
+        val template = VaccineTemplate(
+            name = "Polio",
+            disease = "Polio",
+            doseNumber = 1,
+            totalDoses = 3,
+            type = VaccineType.VACCINATION,
+            scheduledAgeMonths = 2,
+            scheduledAgeDays = 60
+        ).apply { id = UUID.randomUUID() }
+
+        whenever(childRepository.findAllByIsActiveTrue(org.mockito.kotlin.any())).thenReturn(
+            org.springframework.data.domain.PageImpl(listOf(activeChild))
+        )
+        whenever(repository.findAllByIsActiveTrue()).thenReturn(listOf(template))
+        whenever(vaccineEventRepository.findAllByChild(activeChild)).thenReturn(emptyList())
+
+        val summary = service.backfillForExistingChildren()
+
+        assertEquals(1, summary.totalChildren)
+        assertEquals(1, summary.createdEventsCount)
+        verify(childRepository).findAllByIsActiveTrue(org.mockito.kotlin.any())
+        verify(vaccineEventRepository).saveAll(any<List<com.misterio.curakid.core.database.event.VaccineEvent>>())
     }
 }

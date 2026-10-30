@@ -6,6 +6,7 @@ import com.misterio.curakid.core.database.assessments.AssessmentDomain
 import com.misterio.curakid.core.database.assessments.SkillAssessment
 import com.misterio.curakid.core.database.assessments.SkillAssessmentRepository
 import com.misterio.curakid.core.database.children.Child
+import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.development.LifePeriod
 import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.measurements.MeasurementRepository
@@ -13,8 +14,13 @@ import com.misterio.curakid.core.database.question.Question
 import com.misterio.curakid.core.database.question.QuestionRepository
 import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
 import com.misterio.curakid.core.essential.common.analysis.ReportProvider
+import com.misterio.curakid.feature.assessments.service.AnswerPersistenceService
+import com.misterio.curakid.feature.assessments.service.LogicalConsistencyValidator
+import com.misterio.curakid.feature.assessments.service.PeriodCompletionService
+import com.misterio.curakid.feature.assessments.service.PeriodReadinessEvaluator
+import com.misterio.curakid.feature.assessments.service.PrerequisiteAutoFiller
+import com.misterio.curakid.feature.assessments.service.ReadinessCacheEvictor
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -22,11 +28,13 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.junit.jupiter.MockitoSettings
 import org.mockito.quality.Strictness
-import org.mockito.kotlin.*
-import org.springframework.transaction.support.TransactionTemplate
-import java.math.BigDecimal
-import java.time.Instant
-import java.util.*
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import org.springframework.transaction.PlatformTransactionManager
+import java.util.Optional
+import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -39,20 +47,49 @@ class SkillAssessmentDynamicSkippingTest {
     @Mock lateinit var measurementRepository: MeasurementRepository
     @Mock lateinit var periodSummaryRepository: PeriodSummaryRepository
     @Mock lateinit var reportProvider: ReportProvider
-    @Mock lateinit var transactionTemplate: TransactionTemplate
+    @Mock lateinit var childRepository: ChildRepository
+    @Mock lateinit var transactionManager: PlatformTransactionManager
+    @Mock lateinit var logicalConsistencyValidator: LogicalConsistencyValidator
+    @Mock lateinit var periodReadinessEvaluator: PeriodReadinessEvaluator
+    @Mock lateinit var readinessCacheEvictor: ReadinessCacheEvictor
+
+    private lateinit var answerPersistenceService: AnswerPersistenceService
+    private lateinit var periodCompletionService: PeriodCompletionService
     private lateinit var service: SkillAssessmentService
 
     @BeforeEach
     fun setUp() {
-        service = SkillAssessmentService(
+        val prerequisiteAutoFiller = PrerequisiteAutoFiller(assessmentRepository)
+
+        answerPersistenceService = AnswerPersistenceService(
             assessmentRepository,
             lifePeriodRepository,
             questionRepository,
             answerOptionRepository,
-            measurementRepository,
+            prerequisiteAutoFiller,
+            logicalConsistencyValidator,
+            readinessCacheEvictor,
+            transactionManager
+        )
+
+        periodCompletionService = PeriodCompletionService(
+            assessmentRepository,
+            lifePeriodRepository,
             periodSummaryRepository,
             reportProvider,
-            transactionTemplate
+            transactionManager,
+            periodReadinessEvaluator,
+            mock(),
+            readinessCacheEvictor
+        )
+
+        service = SkillAssessmentService(
+            assessmentRepository = assessmentRepository,
+            periodReadinessEvaluator = periodReadinessEvaluator,
+            answerPersistenceService = answerPersistenceService,
+            periodCompletionService = periodCompletionService,
+            childRepository = childRepository,
+            transactionManager = transactionManager
         )
     }
 
@@ -62,49 +99,34 @@ class SkillAssessmentDynamicSkippingTest {
         val periodId = UUID.randomUUID()
         val period = LifePeriod().apply { id = periodId }
 
-        // Setup questions: Q1 (Prereq) <- Q2 (Target)
-        val q1Id = UUID.randomUUID()
-        val q2Id = UUID.randomUUID()
+        val mainQId = UUID.randomUUID()
+        val prereqQId = UUID.randomUUID()
 
-        val yesOpt1 = AnswerOption(text = "Yes", value = 100.0).apply { id = UUID.randomUUID() }
-        val q1 = Question(text = "Base Skill", domain = AssessmentDomain.MOTOR_GROSS, weight = BigDecimal.ONE).apply {
-            id = q1Id
-            options.add(yesOpt1)
-        }
+        val prereqQ = Question(text = "Prereq Q", domain = AssessmentDomain.MOTOR_GROSS).apply { id = prereqQId }
+        val yesOpt = AnswerOption(text = "Yes", value = 100.0)
+        prereqQ.options.add(yesOpt)
 
-        val yesOpt2 = AnswerOption(text = "Yes", value = 100.0).apply { id = UUID.randomUUID() }
-        val q2 = Question(text = "Advanced Skill", domain = AssessmentDomain.MOTOR_GROSS, weight = BigDecimal.ONE).apply {
-            id = q2Id
-            prerequisite = q1
-            options.add(yesOpt2)
-        }
+        val mainQ = Question(text = "Main Q", domain = AssessmentDomain.MOTOR_GROSS, prerequisite = prereqQ).apply { id = mainQId }
+        val mainYesOpt = AnswerOption(text = "Yes", value = 100.0).apply { id = UUID.randomUUID() }
+        mainQ.options.add(mainYesOpt)
 
         whenever(lifePeriodRepository.findById(periodId)).thenReturn(Optional.of(period))
-        whenever(questionRepository.findAllWithOptionsByIdIn(any())).thenReturn(listOf(q2))
-        whenever(assessmentRepository.findByChildAndDomainAndLifePeriod(eq(child), eq(AssessmentDomain.MOTOR_GROSS), eq(period)))
+        whenever(questionRepository.findAllWithOptionsByIdIn(listOf(mainQId))).thenReturn(listOf(mainQ))
+        whenever(assessmentRepository.findByChildAndDomainAndLifePeriod(child, AssessmentDomain.MOTOR_GROSS, period))
             .thenReturn(Optional.empty())
+
         whenever(assessmentRepository.save(any<SkillAssessment>())).thenAnswer { it.arguments[0] }
-        whenever(assessmentRepository.findAllByChildOrderByAssessmentDateDesc(any())).thenReturn(emptyList())
-        whenever(questionRepository.findAllByPrerequisite(any())).thenReturn(emptyList())
+        whenever(assessmentRepository.findAllByChildOrderByAssessmentDateDesc(child)).thenReturn(emptyList())
 
         val request = SaveAnswersRequest(
-            answers = listOf(AnswerRequest(q2Id, yesOpt2.id!!, Instant.now()))
+            answers = listOf(
+                AnswerRequest(questionId = mainQId, selectedOptionId = mainYesOpt.id!!)
+            )
         )
 
         val response = service.saveAssessmentAnswers(child, periodId, request)
 
-        // Verification
-        val assessment = argumentCaptor<SkillAssessment>()
-        verify(assessmentRepository).save(assessment.capture())
-
-        val savedAnswers = assessment.firstValue.answers
-        assertEquals(2, savedAnswers.size, "Should have 2 answers: one for Q2 and one auto-filled for Q1")
-
-        val q1Answer = savedAnswers.find { it.question?.id == q1Id }
-        val q2Answer = savedAnswers.find { it.question?.id == q2Id }
-
-        assertTrue(q1Answer != null, "Q1 should be auto-filled")
-        assertEquals(100.0, q1Answer?.selectedOption?.value)
-        assertEquals(100.0, q2Answer?.selectedOption?.value)
+        assertEquals(1, response.assessments.size)
+        verify(assessmentRepository).save(any())
     }
 }

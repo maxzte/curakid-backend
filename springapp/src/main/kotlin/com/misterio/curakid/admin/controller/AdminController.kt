@@ -11,7 +11,7 @@ import org.springframework.web.multipart.MultipartFile
 import java.util.*
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/v1/admin")
 class AdminController(
     private val knowledgeService: AdminKnowledgeService,
     private val quizService: AdminQuizService,
@@ -24,7 +24,7 @@ class AdminController(
 
     // Knowledge
     @PostMapping("/knowledge")
-    fun uploadArticle(@RequestBody request: CreateArticleRequest) =
+    fun uploadArticle(@Valid @RequestBody request: CreateArticleRequest) =
         ResponseEntity.ok(knowledgeService.uploadArticle(request.title, request.content, request.categoryId))
 
     @PostMapping("/knowledge/upload", consumes = ["multipart/form-data"])
@@ -59,29 +59,35 @@ class AdminController(
     fun getCategories() = ResponseEntity.ok(knowledgeService.getCategories())
 
     @PostMapping("/knowledge/categories")
-    fun createCategory(@RequestBody request: CreateCategoryRequest) =
+    fun createCategory(@Valid @RequestBody request: CreateCategoryRequest) =
         ResponseEntity.ok(knowledgeService.createCategory(request))
 
     // Quiz — Life Periods
     @GetMapping("/quiz/life-periods")
     fun getLifePeriods(): ResponseEntity<List<AdminLifePeriodResponse>> {
         val response = quizService.getLifePeriods().map { lp ->
+            val lpId = requireNotNull(lp.id) { "LifePeriod ID must not be null" }
             AdminLifePeriodResponse(
-                id = lp.id!!,
+                id = lpId,
                 code = lp.code,
                 label = lp.label,
                 description = LifePeriodQuestionService.parseDescription(lp.description, objectMapper),
                 minMonths = lp.minMonths,
                 maxMonths = lp.maxMonths,
                 questions = lp.questions.filter { it.isActive }.map { q ->
+                    val qId = requireNotNull(q.id) { "Question ID must not be null" }
                     AdminQuestionResponse(
-                        id = q.id!!,
+                        id = qId,
                         text = q.text,
                         domain = q.domain,
                         weight = q.weight,
-                        prerequisite = q.prerequisite?.let { AdminPrerequisiteResponse(it.id!!, it.text) },
+                        prerequisite = q.prerequisite?.let { prereq ->
+                            val prereqId = requireNotNull(prereq.id) { "Prerequisite ID must not be null" }
+                            AdminPrerequisiteResponse(prereqId, prereq.text)
+                        },
                         options = q.options.map { o ->
-                            AdminOptionResponse(o.id!!, o.text, o.value, o.displayOrder)
+                            val optId = requireNotNull(o.id) { "Option ID must not be null" }
+                            AdminOptionResponse(optId, o.text, o.value, o.displayOrder)
                         }
                     )
                 }
@@ -91,14 +97,14 @@ class AdminController(
     }
 
     @PostMapping("/quiz/life-periods")
-    fun createLifePeriod(@RequestBody request: CreateLifePeriodRequest) =
+    fun createLifePeriod(@Valid @RequestBody request: CreateLifePeriodRequest): ResponseEntity<AdminLifePeriodResponse> =
         ResponseEntity.ok(quizService.createLifePeriod(request))
 
     @PutMapping("/quiz/life-periods/{id}")
     fun updateLifePeriod(
         @PathVariable id: UUID,
         @RequestBody request: CreateLifePeriodRequest
-    ) = ResponseEntity.ok(quizService.updateLifePeriod(id, request))
+    ): ResponseEntity<AdminLifePeriodResponse> = ResponseEntity.ok(quizService.updateLifePeriod(id, request))
 
 
     // Quiz — Questions
@@ -106,13 +112,13 @@ class AdminController(
     fun createQuestion(
         @PathVariable lifePeriodId: UUID,
         @Valid @RequestBody request: CreateQuizQuestionRequest
-    ) = ResponseEntity.ok(quizService.createQuestion(lifePeriodId, request))
+    ): ResponseEntity<AdminQuestionResponse> = ResponseEntity.ok(quizService.createQuestion(lifePeriodId, request))
 
     @PutMapping("/quiz/questions/{id}")
     fun updateQuestion(
         @PathVariable id: UUID,
         @Valid @RequestBody request: CreateQuizQuestionRequest
-    ) = ResponseEntity.ok(quizService.updateQuestion(id, request))
+    ): ResponseEntity<AdminQuestionResponse> = ResponseEntity.ok(quizService.updateQuestion(id, request))
 
     @DeleteMapping("/quiz/questions/{id}")
     fun deleteQuestion(@PathVariable id: UUID): ResponseEntity<Void> {
@@ -125,13 +131,13 @@ class AdminController(
     fun createAnswerOption(
         @PathVariable questionId: UUID,
         @Valid @RequestBody request: CreateAnswerOptionRequest
-    ) = ResponseEntity.ok(quizService.createAnswerOption(questionId, request))
+    ): ResponseEntity<AdminOptionResponse> = ResponseEntity.ok(quizService.createAnswerOption(questionId, request))
 
     @PutMapping("/quiz/options/{id}")
     fun updateAnswerOption(
         @PathVariable id: UUID,
         @Valid @RequestBody request: CreateAnswerOptionRequest
-    ) = ResponseEntity.ok(quizService.updateAnswerOption(id, request))
+    ): ResponseEntity<AdminOptionResponse> = ResponseEntity.ok(quizService.updateAnswerOption(id, request))
 
     @DeleteMapping("/quiz/options/{id}")
     fun deleteAnswerOption(@PathVariable id: UUID): ResponseEntity<Void> {
@@ -141,10 +147,10 @@ class AdminController(
 
     // Fuzzy Logic
     @GetMapping("/fuzzy/rules")
-    fun getRules() = ResponseEntity.ok(fuzzyService.getRules())
+    fun getRules(): ResponseEntity<List<AdminFuzzyRuleResponse>> = ResponseEntity.ok(fuzzyService.getRules())
 
     @PutMapping("/fuzzy/rules")
-    fun updateRules(@RequestBody request: UpdateRulesRequest) =
+    fun updateRules(@RequestBody request: UpdateRulesRequest): ResponseEntity<List<AdminFuzzyRuleResponse>> =
         ResponseEntity.ok(fuzzyService.updateRules(request.rules))
 
     // Users
@@ -157,7 +163,8 @@ class AdminController(
         val pageResult = userService.getUsers(email, page, size)
         val response = AdminPageResponse(
             items = pageResult.content.map {
-                AdminUserResponse(it.id!!, it.email, it.name, it.role.name, it.isActive)
+                val userId = requireNotNull(it.id) { "User ID must not be null" }
+                AdminUserResponse(userId, it.email, it.name, it.role.name, it.isActive)
             },
             totalItems = pageResult.totalElements,
             totalPages = pageResult.totalPages,
@@ -177,13 +184,13 @@ class AdminController(
     fun getVaccines() = ResponseEntity.ok(vaccineService.getTemplates())
 
     @PostMapping("/vaccines")
-    fun createVaccine(@RequestBody request: CreateVaccineTemplateRequest) =
+    fun createVaccine(@Valid @RequestBody request: CreateVaccineTemplateRequest) =
         ResponseEntity.ok(vaccineService.createTemplate(request))
 
     @PutMapping("/vaccines/{id}")
     fun updateVaccine(
         @PathVariable id: UUID,
-        @RequestBody request: CreateVaccineTemplateRequest
+        @Valid @RequestBody request: CreateVaccineTemplateRequest
     ) = ResponseEntity.ok(vaccineService.updateTemplate(id, request))
 
     @DeleteMapping("/vaccines/{id}")
@@ -192,12 +199,22 @@ class AdminController(
         return ResponseEntity.noContent().build()
     }
 
+    @PostMapping("/vaccines/sync/preview")
+    fun previewVaccinesSync() = ResponseEntity.ok(vaccineService.previewSync())
+
+    @PostMapping("/vaccines/sync/apply")
+    fun applyVaccinesSync(@RequestBody request: com.misterio.curakid.admin.vaccines.ApplyVaccineSyncRequest) =
+        ResponseEntity.ok(vaccineService.applySync(request))
+
+    @PostMapping("/vaccines/sync/backfill")
+    fun backfillVaccinesForChildren() = ResponseEntity.ok(vaccineService.backfillForExistingChildren())
+
     // Legal Documents (Policies)
     @GetMapping("/legal")
     fun getLegalDocuments() = ResponseEntity.ok(legalService.getAllDocuments())
 
     @PostMapping("/legal")
-    fun createLegalDocument(@RequestBody request: CreateLegalDocumentRequest) =
+    fun createLegalDocument(@Valid @RequestBody request: CreateLegalDocumentRequest) =
         ResponseEntity.ok(legalService.uploadDocument(request))
 
     @PostMapping("/legal/{id}/activate")

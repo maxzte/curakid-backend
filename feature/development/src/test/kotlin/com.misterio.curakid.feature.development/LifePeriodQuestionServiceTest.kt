@@ -6,7 +6,6 @@ import com.misterio.curakid.core.database.development.LifePeriod
 import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.question.Question
 import com.misterio.curakid.core.database.question.QuestionRepository
-import tools.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -16,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.whenever
+import tools.jackson.databind.ObjectMapper
 import java.math.BigDecimal
 import java.util.Optional
 import java.util.UUID
@@ -144,6 +144,51 @@ class LifePeriodQuestionServiceTest {
 
         assertEquals("Light question", questions[0].text)
         assertEquals("Heavy question", questions[1].text)
+    }
+
+    @Test
+    fun `parseDescription should support both tips array and single tip fallback`() {
+        val jsonWithTipsArray = """
+            {
+                "ua": {
+                    "title": "Перші дні разом",
+                    "subtitle": "Час ніжності",
+                    "milestones": {
+                        "movement": "Рухи",
+                        "speech": "Звуки",
+                        "cognition": "Погляд"
+                    },
+                    "tips": ["Порада 1", "Порада 2"]
+                }
+            }
+        """.trimIndent()
+
+        val parsed1 = LifePeriodQuestionService.parseDescription(jsonWithTipsArray, objectMapper)
+        assertEquals("Перші дні разом", parsed1.title)
+        assertEquals("Час ніжності", parsed1.subtitle)
+        assertEquals("Рухи", parsed1.milestones.movement)
+        assertEquals(2, parsed1.tips.size)
+        assertEquals("Порада 1", parsed1.tips[0])
+        assertEquals("Порада 2", parsed1.tips[1])
+
+        val jsonWithSingleTip = """
+            {
+                "ua": {
+                    "title": "Перші дні разом",
+                    "subtitle": "Час ніжності",
+                    "milestones": {
+                        "movement": "Рухи",
+                        "speech": "Звуки",
+                        "cognition": "Погляд"
+                    },
+                    "tip": "Одиночна порада"
+                }
+            }
+        """.trimIndent()
+
+        val parsed2 = LifePeriodQuestionService.parseDescription(jsonWithSingleTip, objectMapper)
+        assertEquals(1, parsed2.tips.size)
+        assertEquals("Одиночна порада", parsed2.tips[0])
     }
 
     private fun createPeriod(

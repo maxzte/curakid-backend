@@ -1,5 +1,6 @@
 package com.misterio.curakid.admin
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.misterio.curakid.admin.controller.AdminController
 import com.misterio.curakid.admin.service.AdminFuzzyService
 import com.misterio.curakid.admin.service.AdminKnowledgeService
@@ -7,27 +8,23 @@ import com.misterio.curakid.admin.service.AdminLegalService
 import com.misterio.curakid.admin.service.AdminQuizService
 import com.misterio.curakid.admin.service.AdminUserService
 import com.misterio.curakid.admin.service.AdminVaccineService
-import com.misterio.curakid.core.database.event.VaccineTemplate
-import com.misterio.curakid.core.database.event.VaccineType
-import com.misterio.curakid.core.database.knowledge.FuzzyDomain
-import com.misterio.curakid.core.database.knowledge.FuzzyRuleEntity
+import com.misterio.curakid.core.database.auth.Role
+import com.misterio.curakid.core.database.auth.User
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
-import org.mockito.kotlin.anyOrNull
 import org.springframework.data.domain.PageImpl
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.UUID
 
 class AdminControllerTest {
@@ -59,7 +56,7 @@ class AdminControllerTest {
     fun `GET knowledge categories returns list`() {
         whenever(knowledgeService.getCategories()).thenReturn(emptyList())
 
-        mockMvc.perform(get("/api/admin/knowledge/categories"))
+        mockMvc.perform(get("/api/v1/admin/knowledge/categories"))
             .andExpect(status().isOk)
     }
 
@@ -75,7 +72,7 @@ class AdminControllerTest {
         }
 
         mockMvc.perform(
-            post("/api/admin/knowledge/categories")
+            post("/api/v1/admin/knowledge/categories")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"name":"test","displayName":"Test"}""")
         )
@@ -85,39 +82,47 @@ class AdminControllerTest {
 
     @Test
     fun `DELETE knowledge article returns 204`() {
-        mockMvc.perform(delete("/api/admin/knowledge/${UUID.randomUUID()}"))
+        mockMvc.perform(delete("/api/v1/admin/knowledge/${UUID.randomUUID()}"))
             .andExpect(status().isNoContent())
     }
 
     @Test
     fun `GET fuzzy rules returns list`() {
         whenever(fuzzyService.getRules()).thenReturn(
-            listOf(FuzzyRuleEntity(domain = FuzzyDomain.GENERAL))
+            listOf(
+                AdminFuzzyRuleResponse(
+                    id = UUID.randomUUID(),
+                    domain = "GENERAL",
+                    conditions = emptyList(),
+                    consequent = "NOTIFY",
+                    isActive = true
+                )
+            )
         )
 
-        mockMvc.perform(get("/api/admin/fuzzy/rules"))
+        mockMvc.perform(get("/api/v1/admin/fuzzy/rules"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].domain").value("GENERAL"))
     }
 
     @Test
     fun `GET users returns page`() {
-        val user = com.misterio.curakid.core.database.auth.User(
+        val user = User(
             email = "test@test.com",
             passwordHash = "hash",
             name = "Test",
-            role = com.misterio.curakid.core.database.auth.Role.ROLE_USER
+            role = Role.ROLE_USER
         ).apply { id = UUID.randomUUID() }
         whenever(userService.getUsers(anyOrNull(), any(), any())).thenReturn(PageImpl(listOf(user)))
 
-        mockMvc.perform(get("/api/admin/users"))
+        mockMvc.perform(get("/api/v1/admin/users"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.items[0].fullName").value("Test"))
     }
 
     @Test
     fun `DELETE user returns 204`() {
-        mockMvc.perform(delete("/api/admin/users/${UUID.randomUUID()}"))
+        mockMvc.perform(delete("/api/v1/admin/users/${UUID.randomUUID()}"))
             .andExpect(status().isNoContent())
     }
 
@@ -125,7 +130,7 @@ class AdminControllerTest {
     fun `GET vaccines returns list`() {
         whenever(vaccineService.getTemplates()).thenReturn(emptyList())
 
-        mockMvc.perform(get("/api/admin/vaccines"))
+        mockMvc.perform(get("/api/v1/admin/vaccines"))
             .andExpect(status().isOk)
     }
 
@@ -136,7 +141,7 @@ class AdminControllerTest {
         )
 
         mockMvc.perform(
-            post("/api/admin/vaccines")
+            post("/api/v1/admin/vaccines")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"name":"BCG","disease":"TB","doseNumber":1,"totalDoses":1,"type":"VACCINATION","scheduledAgeMonths":0,"scheduledAgeDays":3}""")
         )
@@ -146,7 +151,7 @@ class AdminControllerTest {
 
     @Test
     fun `DELETE vaccine returns 204`() {
-        mockMvc.perform(delete("/api/admin/vaccines/${UUID.randomUUID()}"))
+        mockMvc.perform(delete("/api/v1/admin/vaccines/${UUID.randomUUID()}"))
             .andExpect(status().isNoContent())
     }
 
@@ -154,7 +159,7 @@ class AdminControllerTest {
     fun `GET legal documents returns list`() {
         whenever(legalService.getAllDocuments()).thenReturn(emptyList())
 
-        mockMvc.perform(get("/api/admin/legal"))
+        mockMvc.perform(get("/api/v1/admin/legal"))
             .andExpect(status().isOk)
     }
 }

@@ -1,7 +1,7 @@
 package com.misterio.curakid.feature.measurements
 
 import com.misterio.curakid.core.database.measurements.Measurement
-import com.misterio.curakid.core.database.reports.AiReport
+import com.misterio.curakid.core.database.measurements.MeasurementWithReportProjection
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.NotNull
 import java.math.BigDecimal
@@ -60,7 +60,7 @@ data class MeasurementResponse(
     companion object {
         fun from(m: Measurement, aiReportId: UUID?): MeasurementResponse = MeasurementResponse(
             id = m.id,
-            childId = m.child!!.id,
+            childId = requireNotNull(m.child?.id) { "Child ID must not be null for Measurement" },
             weightKg = m.weightKg,
             heightCm = m.heightCm,
             headCircCm = m.headCircCm,
@@ -76,6 +76,26 @@ data class MeasurementResponse(
             wfhPercentile = m.wfhPercentile,
             measurementDate = m.measurementDate,
             aiReportId = aiReportId,
+        )
+
+        fun from(p: MeasurementWithReportProjection): MeasurementResponse = MeasurementResponse(
+            id = p.id,
+            childId = p.childId,
+            weightKg = p.weightKg,
+            heightCm = p.heightCm,
+            headCircCm = p.headCircCm,
+            wfaZscore = p.wfaZscore,
+            hfaZscore = p.hfaZscore,
+            bmiZscore = p.bmiZscore,
+            hcfaZscore = p.hcfaZscore,
+            wfhZscore = p.wfhZscore,
+            wfaPercentile = p.wfaPercentile,
+            hfaPercentile = p.hfaPercentile,
+            bmiPercentile = p.bmiPercentile,
+            hcfaPercentile = p.hcfaPercentile,
+            wfhPercentile = p.wfhPercentile,
+            measurementDate = p.measurementDate,
+            aiReportId = p.aiReportId,
         )
     }
 }

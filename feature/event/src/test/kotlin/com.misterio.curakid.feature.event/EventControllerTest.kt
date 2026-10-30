@@ -4,13 +4,17 @@ import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.event.EventStatus
 import com.misterio.curakid.core.database.event.EventType
 import com.misterio.curakid.core.database.event.VaccineType
-import com.misterio.curakid.feature.event.EventController
+import com.misterio.curakid.core.essential.common.PagedResponse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver
 import org.springframework.http.MediaType
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.test.web.servlet.MockMvc
@@ -39,18 +43,24 @@ class EventControllerTest {
     fun setUp() {
         eventService = mock()
         val controller = EventController(eventService)
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build()
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+            .setCustomArgumentResolvers(PageableHandlerMethodArgumentResolver())
+            .build()
     }
 
     @Test
-    fun `GET events returns list`() {
-        whenever(eventService.getEventsForChild(childId, user)).thenReturn(
-            listOf(EventResponse(childId, eventId, EventType.DOCTOR, Instant.now(), "Checkup", null, null, EventStatus.PLANNED))
-        )
+    fun `GET events returns paginated list`() {
+        val response = EventResponse(childId, eventId, EventType.DOCTOR, Instant.now(), "Checkup", null, null, EventStatus.PLANNED)
+        val page = PageImpl(listOf(response))
+        val pagedResponse = PagedResponse(page.content, page.number, page.size, page.totalElements, page.totalPages, page.isLast)
+        whenever(eventService.getEventsForChild(
+            eq(childId),
+            eq(user), isNull(), isNull(), any()
+        )).thenReturn(pagedResponse)
 
-        mockMvc.perform(get("/api/children/$childId/events").principal(auth))
+        mockMvc.perform(get("/api/v1/children/$childId/events").principal(auth))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].title").value("Checkup"))
+            .andExpect(jsonPath("$.content[0].title").value("Checkup"))
     }
 
     @Test
@@ -59,18 +69,18 @@ class EventControllerTest {
             listOf(VaccineEventResponse(childId, eventId, EventType.VACCINE, Instant.now(), EventStatus.PLANNED, null, "BCG", null, 1, 1, null, null, VaccineType.VACCINATION, null))
         )
 
-        mockMvc.perform(get("/api/children/$childId/events/vaccines").principal(auth))
+        mockMvc.perform(get("/api/v1/children/$childId/events/vaccines").principal(auth))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].name").value("BCG"))
     }
 
     @Test
     fun `GET single event returns it`() {
-        whenever(eventService.getEvent(eventId, user)).thenReturn(
+        whenever(eventService.getEvent(childId, eventId, user)).thenReturn(
             EventResponse(childId, eventId, EventType.DOCTOR, Instant.now(), "Checkup", null, null, EventStatus.PLANNED)
         )
 
-        mockMvc.perform(get("/api/children/$childId/events/$eventId").principal(auth))
+        mockMvc.perform(get("/api/v1/children/$childId/events/$eventId").principal(auth))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.title").value("Checkup"))
     }
@@ -82,7 +92,7 @@ class EventControllerTest {
         )
 
         mockMvc.perform(
-            post("/api/children/$childId/events")
+            post("/api/v1/children/$childId/events")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"id":"$eventId","childId":"$childId","title":"New Visit","type":"DOCTOR","date":"2026-06-18T10:00:00Z","status":"PLANNED"}""")
                 .principal(auth)
@@ -92,13 +102,25 @@ class EventControllerTest {
     }
 
     @Test
+    fun `POST event with childId mismatch returns 400`() {
+        val otherChildId = UUID.randomUUID()
+        mockMvc.perform(
+            post("/api/v1/children/$childId/events")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"id":"$eventId","childId":"$otherChildId","title":"Mismatched Visit","type":"DOCTOR","date":"2026-06-18T10:00:00Z","status":"PLANNED"}""")
+                .principal(auth)
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
     fun `POST batch events returns 201`() {
         whenever(eventService.createEvents(any(), any())).thenReturn(
             listOf(EventResponse(childId, eventId, EventType.DOCTOR, Instant.now(), "Batch Event", null, null, EventStatus.PLANNED))
         )
 
         mockMvc.perform(
-            post("/api/children/$childId/events/batch")
+            post("/api/v1/children/$childId/events/batch")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""[{"id":"$eventId","childId":"$childId","title":"Batch Event","type":"DOCTOR","date":"2026-06-18T10:00:00Z","status":"PLANNED"}]""")
                 .principal(auth)
@@ -109,12 +131,12 @@ class EventControllerTest {
 
     @Test
     fun `PUT event returns updated`() {
-        whenever(eventService.updateEvent(any(), any(), any())).thenReturn(
+        whenever(eventService.updateEvent(eq(childId), eq(eventId), eq(user), any())).thenReturn(
             EventResponse(childId, eventId, EventType.DOCTOR, Instant.now(), "Updated Event", null, null, EventStatus.DONE)
         )
 
         mockMvc.perform(
-            put("/api/children/$childId/events/$eventId")
+            put("/api/v1/children/$childId/events/$eventId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"title":"Updated Event","status":"DONE"}""")
                 .principal(auth)
@@ -125,9 +147,9 @@ class EventControllerTest {
 
     @Test
     fun `DELETE event returns 204`() {
-        mockMvc.perform(delete("/api/children/$childId/events/$eventId").principal(auth))
+        mockMvc.perform(delete("/api/v1/children/$childId/events/$eventId").principal(auth))
             .andExpect(status().isNoContent())
 
-        verify(eventService).deleteEvent(eventId, user)
+        verify(eventService).deleteEvent(childId, eventId, user)
     }
 }

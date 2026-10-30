@@ -1,6 +1,8 @@
 package com.misterio.curakid.core.database.measurements
 
 import com.misterio.curakid.core.database.children.Child
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -58,6 +60,31 @@ interface MeasurementRepository : JpaRepository<Measurement, UUID> {
         ORDER BY m.measurementDate ASC
     """)
     fun findAllByChildIdWithReportId(@Param("childId") childId: UUID): List<MeasurementWithReportProjection>
+
+    @Query("""
+        SELECT 
+            m.id as id, 
+            m.child.id as childId, 
+            m.weightKg as weightKg, 
+            m.heightCm as heightCm, 
+            m.headCircCm as headCircCm, 
+            m.wfaZscore as wfaZscore,
+            m.hfaZscore as hfaZscore,
+            m.bmiZscore as bmiZscore,
+            m.hcfaZscore as hcfaZscore,
+            m.wfhZscore as wfhZscore,
+            m.wfaPercentile as wfaPercentile,
+            m.hfaPercentile as hfaPercentile,
+            m.bmiPercentile as bmiPercentile,
+            m.hcfaPercentile as hcfaPercentile,
+            m.wfhPercentile as wfhPercentile,
+            m.measurementDate as measurementDate, 
+            r.id as aiReportId
+        FROM Measurement m
+        LEFT JOIN AiReport r ON r.triggerMeasurement = m
+        WHERE m.child.id = :childId
+    """)
+    fun findAllByChildIdWithReportIdPaginated(@Param("childId") childId: UUID, pageable: Pageable): Page<MeasurementWithReportProjection>
 
     fun findAllByChildOrderByMeasurementDateAsc(child: Child): List<Measurement>
 

@@ -30,17 +30,20 @@ class AdminQuizServiceTest {
     @Mock lateinit var lifePeriodRepository: LifePeriodRepository
     @Mock lateinit var questionRepository: QuestionRepository
     @Mock lateinit var answerOptionRepository: AnswerOptionRepository
+    @Mock lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
     private lateinit var service: AdminQuizService
 
     @BeforeEach
     fun setUp() {
-        service = AdminQuizService(lifePeriodRepository, questionRepository, answerOptionRepository)
+        service = AdminQuizService(lifePeriodRepository, questionRepository, answerOptionRepository, eventPublisher)
     }
 
     @Test
     fun `createLifePeriod should save and return period`() {
         val request = CreateLifePeriodRequest(code = "P1M", label = "1 міс", description = "lorem ipsum", minMonths = 1, maxMonths = 1)
-        whenever(lifePeriodRepository.save(any<LifePeriod>())).thenAnswer { it.arguments[0] }
+        whenever(lifePeriodRepository.save(any<LifePeriod>())).thenAnswer {
+            (it.arguments[0] as LifePeriod).apply { if (id == null) id = UUID.randomUUID() }
+        }
 
         val result = service.createLifePeriod(request)
 
@@ -62,6 +65,31 @@ class AdminQuizServiceTest {
     }
 
     @Test
+    fun `updateLifePeriod should update only provided fields`() {
+        val id = UUID.randomUUID()
+        val existing = LifePeriod(
+            code = "OLD",
+            label = "Стара назва",
+            description = """{"ua":{"title":"Старий заголовок"}}""",
+            minMonths = 1,
+            maxMonths = 3
+        ).apply { this.id = id }
+        val request = CreateLifePeriodRequest(label = "Нова назва")
+
+        whenever(lifePeriodRepository.findById(id)).thenReturn(Optional.of(existing))
+        whenever(lifePeriodRepository.save(any<LifePeriod>())).thenAnswer { it.arguments[0] }
+
+        val result = service.updateLifePeriod(id, request)
+
+        assertEquals("OLD", result.code)
+        assertEquals("Нова назва", result.label)
+        assertEquals(1, result.minMonths)
+        assertEquals(3, result.maxMonths)
+        assertEquals("Старий заголовок", result.description.title)
+        verify(lifePeriodRepository).save(existing)
+    }
+
+    @Test
     fun `getLifePeriods should delegate to repository`() {
         whenever(lifePeriodRepository.findAllWithQuestions()).thenReturn(emptyList())
 
@@ -78,7 +106,9 @@ class AdminQuizServiceTest {
         val request = CreateQuizQuestionRequest("Does the child respond?", AssessmentDomain.MOTOR_GROSS, BigDecimal("1.0"))
 
         whenever(lifePeriodRepository.findById(periodId)).thenReturn(Optional.of(period))
-        whenever(questionRepository.save(any<Question>())).thenAnswer { it.arguments[0] }
+        whenever(questionRepository.save(any<Question>())).thenAnswer {
+            (it.arguments[0] as Question).apply { if (id == null) id = UUID.randomUUID() }
+        }
 
         val result = service.createQuestion(periodId, request)
 
@@ -97,12 +127,15 @@ class AdminQuizServiceTest {
 
         whenever(lifePeriodRepository.findById(periodId)).thenReturn(Optional.of(period))
         whenever(questionRepository.findById(prereqId)).thenReturn(Optional.of(prereq))
-        whenever(questionRepository.save(any<Question>())).thenAnswer { it.arguments[0] }
+        whenever(questionRepository.save(any<Question>())).thenAnswer {
+            (it.arguments[0] as Question).apply { if (id == null) id = UUID.randomUUID() }
+        }
 
         val result = service.createQuestion(periodId, request)
 
         assertEquals("Advanced Skill", result.text)
-        assertEquals(prereq, result.prerequisite)
+        assertNotNull(result.prerequisite)
+        assertEquals(prereqId, result.prerequisite?.id)
         verify(questionRepository).save(any())
     }
 
@@ -152,13 +185,15 @@ class AdminQuizServiceTest {
         val request = CreateAnswerOptionRequest("Yes", 1.0, 1)
 
         whenever(questionRepository.findById(questionId)).thenReturn(Optional.of(question))
-        whenever(answerOptionRepository.save(any<AnswerOption>())).thenAnswer { it.arguments[0] }
+        whenever(answerOptionRepository.save(any<AnswerOption>())).thenAnswer {
+            (it.arguments[0] as AnswerOption).apply { if (id == null) id = UUID.randomUUID() }
+        }
 
         val result = service.createAnswerOption(questionId, request)
 
         assertEquals("Yes", result.text)
         assertEquals(1.0, result.value)
-        assertEquals(question, result.question)
+        assertEquals(1, result.order)
         verify(answerOptionRepository).save(any())
     }
 

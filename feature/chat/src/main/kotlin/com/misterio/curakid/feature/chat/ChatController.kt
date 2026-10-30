@@ -1,7 +1,9 @@
 package com.misterio.curakid.feature.chat
 
 import com.misterio.curakid.core.database.currentUser
+import com.misterio.curakid.core.essential.common.PagedResponse
 import jakarta.validation.Valid
+import org.springframework.data.domain.Pageable
 import org.springframework.http.MediaType
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
@@ -14,7 +16,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping("/api/v1/chat")
 class ChatController(
     private val chatService: ChatService
 ) {
@@ -22,9 +24,10 @@ class ChatController(
     @GetMapping("/history/{childId}")
     fun getChatHistory(
         @PathVariable childId: UUID,
+        pageable: Pageable,
         auth: Authentication
-    ): List<ChatMessageResponse> {
-        return chatService.getChatHistory(childId, auth.currentUser())
+    ): PagedResponse<ChatMessageResponse> {
+        return chatService.getChatHistory(childId, auth.currentUser(), pageable)
     }
 
     @PostMapping(value = ["/stream"], produces = [MediaType.TEXT_EVENT_STREAM_VALUE])

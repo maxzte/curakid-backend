@@ -1,17 +1,11 @@
 package com.misterio.curakid.feature.reports
 
 import com.misterio.curakid.core.database.auth.User
-import com.misterio.curakid.core.database.children.Child
-import com.misterio.curakid.core.database.children.ChildRepository
-import com.misterio.curakid.core.database.reports.PeriodSummaryRepository
-import com.misterio.curakid.feature.reports.ReportController
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
 import org.mockito.kotlin.verify
-import org.springframework.core.task.SyncTaskExecutor
+import org.mockito.kotlin.whenever
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -23,7 +17,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.math.BigDecimal
 import java.time.Instant
-import java.util.Optional
 import java.util.UUID
 
 class ReportControllerTest {
@@ -51,7 +44,7 @@ class ReportControllerTest {
             listOf(ReportResponse(reportId, childId, null, null, null, null, null, false, Instant.now()))
         )
 
-        mockMvc.perform(get("/api/children/$childId/reports").principal(auth))
+        mockMvc.perform(get("/api/v1/children/$childId/reports").principal(auth))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].id").value(reportId.toString()))
     }
@@ -62,7 +55,7 @@ class ReportControllerTest {
             ReportResponse(reportId, childId, null, null, BigDecimal("3.5"), "Report text", null, false, Instant.now())
         )
 
-        mockMvc.perform(get("/api/reports/$reportId").principal(auth))
+        mockMvc.perform(get("/api/v1/reports/$reportId").principal(auth))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.urgencyScore").value(3.5))
     }
@@ -71,25 +64,22 @@ class ReportControllerTest {
     fun `GET report status returns boolean`() {
         whenever(reportService.getReportStatus(reportId, user)).thenReturn(ResponseEntity.ok(true))
 
-        mockMvc.perform(get("/api/reports/$reportId/status").principal(auth))
+        mockMvc.perform(get("/api/v1/reports/$reportId/status").principal(auth))
             .andExpect(status().isOk)
     }
 
     @Test
-    fun `GET and POST generate report returns 202 and triggers generation`() {
-        mockMvc.perform(get("/api/children/$childId/reports/generate").principal(auth))
+    fun `POST generate report returns 202 and triggers generation`() {
+        mockMvc.perform(post("/api/v1/children/$childId/reports/generate").principal(auth))
             .andExpect(status().isAccepted)
 
         verify(reportService).triggerPeriodReportGeneration(childId, user)
-
-        mockMvc.perform(post("/api/children/$childId/reports/generate").principal(auth))
-            .andExpect(status().isAccepted)
     }
 
     @Test
     fun `POST regenerate report returns 202 and triggers regeneration`() {
         mockMvc.perform(
-            post("/api/reports/$summaryId/regenerate")
+            post("/api/v1/reports/$summaryId/regenerate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .principal(auth)
         )

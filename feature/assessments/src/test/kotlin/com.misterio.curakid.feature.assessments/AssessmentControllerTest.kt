@@ -1,9 +1,6 @@
 package com.misterio.curakid.feature.assessments
 
 import com.misterio.curakid.core.database.auth.User
-import com.misterio.curakid.core.database.children.Child
-import com.misterio.curakid.core.database.children.ChildRepository
-import com.misterio.curakid.feature.assessments.AssessmentController
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -19,7 +16,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.time.Instant
-import java.util.Optional
 import java.util.UUID
 
 class AssessmentControllerTest {
@@ -47,7 +43,7 @@ class AssessmentControllerTest {
             listOf(AssessmentResponse(assessmentId, childId, assessmentDate = Instant.now()))
         )
 
-        mockMvc.perform(get("/api/children/$childId/assessments").principal(auth))
+        mockMvc.perform(get("/api/v1/children/$childId/assessments").principal(auth))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].assessmentId").value(assessmentId.toString()))
     }
@@ -59,7 +55,7 @@ class AssessmentControllerTest {
         )
 
         mockMvc.perform(
-            post("/api/children/$childId/assessments/$periodId")
+            post("/api/v1/children/$childId/assessments/$periodId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"answers":[{"questionId":"${UUID.randomUUID()}","selectedOptionId":"${UUID.randomUUID()}"}]}""")
                 .principal(auth)
@@ -74,7 +70,7 @@ class AssessmentControllerTest {
         )
 
         mockMvc.perform(
-            patch("/api/children/$childId/assessments/$assessmentId")
+            patch("/api/v1/children/$childId/assessments/$assessmentId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"questionId":"${UUID.randomUUID()}","selectedOptionId":"${UUID.randomUUID()}"}""")
                 .principal(auth)
@@ -89,7 +85,7 @@ class AssessmentControllerTest {
         )
 
         mockMvc.perform(
-            post("/api/children/$childId/assessments/complete")
+            post("/api/v1/children/$childId/assessments/complete")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"periodCode":"P1M","allowEarlyTransition":false}""")
                 .principal(auth)
@@ -105,7 +101,7 @@ class AssessmentControllerTest {
         )
 
         mockMvc.perform(
-            get("/api/children/$childId/assessments/readiness?periodCode=P1M").principal(auth)
+            get("/api/v1/children/$childId/assessments/readiness?periodCode=P1M").principal(auth)
         )
             .andExpect(status().isOk)
     }

@@ -2,7 +2,6 @@ package com.misterio.curakid.feature.children
 
 import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.children.Gender
-import com.misterio.curakid.feature.children.ChildController
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -45,7 +44,7 @@ class ChildControllerTest {
             listOf(ChildResponse(childId, "Alice", LocalDate.of(2024, 1, 1), Gender.FEMALE, false, null, ageInMonths = 17))
         )
 
-        mockMvc.perform(get("/api/children").principal(auth))
+        mockMvc.perform(get("/api/v1/children").principal(auth))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].name").value("Alice"))
     }
@@ -57,7 +56,7 @@ class ChildControllerTest {
             ChildResponse(childId, "Bob", LocalDate.of(2023, 6, 15), Gender.MALE, false, null, ageInMonths = 24)
         )
 
-        mockMvc.perform(get("/api/children/$childId").principal(auth))
+        mockMvc.perform(get("/api/v1/children/$childId").principal(auth))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.name").value("Bob"))
     }
@@ -70,7 +69,7 @@ class ChildControllerTest {
         )
 
         mockMvc.perform(
-            post("/api/children")
+            post("/api/v1/children")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"id":"$childId","name":"Charlie","birthDate":"2024-03-10","gender":"MALE","isPremature":false}""")
                 .principal(auth)
@@ -87,7 +86,7 @@ class ChildControllerTest {
         )
 
         mockMvc.perform(
-            put("/api/children/$childId")
+            put("/api/v1/children/$childId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"name":"Charlie Updated","birthDate":"2024-03-10","gender":"MALE","isPremature":false}""")
                 .principal(auth)
@@ -100,7 +99,7 @@ class ChildControllerTest {
     fun `DELETE child returns 204`() {
         val childId = UUID.randomUUID()
 
-        mockMvc.perform(delete("/api/children/$childId").principal(auth))
+        mockMvc.perform(delete("/api/v1/children/$childId").principal(auth))
             .andExpect(status().isNoContent())
 
         verify(childService).deleteChild(childId, user)

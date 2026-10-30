@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/children")
+@RequestMapping("/api/v1/children")
 class ChildController(
     private val childService: ChildService
 ) {

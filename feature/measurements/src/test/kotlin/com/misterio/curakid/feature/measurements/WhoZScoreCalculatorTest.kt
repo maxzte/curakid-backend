@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -86,6 +88,28 @@ class WhoZScoreCalculatorTest {
             result < BigDecimal.ZERO,
             "Underweight BMI z-score should be negative, got $result"
         )
+    }
+
+    @ParameterizedTest(name = "weight={0}kg, ageMonths={1}, gender={2} -> within range [-5, 5]")
+    @CsvSource(
+        "0.1, 12, MALE",
+        "3.3, 0, MALE",
+        "7.9, 6, MALE",
+        "18.3, 60, MALE",
+        "50.0, 12, MALE",
+        "7.3, 6, FEMALE",
+        "18.0, 60, FEMALE"
+    )
+    fun `Z-score should always be bounded between -5 and 5 across age and weight extremes`(
+        weight: String,
+        ageMonths: Long,
+        gender: Gender
+    ) {
+        val birthDate = LocalDate.now().minusMonths(ageMonths)
+        val score = calculator.calculateWfaZscore(BigDecimal(weight), birthDate, gender)
+
+        assertTrue(score >= BigDecimal("-5"), "Score $score should be >= -5")
+        assertTrue(score <= BigDecimal("5"), "Score $score should be <= 5")
     }
 
     @Test

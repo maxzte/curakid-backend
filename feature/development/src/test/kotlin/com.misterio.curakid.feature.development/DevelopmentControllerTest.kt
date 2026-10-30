@@ -58,7 +58,7 @@ class DevelopmentControllerTest {
 
         whenever(lifePeriodQuestionService.getAllPeriodsWithQuestions()).thenReturn(periods)
 
-        mockMvc.perform(get("/api/development/life-periods"))
+        mockMvc.perform(get("/api/v1/development/life-periods"))
             .andExpect(status().isOk)
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$[0].code").value("P1M"))
@@ -84,7 +84,7 @@ class DevelopmentControllerTest {
 
         whenever(lifePeriodQuestionService.getPeriodWithQuestions("P3_4M")).thenReturn(period)
 
-        mockMvc.perform(get("/api/development/life-periods/P3_4M"))
+        mockMvc.perform(get("/api/v1/development/life-periods/P3_4M"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.code").value("P3_4M"))
     }

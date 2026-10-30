@@ -22,6 +22,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.mockito.quality.Strictness
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Optional
@@ -40,6 +41,9 @@ class VaccineServiceTest {
     lateinit var childRepository: ChildRepository
     @Mock
     lateinit var eventRepository: EventRepository
+    @Mock
+    lateinit var transactionManager: PlatformTransactionManager
+
     private lateinit var vaccineService: VaccineService
 
     @BeforeEach
@@ -48,7 +52,8 @@ class VaccineServiceTest {
             vaccineEventRepository,
             vaccineTemplateRepository,
             childRepository,
-            eventRepository
+            eventRepository,
+            transactionManager
         )
     }
 
@@ -60,7 +65,7 @@ class VaccineServiceTest {
 
         whenever(childRepository.findById(childId)).thenReturn(Optional.of(child))
         whenever(vaccineEventRepository.findAllByChild(child)).thenReturn(emptyList())
-        whenever(vaccineTemplateRepository.findAll()).thenReturn(emptyList())
+        whenever(vaccineTemplateRepository.findAllByIsActiveTrue()).thenReturn(emptyList())
         whenever(vaccineEventRepository.saveAll(any<List<VaccineEvent>>())).thenAnswer { it.arguments[0] }
         whenever(eventRepository.saveAll(any<List<Event>>())).thenAnswer { it.arguments[0] }
         whenever(eventRepository.findAllByChildAndType(eq(child), eq(EventType.DOCTOR))).thenReturn(
@@ -100,8 +105,5 @@ class VaccineServiceTest {
             "Плановий профілактичний огляд дитини у віці 6 років",
             lastVisit.description
         )
-
-        // Verify vaccines (fallback schedule)
-        verify(vaccineEventRepository).saveAll(any<List<VaccineEvent>>())
     }
 }

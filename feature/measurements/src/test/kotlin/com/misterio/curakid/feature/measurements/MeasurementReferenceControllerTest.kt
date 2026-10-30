@@ -37,7 +37,7 @@ class MeasurementReferenceControllerTest {
             sortedMapOf(30 to params)
         )
 
-        mockMvc.perform(get("/api/measurements/norms/WFA/MALE"))
+        mockMvc.perform(get("/api/v1/measurements/norms/WFA/MALE"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].x").value(30.0))
             .andExpect(jsonPath("$[0].p50").value(50.0))

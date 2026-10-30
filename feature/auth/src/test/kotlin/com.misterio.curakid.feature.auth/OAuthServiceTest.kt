@@ -84,6 +84,8 @@ class OAuthServiceTest {
         assertEquals("refresh-token", response.refreshToken)
         verify(userRepository).save(any())
         verify(oauthProviderRepository).save(any())
+        verify(refreshTokenRepository).deleteByUser(any())
+        verify(refreshTokenRepository).flush()
     }
 
     @Test

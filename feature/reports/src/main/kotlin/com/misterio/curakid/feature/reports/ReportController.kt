@@ -7,11 +7,12 @@ import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
 @RestController
+@RequestMapping("/api/v1")
 class ReportController(
     private val reportService: ReportService
 ) {
-    /** GET /api/children/{childId}/reports — list all reports for a child */
-    @GetMapping("/api/children/{childId}/reports")
+    /** GET /api/v1/children/{childId}/reports — list all reports for a child */
+    @GetMapping("/children/{childId}/reports")
     fun getReports(
         @PathVariable childId: UUID,
         auth: Authentication
@@ -19,8 +20,8 @@ class ReportController(
         return ResponseEntity.ok(reportService.getReports(childId, auth.currentUser()))
     }
 
-    /** GET /api/reports/{reportId} — get a single report */
-    @GetMapping("/api/reports/{reportId}")
+    /** GET /api/v1/reports/{reportId} — get a single report */
+    @GetMapping("/reports/{reportId}")
     fun getReport(
         @PathVariable reportId: UUID,
         auth: Authentication
@@ -29,13 +30,13 @@ class ReportController(
         return ResponseEntity.ok(report)
     }
 
-    @GetMapping("/api/reports/{reportId}/status")
+    @GetMapping("/reports/{reportId}/status")
     fun getReportStatus(
         @PathVariable reportId: UUID,
         auth: Authentication
     ): ResponseEntity<Boolean> = reportService.getReportStatus(reportId, auth.currentUser())
 
-    @RequestMapping(value = ["/api/children/{childId}/reports/generate"], method = [RequestMethod.GET, RequestMethod.POST])
+    @PostMapping("/children/{childId}/reports/generate")
     fun generateReport(
         @PathVariable childId: UUID,
         auth: Authentication
@@ -44,8 +45,8 @@ class ReportController(
         return ResponseEntity.accepted().build()
     }
 
-    /** POST /api/reports/{summaryId}/regenerate — re-generate report for a closed period */
-    @PostMapping("/api/reports/{summaryId}/regenerate")
+    /** POST /api/v1/reports/{summaryId}/regenerate — re-generate report for a closed period */
+    @PostMapping("/reports/{summaryId}/regenerate")
     fun regenerateReport(
         @PathVariable summaryId: UUID,
         auth: Authentication

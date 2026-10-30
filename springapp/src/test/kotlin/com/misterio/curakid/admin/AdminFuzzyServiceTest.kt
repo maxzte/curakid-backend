@@ -30,7 +30,8 @@ class AdminFuzzyServiceTest {
 
     @Test
     fun `getRules should call repository findAll`() {
-        whenever(repository.findAll()).thenReturn(listOf(FuzzyRuleEntity(domain = FuzzyDomain.GENERAL)))
+        val rule = FuzzyRuleEntity(domain = FuzzyDomain.GENERAL).apply { id = UUID.randomUUID() }
+        whenever(repository.findAll()).thenReturn(listOf(rule))
 
         val result = service.getRules()
 
@@ -41,14 +42,16 @@ class AdminFuzzyServiceTest {
     @Test
     fun `updateRules should clear old rules and save new ones`() {
         val newRules = listOf(mapOf("domain" to "PHYSICAL", "conditions" to listOf(mapOf("variable" to "zscore", "term" to "low")), "consequent" to "HIGH", "isActive" to true))
-        whenever(repository.saveAll(any<List<FuzzyRuleEntity>>())).thenAnswer { it.arguments[0] }
+        whenever(repository.saveAll(any<List<FuzzyRuleEntity>>())).thenAnswer {
+            (it.arguments[0] as List<FuzzyRuleEntity>).onEach { r -> if (r.id == null) r.id = UUID.randomUUID() }
+        }
 
         val result = service.updateRules(newRules)
 
         verify(repository).deleteAll()
         verify(repository).saveAll(any<List<FuzzyRuleEntity>>())
         assertEquals(1, result.size)
-        assertEquals(FuzzyDomain.PHYSICAL, result[0].domain)
+        assertEquals("PHYSICAL", result[0].domain)
     }
 
     @Test

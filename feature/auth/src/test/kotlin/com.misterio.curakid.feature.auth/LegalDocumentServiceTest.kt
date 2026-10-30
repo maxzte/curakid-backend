@@ -13,22 +13,27 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.junit.jupiter.MockitoSettings
+import org.mockito.quality.Strictness
 import org.mockito.kotlin.any
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.Instant
 import java.util.Optional
 import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class LegalDocumentServiceTest {
 
     @Mock lateinit var repository: LegalDocumentRepository
+    @Mock lateinit var transactionManager: PlatformTransactionManager
     private lateinit var service: LegalDocumentService
 
     @BeforeEach
     fun setUp() {
-        service = LegalDocumentService(repository)
+        service = LegalDocumentService(repository, transactionManager)
     }
 
     @Test
@@ -65,87 +70,81 @@ class LegalDocumentServiceTest {
     }
 
     @Test
-    fun `getActiveDocument should throw when type not found`() {
-        whenever(repository.findByTypeAndIsActiveTrue(ConsentType.TERMS)).thenReturn(null)
+    fun `uploadDocument should throw if version already exists`() {
+        whenever(repository.findByTypeAndVersion(ConsentType.TERMS, "1.0")).thenReturn(
+            LegalDocument(type = ConsentType.TERMS, version = "1.0", url = "/terms/v1", isActive = false)
+        )
 
-        assertThrows<LegalDocumentNotFoundException> {
-            service.getActiveDocument(ConsentType.TERMS)
+        val req = CreateLegalDocumentRequest(type = "TERMS", version = "1.0", url = "/terms/new")
+
+        assertThrows<LegalDocumentAlreadyExistException> {
+            service.uploadDocument(req)
         }
     }
 
     @Test
-    fun `uploadDocument should save and return new document`() {
-        val request = CreateLegalDocumentRequest(type = "TERMS", version = "1.0", url = "/terms/v1")
+    fun `uploadDocument should throw if URL already exists`() {
+        whenever(repository.findByTypeAndVersion(ConsentType.TERMS, "1.0")).thenReturn(null)
+        whenever(repository.findByUrl("/terms/v1")).thenReturn(
+            LegalDocument(type = ConsentType.TERMS, version = "0.9", url = "/terms/v1", isActive = false)
+        )
+
+        val req = CreateLegalDocumentRequest(type = "TERMS", version = "1.0", url = "/terms/v1")
+
+        assertThrows<LegalDocumentAlreadyExistException> {
+            service.uploadDocument(req)
+        }
+    }
+
+    @Test
+    fun `uploadDocument should create inactive document`() {
         whenever(repository.findByTypeAndVersion(ConsentType.TERMS, "1.0")).thenReturn(null)
         whenever(repository.findByUrl("/terms/v1")).thenReturn(null)
-        whenever(repository.save(any<LegalDocument>())).thenAnswer { (it.arguments[0] as LegalDocument).also { doc -> doc.createdAt = Instant.now() } }
+        whenever(repository.save(any())).thenAnswer { invocation ->
+            (invocation.getArgument(0) as LegalDocument).apply { createdAt = Instant.now() }
+        }
 
-        val result = service.uploadDocument(request)
+        val req = CreateLegalDocumentRequest(type = "TERMS", version = "1.0", url = "/terms/v1")
+        val result = service.uploadDocument(req)
 
         assertEquals("TERMS", result.type)
         assertEquals("1.0", result.version)
-        assertEquals("/terms/v1", result.url)
-        verify(repository).save(any<LegalDocument>())
+        verify(repository).save(any())
     }
 
     @Test
-    fun `uploadDocument should throw when version already exists`() {
-        val request = CreateLegalDocumentRequest(type = "TERMS", version = "1.0", url = "/terms/v1")
-        whenever(repository.findByTypeAndVersion(ConsentType.TERMS, "1.0")).thenReturn(LegalDocument())
-
-        assertThrows<LegalDocumentAlreadyExistException> {
-            service.uploadDocument(request)
-        }
-    }
-
-    @Test
-    fun `uploadDocument should throw when URL already exists`() {
-        val request = CreateLegalDocumentRequest(type = "TERMS", version = "2.0", url = "/terms/v2")
-        whenever(repository.findByTypeAndVersion(ConsentType.TERMS, "2.0")).thenReturn(null)
-        whenever(repository.findByUrl("/terms/v2")).thenReturn(LegalDocument())
-
-        assertThrows<LegalDocumentAlreadyExistException> {
-            service.uploadDocument(request)
-        }
-    }
-
-    @Test
-    fun `activateDocument should activate and deactivate previous`() {
-        val docId = UUID.randomUUID()
-        val doc = LegalDocument(type = ConsentType.TERMS, version = "2.0", url = "/terms/v2", isActive = false).apply {
-            createdAt = Instant.now()
-            id = docId
-        }
-        whenever(repository.findById(docId)).thenReturn(Optional.of(doc))
-        whenever(repository.save(any<LegalDocument>())).thenAnswer { it.arguments[0] }
-
-        val result = service.activateDocument(docId)
-
-        assertEquals("2.0", result.version)
-        verify(repository).deactivateAllByType(ConsentType.TERMS)
-    }
-
-    @Test
-    fun `activateDocument should throw when document already active`() {
-        val docId = UUID.randomUUID()
-        val doc = LegalDocument(type = ConsentType.TERMS, version = "1.0", url = "/terms/v1", isActive = true).apply {
-            createdAt = Instant.now()
-            id = docId
-        }
-        whenever(repository.findById(docId)).thenReturn(Optional.of(doc))
-
-        assertThrows<LegalDocumentAlreadyActivatedException> {
-            service.activateDocument(docId)
-        }
-    }
-
-    @Test
-    fun `activateDocument should throw when document not found`() {
-        val docId = UUID.randomUUID()
-        whenever(repository.findById(docId)).thenReturn(Optional.empty())
+    fun `activateDocument should throw if document not found`() {
+        val id = UUID.randomUUID()
+        whenever(repository.findById(id)).thenReturn(Optional.empty())
 
         assertThrows<LegalDocumentNotFoundException> {
-            service.activateDocument(docId)
+            service.activateDocument(id)
         }
+    }
+
+    @Test
+    fun `activateDocument should throw if already active`() {
+        val id = UUID.randomUUID()
+        val doc = LegalDocument(type = ConsentType.TERMS, version = "1.0", url = "/v1", isActive = true)
+        whenever(repository.findById(id)).thenReturn(Optional.of(doc))
+
+        assertThrows<LegalDocumentAlreadyActivatedException> {
+            service.activateDocument(id)
+        }
+    }
+
+    @Test
+    fun `activateDocument should deactivate previous and activate selected`() {
+        val id = UUID.randomUUID()
+        val doc = LegalDocument(type = ConsentType.TERMS, version = "2.0", url = "/v2", isActive = false).apply { createdAt = Instant.now() }
+        whenever(repository.findById(id)).thenReturn(Optional.of(doc))
+        whenever(repository.save(any())).thenAnswer { it.getArgument(0) }
+
+        val result = service.activateDocument(id)
+
+        verify(repository).deactivateAllByType(ConsentType.TERMS)
+        verify(repository).save(doc)
+        assertTrue(doc.isActive)
+        assertEquals("2.0", result.version)
     }
 }

@@ -1,7 +1,6 @@
 package com.misterio.curakid.feature.chat
 
 import com.misterio.curakid.core.database.auth.User
-import com.misterio.curakid.core.database.chat.ChatMessage
 import com.misterio.curakid.core.database.chat.ChatMessageRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
@@ -19,11 +18,13 @@ import org.springframework.ai.chat.client.ChatClient
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.core.task.TaskExecutor
+import org.springframework.data.domain.Pageable
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import com.misterio.curakid.core.database.readTx
+import com.misterio.curakid.core.essential.common.PagedResponse
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
-import reactor.core.publisher.Flux
 import reactor.util.retry.Retry
 import java.time.Duration
 import java.time.Instant
@@ -40,6 +41,7 @@ class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val chatMessageService: ChatMessageService,
     @Qualifier("applicationTaskExecutor") private val taskExecutor: TaskExecutor,
+    private val transactionManager: PlatformTransactionManager
 ) {
     private val log = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -47,43 +49,79 @@ class ChatService(
         private const val SESSION_LIFETIME_HOURS = 24L
     }
 
-    @Transactional(readOnly = true)
     @Cacheable(value = ["chatHistory"], key = "#childId")
     fun getChatHistory(childId: UUID, currentUser: User): List<ChatMessageResponse> {
-        val child = childRepository.findById(childId)
-            .orElseThrow { NoSuchElementException("Child not found") }
+        val messages = requireNotNull(transactionManager.readTx {
+            val child = childRepository.findById(childId)
+                .orElseThrow { NoSuchElementException("Child not found") }
 
-        if (child.user?.id != currentUser.id) {
-            throw AccessDeniedException("Access denied")
-        }
-
-        val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
-
-        return chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(child, sessionStart)
-            .map {
-                ChatMessageResponse(
-                    id = it.getId(),
-                    childId = it.child?.getId() ?: childId,
-                    userText = it.userText,
-                    aiText = it.aiText,
-                    createdAt = it.createdAt ?: Instant.now()
-                )
+            if (child.user?.id != currentUser.id) {
+                throw AccessDeniedException("Access denied")
             }
+
+            val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
+            chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(child, sessionStart)
+        })
+
+        return messages.map {
+            ChatMessageResponse(
+                id = it.getId(),
+                childId = it.child?.getId() ?: childId,
+                userText = it.userText,
+                aiText = it.aiText,
+                createdAt = it.createdAt ?: Instant.now()
+            )
+        }
+    }
+
+    fun getChatHistory(childId: UUID, currentUser: User, pageable: Pageable): PagedResponse<ChatMessageResponse> {
+        return transactionManager.readTx {
+            val child = childRepository.findById(childId)
+                .orElseThrow { NoSuchElementException("Child not found") }
+
+            if (child.user?.id != currentUser.id) {
+                throw AccessDeniedException("Access denied")
+            }
+
+            val page = chatMessageRepository.findAllByChildOrderByCreatedAtDesc(child, pageable)
+                .map {
+                    ChatMessageResponse(
+                        id = it.getId(),
+                        childId = it.child?.getId() ?: childId,
+                        userText = it.userText,
+                        aiText = it.aiText,
+                        createdAt = it.createdAt ?: Instant.now()
+                    )
+                }
+
+            PagedResponse(
+                content = page.content,
+                pageNumber = page.number,
+                pageSize = page.size,
+                totalElements = page.totalElements,
+                totalPages = page.totalPages,
+                last = page.isLast
+            )
+        }
     }
 
     fun streamChatEvents(request: ChatRequest, currentUser: User): SseEmitter {
-        val child = childRepository.findById(request.childId!!)
-            .orElseThrow { NoSuchElementException("Child not found") }
+        val (child, recentHistory) = requireNotNull(transactionManager.readTx {
+            val c = childRepository.findById(request.childId!!)
+                .orElseThrow { NoSuchElementException("Child not found") }
 
-        if (child.user?.id != currentUser.id) {
-            throw AccessDeniedException("Access denied")
-        }
+            if (c.user?.id != currentUser.id) {
+                throw AccessDeniedException("Access denied")
+            }
+
+            val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
+            val history = chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(c, sessionStart)
+                .takeLast(6)
+            Pair(c, history)
+        })
 
         val systemPrompt = buildSystemPrompt(child)
         val userMessage = request.text ?: ""
-        val sessionStart = Instant.now().minus(SESSION_LIFETIME_HOURS, ChronoUnit.HOURS)
-        val recentHistory = chatMessageRepository.findAllByChildAndCreatedAtAfterOrderByCreatedAtAsc(child, sessionStart)
-            .takeLast(6)
 
         val cleanUserMessage = sanitizeUserInput(userMessage)
 
@@ -214,19 +252,19 @@ class ChatService(
     private fun buildSystemPrompt(child: Child): String {
         val today = LocalDate.now()
         val birthDate = child.birthDate
+
         val totalMonths = ChronoUnit.MONTHS.between(birthDate, today)
-        val birthDatePlusMonths = birthDate.plusMonths(totalMonths)
-        val remainingDays = ChronoUnit.DAYS.between(birthDatePlusMonths, today)
+        val remainingDays = ChronoUnit.DAYS.between(birthDate.plusMonths(totalMonths), today)
 
         val ageMonths = totalMonths.toInt()
         val ageDaysNum = remainingDays.toInt()
         val totalAgeDays = (ageMonths * 30.44 + ageDaysNum).toInt()
 
-        val latestMeasurement =
+        val latestMeasurement = transactionManager.readTx {
             measurementRepository.findFirstByChildOrderByMeasurementDateDesc(child).orElse(null)
+        }
 
         val norms = buildNorms(child, totalAgeDays, latestMeasurement)
-
 
         return buildString {
             appendLine(
@@ -279,26 +317,9 @@ class ChatService(
                 wfhZscore = latestMeasurement?.wfhZscore,
             )
 
-            if (norms.isNotEmpty()) {
-                appendNorms(
-                    norms
-                )
-            }
+            appendNorms(norms)
 
             appendLine(STYLE_SECTION)
-            appendLine(INSTRUCTIONS_SECTION)
-        }.trimIndent()
+        }
     }
 }
-
-private val INSTRUCTIONS_SECTION = """
-# ІНСТРУКЦІЇ:
-- Відповідай емпатично, професійно та зрозуміло.
-- Уникай надмірної паніки, але будь серйозним у важливих питаннях.
-- Якщо запитання стосується встановлення діагнозів або призначення лікування,
-  ОБОВ'ЯЗКОВО наголоси на необхідності очної консультації з педіатром.
-- Використовуй дані антропометрії для оцінки фізичного стану.
-- Порівнюй показники із нормами ВООЗ, де 0 — медіана.
-- Відповідай виключно українською мовою.
-- Використовуй Markdown для структурування відповіді.
-""".trimIndent()

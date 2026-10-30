@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/children/{childId}/assessments")
+@RequestMapping("/api/v1/children/{childId}/assessments")
 class AssessmentController(
     private val assessmentService: SkillAssessmentService
 ) {

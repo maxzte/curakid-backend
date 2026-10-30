@@ -4,7 +4,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
-@RequestMapping("/api/development")
+@RequestMapping("/api/v1/development")
 class DevelopmentController(
     private val lifePeriodQuestionService: LifePeriodQuestionService
 ) {

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/measurements/norms")
+@RequestMapping("/api/v1/measurements/norms")
 class MeasurementReferenceController(
     private val calculator: WhoPercentileCalculator
 ) {

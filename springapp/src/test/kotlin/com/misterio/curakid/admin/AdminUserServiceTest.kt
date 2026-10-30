@@ -5,8 +5,11 @@ import com.misterio.curakid.core.database.auth.User
 import com.misterio.curakid.core.database.auth.UserRepository
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
+import com.misterio.curakid.core.database.notification.DeviceTokenRepository
+import com.misterio.curakid.core.database.token.RefreshTokenRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -14,25 +17,35 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.junit.jupiter.MockitoSettings
+import org.mockito.quality.Strictness
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
+import org.springframework.transaction.PlatformTransactionManager
 import java.util.Optional
 import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AdminUserServiceTest {
 
     @Mock lateinit var userRepository: UserRepository
     @Mock lateinit var childRepository: ChildRepository
+    @Mock lateinit var refreshTokenRepository: RefreshTokenRepository
+    @Mock lateinit var deviceTokenRepository: DeviceTokenRepository
+    @Mock lateinit var transactionManager: PlatformTransactionManager
     private lateinit var service: AdminUserService
 
     @BeforeEach
     fun setUp() {
-        service = AdminUserService(userRepository, childRepository)
+        service = AdminUserService(userRepository, childRepository, refreshTokenRepository, deviceTokenRepository, null, transactionManager)
     }
 
     @Test
@@ -69,7 +82,7 @@ class AdminUserServiceTest {
     }
 
     @Test
-    fun `deleteUser should anonymize user and children`() {
+    fun `deleteUser should anonymize user and children with deletedAt populated`() {
         val userId = UUID.randomUUID()
         val user = User(email = "original@test.com", name = "Original User").apply { id = userId }
         val child1 = Child(name = "Child 1").apply { id = UUID.randomUUID() }
@@ -82,23 +95,32 @@ class AdminUserServiceTest {
 
         service.deleteUser(userId)
 
-        assertEquals("Deleted Child", child1.name)
-        assertEquals("Deleted Child", child2.name)
-        assertTrue(user.email.startsWith("deleted_"))
-        assertEquals("Deleted User", user.name)
-        assertFalse(user.isActive)
-        verify(childRepository).save(child1)
-        verify(childRepository).save(child2)
-        verify(userRepository).save(user)
+        val childCaptor = argumentCaptor<Child>()
+        verify(childRepository, times(2)).save(childCaptor.capture())
+        childCaptor.allValues.forEach { savedChild ->
+            assertEquals("Deleted Child", savedChild.name)
+            assertFalse(savedChild.isActive)
+            assertNotNull(savedChild.deletedAt)
+        }
+
+        val userCaptor = argumentCaptor<User>()
+        verify(userRepository).save(userCaptor.capture())
+        val savedUser = userCaptor.firstValue
+        assertTrue(savedUser.email.startsWith("deleted_"))
+        assertEquals("Deleted User", savedUser.name)
+        assertFalse(savedUser.isActive)
+        assertNotNull(savedUser.deletedAt)
     }
 
     @Test
-    fun `deleteUser should throw when user not found`() {
+    fun `deleteUser should throw when user not found and never save`() {
         val userId = UUID.randomUUID()
         whenever(userRepository.findById(userId)).thenReturn(Optional.empty())
 
         assertThrows<NoSuchElementException> {
             service.deleteUser(userId)
         }
+        verify(userRepository, never()).save(any())
+        verify(childRepository, never()).save(any())
     }
 }

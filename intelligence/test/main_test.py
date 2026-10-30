@@ -335,3 +335,270 @@ def test_triage_chat_endpoint_greeting():
     assert res["needsRagSearch"] is False
     assert res["urgencyLevel"] == "ROUTINE"
 
+
+# --- ТЕСТИ КАТЕГОРІЙ TriageChat (Евристичні гілки) ---
+
+def test_triage_chat_categories():
+    headers = {"X-Internal-Key": API_KEY}
+
+    # 1. Харчування та прикорм
+    resp1 = client.post("/triage-chat", headers=headers, json={
+        "message": "Коли вводити прикорм та грудне молочко?",
+        "childContext": {"ageMonths": 6, "allergies": []}
+    }).json()
+    assert resp1["intent"] == "NUTRITION_FEEDING"
+    assert resp1["needsRagSearch"] is True
+
+    # 2. Моторний та мовленнєвий розвиток
+    resp2 = client.post("/triage-chat", headers=headers, json={
+        "message": "Коли дитина починає повзати та говорити перші слова?",
+        "childContext": {"ageMonths": 10, "allergies": []}
+    }).json()
+    assert resp2["intent"] == "DEVELOPMENT_MILESTONES"
+    assert resp2["needsRagSearch"] is True
+
+    # 3. Антропометрія та зріст/вага
+    resp3 = client.post("/triage-chat", headers=headers, json={
+        "message": "Яка нормальна вага та зріст у 1 рік за центильними таблицями?",
+        "childContext": {"ageMonths": 12, "allergies": []}
+    }).json()
+    assert resp3["intent"] == "ANTHROPOMETRY_GROWTH"
+    assert resp3["needsRagSearch"] is True
+
+    # 4. Симптоми та застуди
+    resp4 = client.post("/triage-chat", headers=headers, json={
+        "message": "У малюка нежить, блювота і висока температура 38",
+        "childContext": {"ageMonths": 18, "allergies": []}
+    }).json()
+    assert resp4["intent"] == "SYMPTOM_OR_ILLNESS"
+    assert resp4["urgencyLevel"] == "CONSULT_PEDIATRICIAN"
+
+    # 5. Загальне запитання без ключових слів
+    resp5 = client.post("/triage-chat", headers=headers, json={
+        "message": "Розкажи про найкращі іграшки для розвитку дитини",
+        "childContext": {"ageMonths": 24, "allergies": []}
+    }).json()
+    assert resp5["intent"] == "SYMPTOM_OR_ILLNESS"
+    assert resp5["urgencyLevel"] == "ROUTINE"
+
+
+def test_evaluate_endpoint_allergy_guardrail_violation():
+    headers = {"X-Internal-Key": API_KEY}
+    payload = {
+        "childContext": {"ageMonths": 12, "allergies": ["молоко"]},
+        "chunks": [{"title": "Харчування", "content": "Загальні норми раціону."}],
+        "reportText": "Дитина добре росте та має чудовий апетит.",
+        "recommendations": "Щодня введіть та давайте дитині коров'яче молоко."
+    }
+    response = client.post("/evaluate", headers=headers, json=payload)
+    assert response.status_code == 200
+    res = response.json()
+    assert res["passedGuardrail"] is False
+    assert any("алергіями" in v for v in res["violationReasons"])
+
+
+# --- ТЕСТИ ПОМИЛОК ТА FALLBACK У ЕНДПОЇНТАХ ---
+
+def test_analyze_endpoint_exception_handling():
+    headers = {"X-Internal-Key": API_KEY}
+    from src.main.main import app, get_fuzzy_engine, FuzzyEngine
+
+    class FailingFuzzyEngine(FuzzyEngine):
+        def compute_fuzzy_inference(self, request_data):
+            raise RuntimeError("Simulated Fuzzy Engine Failure")
+
+    app.dependency_overrides[get_fuzzy_engine] = lambda: FailingFuzzyEngine()
+    try:
+        payload = {"childId": "err-child", "ageMonths": 12, "rules": []}
+        response = client.post("/analyze", headers=headers, json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert res["isFallback"] is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_rerank_endpoint_exception_handling():
+    headers = {"X-Internal-Key": API_KEY}
+    from src.main.main import app, get_decision_engine, SystemOneEngine
+
+    class FailingDecisionEngine(SystemOneEngine):
+        def rerank_and_filter_chunks(self, *args, **kwargs):
+            raise RuntimeError("Simulated Rerank Engine Failure")
+
+    app.dependency_overrides[get_decision_engine] = lambda: FailingDecisionEngine()
+    try:
+        payload = {
+            "query": "тест",
+            "childContext": {"ageMonths": 12},
+            "chunks": [{"title": "T1", "content": "C1"}]
+        }
+        response = client.post("/rerank", headers=headers, json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert len(res["chunks"]) == 1
+        assert res["chunks"][0]["relevanceScore"] == 0.5
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_evaluate_endpoint_exception_handling():
+    headers = {"X-Internal-Key": API_KEY}
+    from src.main.main import app, get_decision_engine, SystemOneEngine
+
+    class FailingDecisionEngine(SystemOneEngine):
+        def evaluate_medical_report(self, *args, **kwargs):
+            raise RuntimeError("Simulated Guardrail Engine Failure")
+
+    app.dependency_overrides[get_decision_engine] = lambda: FailingDecisionEngine()
+    try:
+        payload = {
+            "childContext": {"ageMonths": 12},
+            "chunks": [],
+            "reportText": "Текст",
+            "recommendations": "Поради"
+        }
+        response = client.post("/evaluate", headers=headers, json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert res["passedGuardrail"] is True
+        assert res["isSystemOne"] is False
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_triage_chat_endpoint_exception_handling():
+    headers = {"X-Internal-Key": API_KEY}
+    from src.main.main import app, get_decision_engine, SystemOneEngine
+
+    class FailingDecisionEngine(SystemOneEngine):
+        def triage_chat_message(self, *args, **kwargs):
+            raise RuntimeError("Simulated Chat Triage Engine Failure")
+
+    app.dependency_overrides[get_decision_engine] = lambda: FailingDecisionEngine()
+    try:
+        payload = {
+            "message": "Запитання",
+            "childContext": {"ageMonths": 12}
+        }
+        response = client.post("/triage-chat", headers=headers, json=payload)
+        assert response.status_code == 200
+        res = response.json()
+        assert res["intent"] == "SYMPTOM_OR_ILLNESS"
+        assert res["needsRagSearch"] is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+# --- ТЕСТИ ЕДЖ-КЕЙСІВ FUZZY ENGINE & SYSTEM ONE ---
+
+def test_fuzzy_engine_invalid_rule_condition():
+    from src.main.fuzzy_engine import FuzzyEngine
+    engine = FuzzyEngine()
+
+    invalid_rule_payload = {
+        "childId": "child-bad-rule",
+        "ageMonths": 12,
+        "rules": [
+            {
+                "conditions": [{"variable": "nonExistentVar", "term": "INVALID_TERM"}],
+                "consequent": "HIGH"
+            }
+        ]
+    }
+    res = engine.compute_fuzzy_inference(invalid_rule_payload)
+    assert res["isFallback"] is True
+
+
+def test_fuzzy_engine_no_inputs_provided():
+    from src.main.fuzzy_engine import FuzzyEngine
+    engine = FuzzyEngine()
+
+    payload = {
+        "childId": "child-no-inputs",
+        "rules": [
+            {
+                "conditions": [{"variable": "speechScore", "term": "LOW"}],
+                "consequent": "HIGH"
+            }
+        ]
+    }
+    res = engine.compute_fuzzy_inference(payload)
+    assert res["isFallback"] is True
+
+
+def test_laya_model_driver_and_system_one_mocked(monkeypatch):
+    monkeypatch.setenv("FAST_CHAT_TRIAGE", "false")
+    from src.main.system_one import LayaModelDriver, SystemOneEngine
+
+    driver = LayaModelDriver()
+    mock_agent = type("MockAgent", (), {
+        "predict": lambda self, state, questions: {
+            "requires_doctor_consult": {"prob": 0.85},
+            "allergy_or_chronic_constraint": {"prob": 0.10},
+            "measurement_outlier_warning": {"prob": 0.15},
+            "primary_focus": "REGRESSION_ALERT",
+            "anamnesis_severity": {"score": 2.4}
+        }
+    })()
+    driver._agent = mock_agent
+
+    assert driver.is_available is True
+
+    engine = SystemOneEngine(driver=driver)
+    assert engine.is_ready is True
+
+    triage_res = engine.decide_clinical_triage({"childId": "c1"})
+    assert triage_res["requiresDoctorConsultProbability"] == 0.85
+    assert triage_res["primaryFocus"] == "REGRESSION_ALERT"
+    assert triage_res["isSystemOne"] is True
+
+    # Test rerank with mocked driver
+    mock_rerank_agent = type("MockAgent", (), {
+        "predict": lambda self, state, questions: {
+            "relevance": {"score": 1.8},
+            "is_safe_for_child": {"prob": 0.95}
+        }
+    })()
+    driver._agent = mock_rerank_agent
+
+    chunks = [{"title": "T1", "content": "C1"}]
+    reranked = engine.rerank_and_filter_chunks("запитання", {"allergies": []}, chunks)
+    assert len(reranked) == 1
+    assert reranked[0]["relevanceScore"] == 0.90
+    assert reranked[0]["isSafeAndApplicable"] is True
+
+    # Test evaluate_medical_report with mocked driver
+    mock_eval_agent = type("MockAgent", (), {
+        "predict": lambda self, state, questions: {
+            "faithfulness": {"score": 2.7},
+            "relevance": {"score": 2.8},
+            "no_diagnosis_or_prescription": {"prob": 0.95},
+            "respects_allergies": {"prob": 0.95}
+        }
+    })()
+    driver._agent = mock_eval_agent
+
+    eval_res = engine.evaluate_medical_report({}, [], "Звіт", "Поради")
+    assert eval_res["faithfulnessScore"] == 0.90
+    assert eval_res["passedGuardrail"] is True
+    assert eval_res["isSystemOne"] is True
+
+    # Test triage_chat_message with mocked driver
+    mock_chat_agent = type("MockAgent", (), {
+        "predict": lambda self, state, questions: {
+            "intent": "SYMPTOM_OR_ILLNESS",
+            "urgency_level": "URGENT_RED_FLAG",
+            "needs_rag_search": {"prob": 0.95},
+            "asks_medication": {"prob": 0.05}
+        }
+    })()
+    driver._agent = mock_chat_agent
+
+    chat_res = engine.triage_chat_message("сильні судоми", {})
+    assert chat_res["intent"] == "SYMPTOM_OR_ILLNESS"
+    assert chat_res["urgencyLevel"] == "URGENT_RED_FLAG"
+    assert chat_res["isSystemOne"] is True
+
+
+

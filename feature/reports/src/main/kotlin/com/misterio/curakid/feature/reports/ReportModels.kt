@@ -5,7 +5,7 @@ import com.misterio.curakid.core.essential.common.analysis.FuzzyRule
 import java.math.BigDecimal
 import java.util.UUID
 
-internal data class DomainScores(
+data class DomainScores(
     val motorGross: BigDecimal? = null,
     val motorFine: BigDecimal? = null,
     val speech: BigDecimal? = null,
@@ -16,7 +16,7 @@ internal data class DomainScores(
     val regressions: Map<String, Boolean> = emptyMap()
 )
 
-internal data class ChildData(
+data class ChildData(
     val gender: Gender,
     val isPremature: Boolean,
     val allergies: List<String>,
@@ -25,7 +25,7 @@ internal data class ChildData(
     val notes: List<String>,
 )
 
-internal data class MeasurementSummary(
+data class MeasurementSummary(
     val wfaZscore: BigDecimal?,
     val hfaZscore: BigDecimal?,
     val bmiZscore: BigDecimal?,
@@ -42,7 +42,7 @@ internal data class MeasurementSummary(
         wfaVelocity != null || hfaVelocity != null || bmiVelocity != null || hcfaVelocity != null || wfhVelocity != null
 }
 
-internal data class GeneratedReport(
+data class GeneratedReport(
     val urgencyScore: BigDecimal,
     val reportText: String,
     val recommendations: String,
@@ -51,7 +51,7 @@ internal data class GeneratedReport(
     val relevanceScore: Double? = null
 )
 
-internal data class ReportContext(
+data class ReportContext(
     val childId: UUID,
     val ageMonths: Int,
     val ageDays: Int,

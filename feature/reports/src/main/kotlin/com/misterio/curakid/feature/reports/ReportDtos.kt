@@ -19,15 +19,15 @@ data class ReportResponse(
 ) {
     companion object {
         fun from(report: AiReport): ReportResponse = ReportResponse(
-            id = report.id!!,
-            childId = report.child!!.id!!,
+            id = requireNotNull(report.id) { "AiReport ID must not be null" },
+            childId = requireNotNull(report.child?.id) { "Child ID must not be null for AiReport" },
             lifePeriodId = report.periodSummary?.lifePeriod?.id,
             triggerMeasurementId = report.triggerMeasurement?.id,
             urgencyScore = report.urgencyScore,
             reportText = report.reportText,
             recommendations = report.recommendations,
             isFallback = report.isFallback,
-            createdAt = report.createdAt!!
+            createdAt = report.createdAt ?: Instant.now()
         )
     }
 }

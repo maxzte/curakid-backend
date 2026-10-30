@@ -1,109 +1,201 @@
-# CuraKid Backend 🚀
+# CuraKid Backend Platform 🚀
 
-Цей репозиторій містить бекенд-частину системи **CuraKid** — платформи для моніторингу розвитку дітей з використанням нечіткої логіки та RAG (Retrieval-Augmented Generation).
+[![Spring Boot](https://img.shields.io/badge/Spring%2520Boot-4.1.2-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.21-purple.svg)](https://kotlinlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115.5-teal.svg)](https://fastapi.tiangolo.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20+%20pgvector-blue.svg)](https://github.com/pgvector/pgvector)
+[![Apache Kafka](https://img.shields.io/badge/Apache%2520Kafka-3.8.0-orange.svg)](https://kafka.apache.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2D3748.svg)](https://www.docker.com/)
 
-## 🏗 Архітектура
-
-Система побудована за принципом **Orchestrator-Worker**:
-1.  **Core Service (Spring Boot + Kotlin)**: Оркестратор бізнес-логіки, безпеки (Auth) та RAG-двигун.
-2.  **Intelligence Service (FastAPI + Python)**: FIS-модуль (Fuzzy Inference System) для аналізу стану дитини та генерації ембедінгів.
-3.  **Database (Supabase/PostgreSQL + pgvector)**: Зберігання реляційних даних та векторних представлень медичних протоколів.
-
-Детальніше про архітектуру читайте в [AGENTS.md](./AGENTS.md).
+**CuraKid** is an advanced, AI-powered pediatric health monitoring and child development platform. It integrates evidence-based clinical protocols, WHO growth standards, Fuzzy Inference Systems (FIS), Retrieval-Augmented Generation (RAG) powered by Google Gemini, and real-time event streaming to support parents and pediatricians in tracking child growth, developmental milestones, and health assessments.
 
 ---
 
-## 🛠 Початок роботи
+## 🏗 System Architecture
 
-### 📋 Попередні вимоги
-- **Docker** та **Docker Compose**
-- Доступ до **Supabase** (або локальний PostgreSQL з розширенням `pgvector`)
-- **Google Cloud Project** з активованим Vertex AI (для Gemini API)
+The platform follows a robust **Orchestrator-Worker** microservice architecture:
 
-### ⚙️ Налаштування оточення
-1. Скопіюйте приклад файлу налаштувань:
+```mermaid
+graph TD
+    Client["Mobile / Web Client (/api/v1/*)"] --> SpringApp["Spring Boot Orchestrator\n(Kotlin / Spring Security / RAG)"]
+    
+    subgraph Backend Core and Features
+        SpringApp --> Auth["Feature: Auth and JWT"]
+        SpringApp --> Children["Feature: Children and Growth"]
+        SpringApp --> Measurements["Feature: Measurements and WHO"]
+        SpringApp --> Chat["Feature: AI Chat and RAG"]
+        SpringApp --> Reports["Feature: AI Health Reports"]
+        SpringApp --> Event["Feature: Events and Calendar"]
+    end
+
+    SpringApp -->|HTTP / Internal API Key| Intelligence["FastAPI Intelligence Service\n(Python / FIS)"]
+    SpringApp -->|JPA / pgvector| PostgreSQL[(PostgreSQL 16 + pgvector)]
+    SpringApp -->|Caching / Sessions| Redis[(Redis 7)]
+    SpringApp -->|Event Streaming / Notifications| Kafka[(Apache Kafka)]
+    SpringApp -->|Generative AI and Embeddings| Gemini["Google Vertex AI / Gemini API"]
+    Kafka --> FCM["Firebase Cloud Messaging (FCM)"]
+```
+
+### Core Components:
+1. **Spring Boot Orchestrator (`:springapp` & `:core:*`, `:feature:*`)**: Manages domain logic, authentication, REST API versioned endpoints (`/api/v1`), security filters, RAG pipelines, and database persistence.
+2. **Intelligence Service (`intelligence/`)**: A dedicated Python FastAPI microservice running a **Fuzzy Inference System (FIS)** for non-linear health/development risk assessment and local transformer models (`Laya-multilingual`) for text processing and embedding generation.
+3. **Database (`PostgreSQL + pgvector`)**: Stores relational domain models (children, measurements, assessments, chat sessions) and high-dimensional vector embeddings of medical guidelines for semantic search.
+4. **Message Broker (`Apache Kafka`)**: Handles asynchronous event-driven workflows (push notifications, background report generation, token cleanup).
+5. **Caching (`Redis`)**: Provides fast caching and session store management.
+
+---
+
+## 📂 Project Structure & Modules
+
+The project is structured as a multi-module Gradle enterprise repository:
+
+- **Root & Infrastructure**:
+  - `springapp/`: Main Spring Boot application entry point and configuration.
+  - `intelligence/`: Python FastAPI service for Fuzzy Logic & ML embeddings.
+  - `infrastructure/`: Docker Compose, init scripts (`schema.sql`), and environment templates.
+- **Core Modules (`:core:*`)**:
+  - `:core:database`: JPA entities, repositories, and database schemas.
+  - `:core:essential`: Common utilities, custom exceptions, pagination (`PagedResponse<T>`).
+  - `:core:medical`: Medical domain models and clinical protocol definitions.
+  - `:core:security`: Spring Security configuration, JWT filters, and `InternalApiKeyFilter`.
+- **Feature Modules (`:feature:*`)**:
+  - `:feature:assessments`: Child development tests and milestone evaluation.
+  - `:feature:auth`: Authentication, registration, password reset, and Google OAuth.
+  - `:feature:chat`: RAG-based AI medical assistant chat (Gemini API, pgvector).
+  - `:feature:children`: Child profile management and family linking.
+  - `:feature:development`: Developmental milestone tracking.
+  - `:feature:event`: Calendar, scheduled medical visits, and event reminders.
+  - `:feature:fis`: HTTP client integration with the Python Intelligence service.
+  - `:feature:knowledge`: Medical knowledge base and vector embedding indexing.
+  - `:feature:measurements`: Physical growth tracking (height, weight, head circumference) against WHO standards.
+  - `:feature:notification`: Push notifications (FCM) and Kafka event consumers.
+  - `:feature:reports`: Asynchronous AI health report generation engine and PDF/Markdown exporter.
+
+---
+
+## 🛠 Technology Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Backend Framework** | Kotlin 2.3.21, Spring Boot 4.1.2, Spring Security, Spring Data JPA, Spring AI |
+| **Decision & Intelligence Service** | Python 3.11+, FastAPI 0.115.5, Fuzzy Inference System (`scikit-fuzzy`), Laya Model |
+| **Database & Vector Search** | PostgreSQL 16 with `pgvector` extension |
+| **Cache & Broker** | Redis 7, Apache Kafka 3.8.0 (KRaft mode) |
+| **Generative AI & RAG** | Google Vertex AI / Gemini API, Spring AI |
+| **Push Notifications** | Firebase Cloud Messaging (FCM) |
+| **Containerization** | Docker, Docker Compose, Gradle 8+ |
+
+---
+
+## 📋 Prerequisites
+
+Before running the platform, ensure you have installed:
+- **Docker** and **Docker Compose** (v2.20+)
+- **JDK 21** (for local Gradle builds)
+- **Python 3.11+** & `pip` / `uv` (if running Intelligence service locally)
+- **Google Cloud SDK** (with an active Google Cloud Project and Gemini API access)
+
+---
+
+## ⚙️ Environment Configuration
+
+1. Copy the environment template:
    ```bash
    cp .env.example .env
    ```
-2. Відредагуйте `.env`, вказавши ваші ключі та параметри підключення до БД.
-   - **Важливо**: `JWT_SECRET` має бути довжиною не менше 32 символів.
-   - `INTERNAL_API_KEY` має бути однаковим для обох сервісів.
+2. Configure the required environment variables in `.env`:
+   - `JWT_SECRET`: Secret key for JWT signing (minimum 32 characters / 256 bits).
+   - `INTERNAL_API_KEY`: Shared secret key for secure inter-service communication between Spring Boot and FastAPI.
+   - `GOOGLE_AI_API_KEY` / `SPRING_AI_GOOGLE_GENAI_API_KEY`: Your Google Gemini / Vertex AI API key.
+   - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`: PostgreSQL connection details.
+   - `SPRING_DATA_REDIS_PASSWORD`: Redis password.
 
 ---
 
-### 🔑 Авторизація Google AI (Vertex AI)
-Для роботи Gemini API необхідно:
-1. Мати активний Google Cloud Project.
-2. Встановити [Google Cloud SDK](https://cloud.google.com/sdk/docs/install).
-3. Виконати команду для локальної авторизації:
+## 🔑 Google AI & Vertex AI Authentication
+
+To enable generative AI capabilities and RAG chat:
+1. Ensure your Google Cloud Project has the **Vertex AI API** enabled.
+2. Authenticate locally via Google Cloud SDK:
    ```bash
    gcloud auth application-default login
    ```
-4. У Docker-контейнері Spring Boot автоматично шукатиме облікові дані, якщо змонтувати відповідний volume або передати `GOOGLE_APPLICATION_CREDENTIALS`.
+3. Place your Firebase service account key at `serviceAccountKey.json` in the root directory for push notifications.
 
 ---
 
-## 🚀 Запуск системи
+## 🚀 Getting Started
 
-### Варіант 1: Через Docker Compose (рекомендовано)
-Це запустить обидва сервіси (Spring Boot та Python) в єдиній мережі.
+### Option 1: Run with Docker Compose (Recommended)
+This starts all services (Spring Boot, Python FastAPI, PostgreSQL with `pgvector`, Redis, and Kafka) in a networked environment:
 
 ```bash
-docker-compose up --watch
-docker-compose up --build
-docker compose up -d
+# Build and start all containers in background
+docker compose up --build -d
+
+# View backend logs
 docker compose logs -f backend
-
-#Локальна розробка
-docker-compose up intelligence
-./gradlew :springapp:bootRun
-
-
 ```
 
-- **Spring App**: `http://localhost:8080`
-- **Intelligence Service**: `http://localhost:8000` (перший запуск може тривати 2-5 хв через завантаження ML-моделі ~1GB)
+- **Spring Boot API**: `http://localhost:8080`
+- **Intelligence Service**: `http://localhost:8000` (First startup may take 2–5 minutes while downloading the base ML model ~1GB).
+
+### Option 2: Local Hybrid Development
+If you prefer running services directly on your host machine:
+
+1. Start infrastructure services (Postgres, Redis, Kafka):
+   ```bash
+   docker compose up -d postgres redis kafka intelligence
+   ```
+2. Run the Spring Boot application:
+   ```bash
+   ./gradlew :springapp:bootRun
+   ```
 
 ---
 
-## 🧪 Тестування та Покриття (Test Coverage)
+## 📡 REST API Versioning & Conventions
 
-### 1. Core Service (Kotlin/Spring)
-Для запуску тестів та генерації звіту JaCoCo:
+All REST endpoints are standardized under the **`/api/v1/...`** prefix:
+- **Pagination**: Paginated responses use the custom `PagedResponse<T>` wrapper containing content, page number, size, total elements, and total pages.
+- **Security**: Protected endpoints require a valid Bearer JWT token in the `Authorization` header. Internal inter-service requests use the `X-Internal-API-Key` header verified by `InternalApiKeyFilter`.
+- **Validation**: Path variables and request bodies are validated using JSR-380 annotations (`@NotNull`, `@Min`, `@Size`).
+
+---
+
+## 🧪 Testing & Code Quality
+
+### Spring Boot Tests & JaCoCo Coverage
+To run unit and integration tests across all modules and generate a JaCoCo coverage report:
 ```bash
 ./gradlew test jacocoTestReport
 ```
-Звіт буде доступний за адресою: `springapp/build/reports/jacoco/test/html/index.html`.
+Report location: `springapp/build/reports/jacoco/test/html/index.html`
 
-### 2. Intelligence Service (Python)
-Для запуску тестів з вимірюванням покриття:
+### Intelligence Service Tests (Python)
 ```bash
 cd intelligence
+python -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
 pytest --cov=src test/
+```
+
+### Code Formatting & Linting
+```bash
+./gradlew ktlintCheck
 ```
 
 ---
 
-## 🗄 База даних
+## 🛠 Troubleshooting
 
-Система використовує **Supabase** (PostgreSQL 16).
-- Hibernate автоматично створить таблиці (`ddl-auto: update`).
-- Для векторного пошуку використовується розширення `pgvector`.
-- При першому запуску Spring Boot виконає `schema.sql`, щоб активувати розширення:
-  ```sql
-  CREATE EXTENSION IF NOT EXISTS vector;
-  ```
+- **Backend connection error to Intelligence Service**: The Spring Boot backend may start before FastAPI is fully ready. Wait for the intelligence service healthcheck to pass, then restart the backend: `docker compose restart backend`.
+- **JWT Signature Exception**: Ensure `JWT_SECRET` in `.env` is at least 32 characters long.
+- **Postgres `vector` extension missing**: The initialization script (`infrastructure/init.sql`) automatically executes `CREATE EXTENSION IF NOT EXISTS vector;`. Ensure your database user has superuser or extension creation privileges.
 
 ---
 
-## 🤝 Розробка
-Перед комітом переконайтеся, що код відформатований:
-- Для Kotlin: `./gradlew ktlintCheck`
----
+## 📄 License
 
-## 🛠 Troubleshooting (Вирішення проблем)
-
-- **Backend не підключається до Intelligence**: Бекенд може впасти з помилкою з'єднання. Просто зачекайте завершення завантаження та перезапустіть бекенд: `docker-compose restart backend`.
-- **Помилка JWT**: Переконайтеся, що `JWT_SECRET` у файлі `.env` має довжину не менше 32 символів (256 біт).
-- **Помилка "Extension 'vector' not found"**: Переконайтеся, що ваша база даних PostgreSQL підтримує `pgvector`. У Supabase це розширення вже встановлено, але його потрібно активувати (це робить `schema.sql`).
+This project is developed as a diploma project. All rights reserved.

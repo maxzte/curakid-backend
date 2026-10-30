@@ -6,23 +6,37 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @Component
 class RateLimitFilter(
-    private val redisTemplate: StringRedisTemplate? = null
+    private val redisTemplate: StringRedisTemplate? = null,
+    private val jwtService: JwtService? = null
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(RateLimitFilter::class.java)
 
     companion object {
-        private const val REDIS_KEY_PREFIX = "ratelimit:auth:"
+        private const val REDIS_KEY_AUTH_PREFIX = "ratelimit:auth:"
+        private const val REDIS_KEY_AI_PREFIX = "ratelimit:ai:"
+
+        // Atomic INCR + PEXPIRE Lua script to guarantee keys always have a TTL even on abrupt restarts
+        private val ATOMIC_RATE_LIMIT_SCRIPT = DefaultRedisScript(
+            """
+            local current = redis.call('INCR', KEYS[1])
+            if current == 1 then
+                redis.call('PEXPIRE', KEYS[1], ARGV[1])
+            end
+            return current
+            """.trimIndent(),
+            Long::class.java
+        )
     }
 
     private data class RateWindow(
@@ -32,12 +46,19 @@ class RateLimitFilter(
 
     // Window: 1 minute. Cleaned automatically by Guava cache as fallback.
     private val fallbackAuthRateLimitCache = CacheBuilder.newBuilder()
-        .maximumSize(10_000)
+        .maximumSize(50_000)
+        .expireAfterWrite(1, TimeUnit.MINUTES)
+        .build<String, RateWindow>()
+
+    private val fallbackAiRateLimitCache = CacheBuilder.newBuilder()
+        .maximumSize(50_000)
         .expireAfterWrite(1, TimeUnit.MINUTES)
         .build<String, RateWindow>()
 
     // Allow max 15 auth requests per minute per IP to prevent credential stuffing / brute force
     private val maxAuthRequestsPerMinute = 15
+    // Allow max 30 heavy AI requests (chat stream / report generation) per minute per User/IP
+    private val maxAiRequestsPerMinute = 30
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -45,13 +66,19 @@ class RateLimitFilter(
         filterChain: FilterChain
     ) {
         val path = request.requestURI
+        val isAuth = isRateLimitedAuthEndpoint(path, request.method)
+        val isAi = isRateLimitedAiEndpoint(path, request.method)
 
-        if (isRateLimitedAuthEndpoint(path, request.method)) {
-            val clientIp = extractClientIp(request)
+        if (isAuth || isAi) {
+            val identifier = if (isAi) extractAiIdentifier(request) else extractClientIp(request)
+            val prefix = if (isAuth) REDIS_KEY_AUTH_PREFIX else REDIS_KEY_AI_PREFIX
+            val maxLimit = if (isAuth) maxAuthRequestsPerMinute else maxAiRequestsPerMinute
+            val fallbackCache = if (isAuth) fallbackAuthRateLimitCache else fallbackAiRateLimitCache
+
             val isExceeded = if (redisTemplate != null) {
-                checkWithRedis(clientIp)
+                checkWithRedis(prefix, identifier, maxLimit, fallbackCache)
             } else {
-                checkWithFallback(clientIp)
+                checkWithFallback(fallbackCache, identifier, maxLimit)
             }
 
             if (isExceeded) {
@@ -68,24 +95,35 @@ class RateLimitFilter(
         filterChain.doFilter(request, response)
     }
 
-    private fun checkWithRedis(clientIp: String): Boolean {
-        val key = REDIS_KEY_PREFIX + clientIp
+    private fun checkWithRedis(
+        prefix: String,
+        identifier: String,
+        maxLimit: Int,
+        fallbackCache: com.google.common.cache.Cache<String, RateWindow>
+    ): Boolean {
+        val key = prefix + identifier
+        val redis = redisTemplate ?: return checkWithFallback(fallbackCache, identifier, maxLimit)
         return try {
-            val count = redisTemplate!!.opsForValue().increment(key) ?: 1L
-            if (count == 1L) {
-                redisTemplate.expire(key, Duration.ofMinutes(1))
-            }
-            count > maxAuthRequestsPerMinute
+            val count = redis.execute(
+                ATOMIC_RATE_LIMIT_SCRIPT,
+                listOf(key),
+                "60000" // 60 seconds TTL in milliseconds
+            ) ?: 1L
+            count > maxLimit
         } catch (e: Exception) {
-            log.warn("Redis rate-limiting failed for {}, falling back to local memory: {}", clientIp, e.message)
-            checkWithFallback(clientIp)
+            log.warn("Redis rate-limiting failed for {}, falling back to local memory: {}", identifier, e.message)
+            checkWithFallback(fallbackCache, identifier, maxLimit)
         }
     }
 
-    private fun checkWithFallback(clientIp: String): Boolean {
-        val window = fallbackAuthRateLimitCache.get(clientIp) { RateWindow() }
+    private fun checkWithFallback(
+        fallbackCache: com.google.common.cache.Cache<String, RateWindow>,
+        identifier: String,
+        maxLimit: Int
+    ): Boolean {
+        val window = fallbackCache.get(identifier) { RateWindow() }
         val currentCount = window.count.incrementAndGet()
-        return currentCount > maxAuthRequestsPerMinute
+        return currentCount > maxLimit
     }
 
     private fun isRateLimitedAuthEndpoint(path: String, method: String): Boolean {
@@ -94,23 +132,38 @@ class RateLimitFilter(
                 path == "/api/auth/register" ||
                 path == "/api/auth/verify-email" ||
                 path == "/api/auth/forgot-password" ||
-                path == "/api/auth/reset-password"
+                path == "/api/auth/reset-password" ||
+                path == "/api/auth/refresh" ||
+                path == "/api/auth/oauth/google"
+    }
+
+    private fun isRateLimitedAiEndpoint(path: String, method: String): Boolean {
+        if (method != "POST") return false
+        return path == "/api/chat/stream" ||
+                (path.startsWith("/api/children/") && path.endsWith("/reports/generate")) ||
+                (path.startsWith("/api/reports/") && path.endsWith("/regenerate"))
+    }
+
+    private fun extractAiIdentifier(request: HttpServletRequest): String {
+        val authHeader = request.getHeader("Authorization")
+        if (authHeader != null && authHeader.startsWith("Bearer ") && jwtService != null) {
+            val jwt = authHeader.substring(7)
+            val userId = jwtService.extractUserId(jwt)
+            if (userId != null) return "user:$userId"
+            val username = jwtService.extractUsername(jwt)
+            if (username != null) return "user:$username"
+        }
+        return "ip:" + extractClientIp(request)
     }
 
     private fun extractClientIp(request: HttpServletRequest): String {
-        // X-Real-IP is typically set directly by the ingress/reverse-proxy
+        val xForwardedFor = request.getHeader("X-Forwarded-For")
+        if (!xForwardedFor.isNullOrBlank()) {
+            return xForwardedFor.split(",").first().trim()
+        }
         val xRealIp = request.getHeader("X-Real-IP")
         if (!xRealIp.isNullOrBlank()) {
             return xRealIp.trim()
-        }
-
-        val xForwardedFor = request.getHeader("X-Forwarded-For")
-        if (!xForwardedFor.isNullOrBlank()) {
-            // In a standard proxy chain, the rightmost client IP before internal hops is the most reliable
-            val ips = xForwardedFor.split(",").map { it.trim() }.filter { it.isNotBlank() }
-            if (ips.isNotEmpty()) {
-                return ips.first()
-            }
         }
         return request.remoteAddr ?: "unknown"
     }

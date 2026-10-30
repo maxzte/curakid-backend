@@ -8,7 +8,12 @@ import org.hibernate.type.SqlTypes
 import java.util.UUID
 
 @Entity
-@Table(name = "medical_knowledge")
+@Table(
+    name = "medical_knowledge",
+    indexes = [
+        Index(name = "idx_medical_knowledge_category", columnList = "category_id")
+    ]
+)
 @SQLRestriction("deleted_at IS NULL")
 class MedicalKnowledge(
 

@@ -1,6 +1,6 @@
 [versions]
-kotlin = "2.2.21"
-spring-boot = "4.0.2"
+kotlin = "2.3.21"
+spring-boot = "4.1.2"
 spring-dep-mgmt = "1.1.7"
 postgresql = "42.7.5"
 hibernate-vector = "7.2.1.Final"
@@ -12,8 +12,10 @@ gemini = "2.0.0-M7"
 jjwt = "0.12.6"
 google-auth = "1.33.0"
 pdfbox = "3.0.4"
-sentry = "7.18.1"
+sentry = "6.24.0"
 firebase-admin = "9.4.3"
+jsoup = "1.18.3"
+gatling = "3.15.1"
 
 
 [libraries]
@@ -29,6 +31,7 @@ spring-boot-starter-validation = { module = "org.springframework.boot:spring-boo
 spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux", version.ref = "spring-boot" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "spring-boot" }
 spring-boot-starter-mail = { module = "org.springframework.boot:spring-boot-starter-mail", version.ref = "spring-boot" }
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
 spring-boot-starter-json = { module = "org.springframework.boot:spring-boot-starter-json", version.ref = "spring-boot" }
 spring-ai-core = { module = "org.springframework.ai:spring-ai-core", version.ref = "spring-ai" }
 spring-ai-google-gemini = { module = "org.springframework.ai:spring-ai-starter-model-google-genai", version.ref = "gemini" }
@@ -39,11 +42,16 @@ jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 google-auth-library = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
 google-api-client = { module = "com.google.api-client:google-api-client", version = "2.7.2" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "spring-boot" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "spring-boot" }
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
 spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis", version.ref = "spring-boot" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version = "5.4.0" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 sentry-spring-boot-starter = { module = "io.sentry:sentry-spring-boot-starter-jakarta", version.ref = "sentry" }
 firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
+spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test" }
 
 # TEST
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
@@ -67,6 +75,8 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dep-mgmt" }
+gatling-plugin = { id = "io.gatling.gradle", version.ref = "gatling" }
+sentry-plugin = { id = "io.sentry.jvm.gradle", version.ref = "sentry" }
 
 # CUSTOM
 curakid-spring-app = { id = "curakid.spring.app" }

@@ -6,7 +6,12 @@ import java.time.Instant
 import java.util.*
 
 @Entity
-@Table(name = "user_consents")
+@Table(
+    name = "user_consents",
+    indexes = [
+        Index(name = "idx_user_consents_user", columnList = "user_id")
+    ]
+)
 class UserConsent(
 
     @ManyToOne(fetch = FetchType.LAZY)

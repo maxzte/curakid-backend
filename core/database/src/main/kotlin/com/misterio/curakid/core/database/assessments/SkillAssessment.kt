@@ -39,7 +39,7 @@ class SkillAssessment(
     @Column(name = "score", precision = 5, scale = 2)
     var score: BigDecimal? = null,
 
-    @OneToMany(mappedBy = "assessment", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "assessment", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     val answers: MutableList<AssessmentAnswer> = mutableListOf(),
 
     @ManyToOne(fetch = FetchType.LAZY)

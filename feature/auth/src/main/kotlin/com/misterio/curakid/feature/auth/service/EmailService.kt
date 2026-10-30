@@ -3,6 +3,7 @@ package com.misterio.curakid.feature.auth.service
 import org.slf4j.LoggerFactory
 import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.mail.javamail.MimeMessageHelper
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import org.thymeleaf.context.Context
 import org.thymeleaf.spring6.SpringTemplateEngine
@@ -14,7 +15,8 @@ class EmailService(
 ) {
     private val logger = LoggerFactory.getLogger(EmailService::class.java)
 
-    fun sendVerificationEmail(to: String, name: String, code: String) {
+    @Async
+    open fun sendVerificationEmail(to: String, name: String, code: String) {
         val context = Context().apply {
             setVariable("name", name)
             setVariable("code", code)
@@ -23,7 +25,8 @@ class EmailService(
         sendHtml(to, "Підтвердження реєстрації - CuraKid", html)
     }
 
-    fun sendPasswordResetEmail(to: String, name: String, code: String) {
+    @Async
+    open fun sendPasswordResetEmail(to: String, name: String, code: String) {
         val context = Context().apply {
             setVariable("name", name)
             setVariable("code", code)

@@ -23,13 +23,13 @@ class AdminKnowledgeService(
     private val embeddingProvider: EmbeddingProvider
 ) {
     private fun MedicalCategory.toResponse() = AdminCategoryResponse(
-        id = id ?: UUID.randomUUID(),
+        id = id,
         name = name,
         displayName = displayName
     )
 
     private fun MedicalKnowledge.toResponse() = AdminArticleResponse(
-        id = id ?: UUID.randomUUID(),
+        id = id,
         title = title,
         content = content,
         category = category?.toResponse(),
@@ -45,20 +45,20 @@ class AdminKnowledgeService(
         val sourceId = UUID.randomUUID()
         val chunks = chunkText(content)
         
-        // Generate embeddings outside of DB transaction to prevent HikariCP connection starvation
-        return chunks.map { chunk ->
+        // Generate embeddings outside DB transaction to prevent HikariCP connection starvation
+        val articles = chunks.map { chunk ->
             val embedding = embeddingProvider.generateEmbedding(chunk)
                 ?: throw IllegalStateException("Failed to generate embedding for the chunk")
             
-            val article = MedicalKnowledge(
+            MedicalKnowledge(
                 title = title,
                 content = chunk,
                 category = category,
                 embedding = embedding.toFloatArray(),
                 sourceId = sourceId
             )
-            knowledgeRepository.save(article).toResponse()
         }
+        return knowledgeRepository.saveAll(articles).map { it.toResponse() }
     }
 
     fun uploadArticleFromFile(title: String, content: ByteArray, filename: String, categoryId: UUID, metadata: Map<String, Any>): List<AdminArticleResponse> {
@@ -74,13 +74,13 @@ class AdminKnowledgeService(
         val sourceId = UUID.randomUUID()
         val chunks = chunkText(textContent)
 
-        // Generate embeddings outside of DB transaction
-        return chunks.map { chunk ->
+        // Generate embeddings outside DB transaction
+        val articles = chunks.map { chunk ->
             val doc = KnowledgeDocument(chunk, metadata)
             val embedding = embeddingProvider.embed(doc)
                 ?: throw IllegalStateException("Failed to generate embedding for the chunk")
 
-            val article = MedicalKnowledge(
+            MedicalKnowledge(
                 title = title,
                 content = chunk,
                 category = category,
@@ -88,8 +88,8 @@ class AdminKnowledgeService(
                 metadata = metadata,
                 sourceId = sourceId
             )
-            knowledgeRepository.save(article).toResponse()
         }
+        return knowledgeRepository.saveAll(articles).map { it.toResponse() }
     }
 
     private fun chunkText(text: String, chunkSize: Int = 1200, overlap: Int = 200): List<String> {

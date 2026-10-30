@@ -6,12 +6,14 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.testing.Test
 import org.gradle.internal.Actions.with
+import org.gradle.jvm.tasks.Jar
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.withType
 import org.gradle.process.CommandLineArgumentProvider
 import org.jetbrains.kotlin.allopen.gradle.AllOpenExtension
+import org.springframework.boot.gradle.tasks.bundling.BootJar
 
 class FeatureConventionPlugin : Plugin<Project> {
 
@@ -24,6 +26,14 @@ class FeatureConventionPlugin : Plugin<Project> {
             apply(plugin = "org.jetbrains.kotlin.plugin.jpa")
 
             configureJavaAndKotlin()
+
+            tasks.withType<BootJar> {
+                enabled = false
+                mainClass.set("")
+            }
+            tasks.withType<Jar> {
+                enabled = true
+            }
 
             val mockitoAgent = configurations.create("mockitoAgent")
             val mockitoAgentFiles = objects.fileCollection().from(mockitoAgent)

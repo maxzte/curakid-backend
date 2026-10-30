@@ -7,4 +7,5 @@ version = "unspecified"
 
 dependencies {
     implementation(libs.slf4j)
+    testImplementation(kotlin("test"))
 }

@@ -93,8 +93,8 @@
                     <div class="period-header" onclick="togglePeriod(this)">
                         <div class="period-info">
                             <span class="toggle">▶</span>
-                            <strong>${p.label}</strong>
-                            <span class="badge">${p.code}</span>
+                            <strong>${AdminAuth.escapeHtml(p.label)}</strong>
+                            <span class="badge">${AdminAuth.escapeHtml(p.code)}</span>
                             <span style="color: var(--text-muted); font-size: 0.85rem;">${p.minMonths}–${p.maxMonths} мiс</span>
                             <span style="color: var(--text-muted); font-size: 0.85rem;">(${p.questions ? p.questions.length : 0} питань)</span>
                         </div>

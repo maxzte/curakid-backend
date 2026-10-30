@@ -5,14 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curakid Admin - Календар щеплень</title>
     <th:block th:replace="admin/fragments :: head-links"></th:block>
+    <style>
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .sync-section {
+            margin-bottom: 20px;
+        }
+        .badge-new { background-color: #e6f4ea; color: #137333; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+        .badge-changed { background-color: #fef7e0; color: #b06000; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+        .badge-missing { background-color: #fce8e6; color: #c5221f; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    </style>
 </head>
 <body>
 
     <div th:replace="~{admin/fragments :: sidebar('vaccines')}"></div>
+    <div th:replace="~{admin/fragments :: scripts}"></div>
 
     <div class="main-content">
-        <div class="header">
+        <div class="header flex-between">
             <h2>Національний календар щеплень</h2>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn" style="background-color: #0d6efd;" onclick="openSyncModal()">
+                    🔄 Оновити вакцини з МОЗ
+                </button>
+                <button type="button" class="btn" style="background-color: #198754;" onclick="triggerBackfill()">
+                    👶 Згенерувати вакцини для дітей
+                </button>
+            </div>
         </div>
 
         <div class="card">
@@ -78,55 +115,297 @@
                             <th>Назва</th>
                             <th>Хвороба</th>
                             <th>Доза</th>
-                            <th>Вік</th>
                             <th>Тип</th>
+                            <th>Вік</th>
+                            <th>Примітки</th>
                             <th>Дії</th>
                         </tr>
                     </thead>
                     <tbody id="vaccines-table-body">
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted);">Завантаження...</td>
-                        </tr>
+                        <!-- Loaded dynamically -->
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div th:replace="~{admin/fragments :: scripts}"></div>
+    <!-- Modal for Sync Preview -->
+    <div id="sync-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="flex-between" style="margin-bottom: 15px;">
+                <h3>Порівняння з офіційним календарем щеплень</h3>
+                <button class="btn" style="background-color: #6c757d; padding: 4px 10px;" onclick="closeSyncModal()">✕</button>
+            </div>
+            <div id="sync-loading" style="display: none; text-align: center; padding: 20px;">
+                <span>⏳ Завантаження та парсинг календаря з vaccine.org.ua...</span>
+            </div>
+            <div id="sync-content" style="display: none;">
+                <div class="sync-section">
+                    <h4 style="color: #137333;">🟢 Нові вакцини (відсутні в системі)</h4>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="select-all-new" onchange="toggleSelectAll('new')"></th>
+                                    <th>Вакцина</th>
+                                    <th>Хвороба</th>
+                                    <th>Доза</th>
+                                    <th>Тип</th>
+                                    <th>Вік</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sync-new-body"></tbody>
+                        </table>
+                    </div>
+                </div>
 
+                <div class="sync-section">
+                    <h4 style="color: #b06000;">🟡 Змінені вакцини</h4>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="select-all-changed" onchange="toggleSelectAll('changed')"></th>
+                                    <th>Вакцина</th>
+                                    <th>Хвороба</th>
+                                    <th>Доза</th>
+                                    <th>Поточний вік</th>
+                                    <th>Новий вік на сайті</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sync-changed-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="sync-section">
+                    <h4 style="color: #c5221f;">⚪ Відсутні на сайті (інформативно, не видаляються)</h4>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Вакцина</th>
+                                    <th>Хвороба</th>
+                                    <th>Доза</th>
+                                    <th>Тип</th>
+                                    <th>Вік</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sync-missing-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button class="btn" style="background-color: #6c757d;" onclick="closeSyncModal()">Закрити</button>
+                    <button class="btn" style="background-color: #0d6efd;" onclick="applySyncSelection()">Застосувати вибрані</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/admin.js}"></script>
     <script>
-        fetchVaccines();
+        let currentPreviewData = null;
 
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchVaccines();
+        });
 
         async function fetchVaccines() {
             try {
                 const response = await AdminAuth.apiFetch('/api/admin/vaccines');
                 if (!response) return;
-                
                 const vaccines = await response.json();
-                const tbody = document.getElementById('vaccines-table-body');
-                
-                if (vaccines.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Нічого не знайдено.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = vaccines.map(v => `
-                    <tr>
-                        <td style="font-weight: 600;">${v.name}</td>
-                        <td>${v.disease}</td>
-                        <td>${v.doseNumber}/${v.totalDoses}</td>
-                        <td>${v.scheduledAgeMonths ? v.scheduledAgeMonths + ' міс.' : (v.scheduledAgeDays ? v.scheduledAgeDays + ' дн.' : '-')}</td>
-                        <td><span class="badge">${v.type === 'VACCINATION' ? 'Вакц.' : 'Ревакц.'}</span></td>
-                        <td>
-                            <button class="edit-btn" onclick="editVaccine('${v.id}')">Редагувати</button>
-                            <button class="delete-btn" onclick="deleteVaccine('${v.id}')">Видалити</button>
-                        </td>
-                    </tr>
-                `).join('');
+                renderVaccines(vaccines);
             } catch (err) {
-                AdminAuth.showToast('Помилка завантаження: ' + err.message, 'error');
+                AdminAuth.showToast('Помилка завантаження щеплень: ' + err.message, 'error');
+            }
+        }
+
+        function renderVaccines(vaccines) {
+            const tbody = document.getElementById('vaccines-table-body');
+            tbody.innerHTML = '';
+
+            vaccines.sort((a, b) => {
+                const ageA = (a.scheduledAgeMonths || 0) * 30 + (a.scheduledAgeDays || 0);
+                const ageB = (b.scheduledAgeMonths || 0) * 30 + (b.scheduledAgeDays || 0);
+                return ageA - ageB;
+            });
+
+            vaccines.forEach(v => {
+                const tr = document.createElement('tr');
+                let ageStr = '';
+                if (v.scheduledAgeMonths) ageStr += `${v.scheduledAgeMonths} міс. `;
+                if (v.scheduledAgeDays) ageStr += `${v.scheduledAgeDays} дн.`;
+                if (!ageStr) ageStr = '-';
+
+                tr.innerHTML = `
+                    <td><strong>${v.name}</strong></td>
+                    <td>${v.disease}</td>
+                    <td>${v.doseNumber} з ${v.totalDoses}</td>
+                    <td><span class="badge">${v.type === 'VACCINATION' ? 'Вакцинація' : 'Ревакцинація'}</span></td>
+                    <td>${ageStr}</td>
+                    <td><small>${v.notes || '-'}</small></td>
+                    <td>
+                        <button class="btn btn-sm" onclick="editVaccine('${v.id}')">Редагувати</button>
+                        <button class="btn btn-sm" style="background-color: var(--danger-color);" onclick="deleteVaccine('${v.id}')">Видалити</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function openSyncModal() {
+            const modal = document.getElementById('sync-modal');
+            const loading = document.getElementById('sync-loading');
+            const content = document.getElementById('sync-content');
+
+            modal.style.display = 'flex';
+            loading.style.display = 'block';
+            content.style.display = 'none';
+
+            try {
+                const res = await AdminAuth.apiFetch('/api/admin/vaccines/sync/preview', { method: 'POST' });
+                if (!res || !res.ok) throw new Error('Помилка отримання даних парсера');
+                currentPreviewData = await res.json();
+                renderSyncModal(currentPreviewData);
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            } catch (err) {
+                loading.innerHTML = `<span style="color: var(--danger-color);">Помилка: ${err.message}</span>`;
+            }
+        }
+
+        function closeSyncModal() {
+            document.getElementById('sync-modal').style.display = 'none';
+        }
+
+        function renderSyncModal(data) {
+            const newBody = document.getElementById('sync-new-body');
+            const changedBody = document.getElementById('sync-changed-body');
+            const missingBody = document.getElementById('sync-missing-body');
+
+            newBody.innerHTML = '';
+            changedBody.innerHTML = '';
+            missingBody.innerHTML = '';
+
+            if (data.newVaccines.length === 0) {
+                newBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #6c757d;">Немає нових вакцин</td></tr>';
+            } else {
+                data.newVaccines.forEach((item, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><input type="checkbox" class="new-item-check" data-index="${idx}" checked></td>
+                        <td><strong>${item.name}</strong></td>
+                        <td>${item.disease}</td>
+                        <td>${item.doseNumber} з ${item.totalDoses}</td>
+                        <td>${item.type}</td>
+                        <td>${formatAge(item.scheduledAgeMonths, item.scheduledAgeDays)}</td>
+                    `;
+                    newBody.appendChild(tr);
+                });
+            }
+
+            if (data.changedVaccines.length === 0) {
+                changedBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #6c757d;">Немає змін</td></tr>';
+            } else {
+                data.changedVaccines.forEach((pair, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><input type="checkbox" class="changed-item-check" data-index="${idx}" checked></td>
+                        <td><strong>${pair.proposed.name}</strong></td>
+                        <td>${pair.proposed.disease}</td>
+                        <td>${pair.proposed.doseNumber} з ${pair.proposed.totalDoses}</td>
+                        <td>${formatAge(pair.current.scheduledAgeMonths, pair.current.scheduledAgeDays)}</td>
+                        <td style="color: #b06000;"><strong>${formatAge(pair.proposed.scheduledAgeMonths, pair.proposed.scheduledAgeDays)}</strong></td>
+                    `;
+                    changedBody.appendChild(tr);
+                });
+            }
+
+            if (data.missingVaccines.length === 0) {
+                missingBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #6c757d;">Усі вакцини знайдено на сайті</td></tr>';
+            } else {
+                data.missingVaccines.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${item.name}</strong></td>
+                        <td>${item.disease}</td>
+                        <td>${item.doseNumber} з ${item.totalDoses}</td>
+                        <td>${item.type}</td>
+                        <td>${formatAge(item.scheduledAgeMonths, item.scheduledAgeDays)}</td>
+                    `;
+                    missingBody.appendChild(tr);
+                });
+            }
+        }
+
+        function formatAge(months, days) {
+            let res = '';
+            if (months) res += `${months} міс. `;
+            if (days) res += `${days} дн.`;
+            return res.trim() || '0 дн.';
+        }
+
+        function toggleSelectAll(type) {
+            const master = document.getElementById(`select-all-${type}`);
+            const checks = document.querySelectorAll(`.${type}-item-check`);
+            checks.forEach(c => c.checked = master.checked);
+        }
+
+        async function applySyncSelection() {
+            if (!currentPreviewData) return;
+
+            const selectedNew = [];
+            document.querySelectorAll('.new-item-check:checked').forEach(c => {
+                const idx = parseInt(c.dataset.index);
+                selectedNew.push(currentPreviewData.newVaccines[idx]);
+            });
+
+            const selectedChanged = [];
+            document.querySelectorAll('.changed-item-check:checked').forEach(c => {
+                const idx = parseInt(c.dataset.index);
+                selectedChanged.push(currentPreviewData.changedVaccines[idx].proposed);
+            });
+
+            if (selectedNew.length === 0 && selectedChanged.length === 0) {
+                AdminAuth.showToast('Нічого не вибрано для застосування', 'warning');
+                return;
+            }
+
+            try {
+                const res = await AdminAuth.apiFetch('/api/admin/vaccines/sync/apply', {
+                    method: 'POST',
+                    body: JSON.stringify({ toAdd: selectedNew, toUpdate: selectedChanged })
+                });
+                if (res && res.ok) {
+                    AdminAuth.showToast('Зміни успішно застосовано!', 'success');
+                    closeSyncModal();
+                    fetchVaccines();
+                } else {
+                    throw new Error('Помилка при збереженні');
+                }
+            } catch (err) {
+                AdminAuth.showToast(err.message, 'error');
+            }
+        }
+
+        async function triggerBackfill() {
+            if (!confirm('Згенерувати графік вакцин для всіх існуючих дітей? Минулі вакцини отримають статус SKIPPED.')) {
+                return;
+            }
+
+            try {
+                const res = await AdminAuth.apiFetch('/api/admin/vaccines/sync/backfill', { method: 'POST' });
+                if (res && res.ok) {
+                    const summary = await res.json();
+                    AdminAuth.showToast(`Успішно! Опрацьовано дітей: ${summary.totalChildren}. Створено подій: ${summary.createdEventsCount} (Пропущено: ${summary.skippedEventsCount}, Заплановано: ${summary.plannedEventsCount})`, 'success');
+                } else {
+                    throw new Error('Помилка генерації');
+                }
+            } catch (err) {
+                AdminAuth.showToast(err.message, 'error');
             }
         }
 

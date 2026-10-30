@@ -1,5 +1,6 @@
 package com.misterio.curakid.core.security
 
+import com.misterio.curakid.core.database.auth.User
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.JwtParser
 import io.jsonwebtoken.Jwts
@@ -12,12 +13,14 @@ import javax.crypto.SecretKey
 
 @Service
 class JwtService(
-    @Value("\${jwt.secret:defaultSecretKeyWithAtLeast32CharactersLong}") private val secret: String,
-    @Value("\${jwt.access-token-expiration:900000}") private val accessExpiration: Long, // 15 min
-    @Value("\${jwt.refresh-token-expiration:604800000}") val refreshExpiration: Long, // 7 days
+    @Value("\${jwt.secret}") private val secret: String,
+    @Value("\${jwt.access-token-expiration}") private val accessExpiration: Long,
+    @Value("\${jwt.refresh-token-expiration}") val refreshExpiration: Long,
 ) {
     companion object {
         const val CLAIM_TOKEN_TYPE = "type"
+        const val CLAIM_USER_ID = "uid"
+        const val CLAIM_ROLE = "role"
         const val TYPE_ACCESS = "access"
         const val TYPE_REFRESH = "refresh"
     }
@@ -52,6 +55,16 @@ class JwtService(
             .expiration(Date(now + expiration))
             .signWith(key)
 
+        if (userDetails is User) {
+            userDetails.id.let { builder.claim(CLAIM_USER_ID, it.toString()) }
+            builder.claim(CLAIM_ROLE, userDetails.role.name)
+        } else {
+            val roleAuthority = userDetails.authorities.firstOrNull()?.authority
+            if (roleAuthority != null) {
+                builder.claim(CLAIM_ROLE, roleAuthority)
+            }
+        }
+
         if (jti != null) {
             builder.id(jti)
         }
@@ -80,6 +93,18 @@ class JwtService(
 
     fun extractTokenType(token: String): String? = try {
         extractClaim(token) { it.get(CLAIM_TOKEN_TYPE, String::class.java) }
+    } catch (_: Exception) {
+        null
+    }
+
+    fun extractUserId(token: String): UUID? = try {
+        extractClaim(token) { it.get(CLAIM_USER_ID, String::class.java) }?.let { UUID.fromString(it) }
+    } catch (_: Exception) {
+        null
+    }
+
+    fun extractRole(token: String): String? = try {
+        extractClaim(token) { it.get(CLAIM_ROLE, String::class.java) }
     } catch (_: Exception) {
         null
     }

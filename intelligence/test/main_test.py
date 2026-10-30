@@ -201,3 +201,129 @@ def test_analyze_age_specific_priority():
     assert score_infant > 0.75
     assert score_pre < 0.7
     assert score_infant > score_pre
+
+
+# --- ТЕСТИ SYSTEM 1 (Laya / Jev-підхід) ---
+
+def test_analyze_with_system_one_triage():
+    headers = {"X-Internal-Key": API_KEY}
+    payload = {
+        "childId": "child-s1",
+        "ageMonths": 18,
+        "wfaZscore": -2.5,
+        "allergies": ["молоко", "арахіс"],
+        "chronicConditions": [],
+        "notes": ["малюк млявий, погано їсть"],
+        "regressions": {"SPEECH": True},
+        "rules": []
+    }
+    response = client.post("/analyze", headers=headers, json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "systemOneDecisions" in data
+    decisions = data["systemOneDecisions"]
+    assert decisions["requiresDoctorConsultProbability"] >= 0.5
+    assert decisions["allergyOrChronicConstraintProbability"] >= 0.5
+    assert decisions["primaryFocus"] in ["REGRESSION_ALERT", "ANTHROPOMETRY_NUTRITION"]
+    assert data["urgencyScore"] >= 0.5
+
+
+def test_rerank_endpoint():
+    headers = {"X-Internal-Key": API_KEY}
+    payload = {
+        "query": "харчування дитини 1 рік",
+        "childContext": {
+            "ageMonths": 12,
+            "allergies": ["молоко"]
+        },
+        "chunks": [
+            {
+                "title": "Грудне та альтернативне вигодовування",
+                "content": "Загальні рекомендації щодо раціону дитини в 1 рік."
+            },
+            {
+                "title": "Молочні продукти для малюків",
+                "content": "Потрібно вживати незбиране молоко щодня."
+            }
+        ]
+    }
+    response = client.post("/rerank", headers=headers, json=payload)
+    assert response.status_code == 200
+    reranked = response.json()["chunks"]
+    # Unsafe chunk with allergen should be filtered out or deprioritized
+    assert len(reranked) >= 1
+    safe_titles = [c["title"] for c in reranked]
+    assert "Грудне та альтернативне вигодовування" in safe_titles
+
+
+def test_evaluate_endpoint_guardrail():
+    headers = {"X-Internal-Key": API_KEY}
+    
+    # Valid report test
+    valid_payload = {
+        "childContext": {"ageMonths": 12, "allergies": []},
+        "chunks": [{"title": "Норми сну", "content": "Дитина має спати 12-14 годин."}],
+        "reportText": "Сон дитини відповідає віковим рекомендаціям.",
+        "recommendations": "Дотримуйтесь стабільного режиму сну та зверніться до педіатра при змінах."
+    }
+    response = client.post("/evaluate", headers=headers, json=valid_payload)
+    assert response.status_code == 200
+    res = response.json()
+    assert res["passedGuardrail"] is True
+    assert res["faithfulnessScore"] >= 0.75
+
+    # Violating report (prescribing medication / diagnosis)
+    invalid_payload = {
+        "childContext": {"ageMonths": 12, "allergies": []},
+        "chunks": [{"title": "Норми сну", "content": "Дитина має спати 12-14 годин."}],
+        "reportText": "У дитини діагноз: хронічне безсоння.",
+        "recommendations": "Призначити приймати антибіотик по 1 таблетці щодня."
+    }
+    response_invalid = client.post("/evaluate", headers=headers, json=invalid_payload)
+    assert response_invalid.status_code == 200
+    res_invalid = response_invalid.json()
+    assert res_invalid["passedGuardrail"] is False
+    assert len(res_invalid["violationReasons"]) > 0
+
+
+def test_triage_chat_endpoint_red_flag():
+    headers = {"X-Internal-Key": API_KEY}
+    payload = {
+        "message": "Дитина важко дихає, сині губи і судоми!",
+        "childContext": {"ageMonths": 8, "allergies": []}
+    }
+    response = client.post("/triage-chat", headers=headers, json=payload)
+    assert response.status_code == 200
+    res = response.json()
+    assert res["urgencyLevel"] == "URGENT_RED_FLAG"
+    assert res["intent"] == "EMERGENCY_RED_FLAG"
+    assert res["needsRagSearch"] is True
+    assert len(res["suggestedPrompts"]) > 0
+
+
+def test_triage_chat_endpoint_medication_query():
+    headers = {"X-Internal-Key": API_KEY}
+    payload = {
+        "message": "Яке дозування нурофену давати дитині при температурі?",
+        "childContext": {"ageMonths": 14, "allergies": []}
+    }
+    response = client.post("/triage-chat", headers=headers, json=payload)
+    assert response.status_code == 200
+    res = response.json()
+    assert res["asksForMedicationOrDiagnosis"] is True
+    assert res["needsRagSearch"] is True
+
+
+def test_triage_chat_endpoint_greeting():
+    headers = {"X-Internal-Key": API_KEY}
+    payload = {
+        "message": "Привіт! Підкажи, як ти можеш мені допомогти?",
+        "childContext": {"ageMonths": 6, "allergies": []}
+    }
+    response = client.post("/triage-chat", headers=headers, json=payload)
+    assert response.status_code == 200
+    res = response.json()
+    assert res["intent"] == "GENERAL_GREETING_OR_OFFTOPIC"
+    assert res["needsRagSearch"] is False
+    assert res["urgencyLevel"] == "ROUTINE"
+

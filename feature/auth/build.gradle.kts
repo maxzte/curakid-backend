@@ -12,9 +12,7 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.mail)
     implementation(libs.spring.boot.starter.thymeleaf)
+    implementation(libs.spring.boot.starter.data.redis)
 
     implementation(libs.google.api.client)
-    implementation(libs.jjwt.api)
-    runtimeOnly(libs.jjwt.impl)
-    runtimeOnly(libs.jjwt.jackson)
 }

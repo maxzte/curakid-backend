@@ -13,22 +13,31 @@ import java.time.Instant
 import java.util.*
 
 data class CreateArticleRequest(
+    @field:NotBlank(message = "Title is required")
     val title: String,
+    @field:NotBlank(message = "Content is required")
     val content: String,
+    @field:NotNull(message = "Category ID is required")
     val categoryId: UUID
 )
 
 data class CreateCategoryRequest(
+    @field:NotBlank(message = "Name is required")
     val name: String,
+    @field:NotBlank(message = "Display name is required")
     val displayName: String
 )
 
 data class CreateLifePeriodRequest(
-    val code: String,
-    val label: String,
-    val description: String,
-    val minMonths: Int,
-    val maxMonths: Int
+    @field:NotBlank(message = "Code is required")
+    val code: String? = null,
+    @field:NotBlank(message = "Label is required")
+    val label: String? = null,
+    val description: String? = null,
+    @field:Min(0)
+    val minMonths: Int? = null,
+    @field:Min(0)
+    val maxMonths: Int? = null
 )
 
 data class AdminLifePeriodResponse(
@@ -92,6 +101,20 @@ data class UpdateThresholdsRequest(
     val thresholds: Map<String, Any>
 )
 
+data class AdminFuzzyConditionResponse(
+    val variable: String,
+    val term: String
+)
+
+data class AdminFuzzyRuleResponse(
+    val id: UUID,
+    val domain: String,
+    val conditions: List<AdminFuzzyConditionResponse>,
+    val consequent: String,
+    @get:JsonProperty("isActive")
+    val isActive: Boolean
+)
+
 data class AdminPageResponse<T>(
     val items: List<T>,
     val totalItems: Long,
@@ -109,10 +132,13 @@ data class AdminUserResponse(
 )
 
 data class CreateVaccineTemplateRequest(
+    @field:NotBlank(message = "Name is required")
     val name: String,
+    @field:NotBlank(message = "Disease is required")
     val disease: String,
     val doseNumber: Int?,
     val totalDoses: Int?,
+    @field:NotBlank(message = "Type is required")
     val type: String, // String to handle enum from UI
     val scheduledAgeMonths: Int?,
     val scheduledAgeDays: Int?,
@@ -120,8 +146,11 @@ data class CreateVaccineTemplateRequest(
 )
 
 data class CreateLegalDocumentRequest(
+    @field:NotBlank(message = "Type is required")
     val type: String,
+    @field:NotBlank(message = "Version is required")
     val version: String,
+    @field:NotBlank(message = "URL is required")
     val url: String,
 )
 

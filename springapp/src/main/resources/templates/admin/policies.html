@@ -121,14 +121,16 @@
                     ? `<button class="delete-btn" onclick="deactivateDoc('${d.id}')">Деактивувати</button>`
                     : '';
 
-                const shortUrl = d.url.length > 40 ? d.url.substring(0, 40) + '…' : d.url;
+                const safeVersion = AdminAuth.escapeHtml(d.version);
+                const safeUrl = AdminAuth.escapeHtml(d.url);
+                const shortUrl = AdminAuth.escapeHtml(d.url.length > 40 ? d.url.substring(0, 40) + '…' : d.url);
 
                 return `
                     <tr>
                         <td style="font-weight: 600;">${typeLabel(d.type)}</td>
-                        <td><span class="badge">${d.version}</span></td>
+                        <td><span class="badge">${safeVersion}</span></td>
                         <td>
-                            <a href="${d.url}" target="_blank" title="${d.url}"
+                            <a href="${safeUrl}" target="_blank" title="${safeUrl}"
                                style="color: var(--primary); text-decoration: none; font-size: 0.85rem;">
                                 ${shortUrl}
                             </a>

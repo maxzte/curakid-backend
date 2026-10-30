@@ -5,8 +5,9 @@ import com.misterio.curakid.core.database.question.QuestionRepository
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
-import tools.jackson.databind.ObjectMapper
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.databind.ObjectMapper
+import kotlin.collections.emptyList
 
 @Service
 class LifePeriodQuestionService(
@@ -19,24 +20,33 @@ class LifePeriodQuestionService(
     companion object {
         fun parseDescription(json: String?, mapper: ObjectMapper = ObjectMapper()): LifePeriodDescription {
             if (json.isNullOrBlank()) return LifePeriodDescription(
-                "",
-                "",
-                LifePeriodMilestones("", "", ""),
-                emptyList()
+                title = "",
+                subtitle = "",
+                milestones = LifePeriodMilestones(movement = "", speech = "", cognition = ""),
+                tips = emptyList()
             )
             return try {
                 val root = mapper.readTree(json)
                 val ua = root.get("ua") ?: root
+                val tipsNode = ua.get("tips") ?: ua.get("tip")
+                val parsedTips: List<String> = when {
+                    tipsNode?.isArray == true -> {
+                        tipsNode.mapNotNull { it.asString()?.takeIf { text -> text.isNotBlank() } }
+                    }
+                    tipsNode?.isString == true -> {
+                        listOfNotNull(tipsNode.asString())
+                    }
+                    else -> emptyList()
+                }
                 LifePeriodDescription(
                     title = ua.get("title")?.asString() ?: "",
-                    subtitle = ua.get("subtitle")?.asString()
-                        ?: if (ua.isString) ua.asString() else "",
+                    subtitle = ua.get("subtitle")?.asString() ?: if (ua.isString) ua.asString() else "",
                     milestones = LifePeriodMilestones(
                         movement = ua.get("milestones")?.get("movement")?.asString() ?: "",
                         speech = ua.get("milestones")?.get("speech")?.asString() ?: "",
                         cognition = ua.get("milestones")?.get("cognition")?.asString() ?: ""
                     ),
-                    tips = ua.get("tips")?.map { it.asString() } ?: emptyList()
+                    tips = parsedTips,
                 )
             } catch (e: Exception) {
                 LifePeriodDescription("", json, LifePeriodMilestones("", "", ""), emptyList())
@@ -52,7 +62,7 @@ class LifePeriodQuestionService(
     @Cacheable("lifePeriods")
     fun getAllPeriodsWithQuestions(): List<LifePeriodResponse> {
         val periods = lifePeriodRepository.findAllWithQuestions()
-        val questionIds = periods.flatMap { it.questions }.mapNotNull { it.id }
+        val questionIds = periods.flatMap { it.questions }.map { it.id }
         if (questionIds.isNotEmpty()) {
             questionRepository.findAllWithOptionsByIdIn(questionIds)
         }
@@ -65,7 +75,7 @@ class LifePeriodQuestionService(
         val period = lifePeriodRepository.findByCodeWithQuestions(code)
             .orElseThrow { IllegalArgumentException("Period $code not found") }
 
-        val questionIds = period.questions.mapNotNull { it.id }
+        val questionIds = period.questions.map { it.id }
         if (questionIds.isNotEmpty()) {
             questionRepository.findAllWithOptionsByIdIn(questionIds)
         }

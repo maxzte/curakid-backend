@@ -49,6 +49,7 @@ class LifePeriod(
 
     @OneToMany(mappedBy = "lifePeriod", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
     @OrderBy("weight ASC")
+    @org.hibernate.annotations.BatchSize(size = 50)
     val questions: MutableList<Question> = mutableListOf()
 
 ) : BaseEntity()

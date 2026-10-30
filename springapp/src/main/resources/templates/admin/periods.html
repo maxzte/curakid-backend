@@ -150,47 +150,47 @@
                 <div class="flex-row">
                     <div class="form-group">
                         <label for="edit-code">Код</label>
-                        <input type="text" id="edit-code" class="form-control" required>
+                        <input type="text" id="edit-code" class="form-control">
                     </div>
                     <div class="form-group">
                         <label for="edit-label">Назва</label>
-                        <input type="text" id="edit-label" class="form-control" required>
+                        <input type="text" id="edit-label" class="form-control">
                     </div>
                 </div>
 
                 <div class="flex-row">
                     <div class="form-group">
                         <label for="edit-minMonths">Мін. вік (місяці)</label>
-                        <input type="number" id="edit-minMonths" class="form-control" required>
+                        <input type="number" id="edit-minMonths" class="form-control">
                     </div>
                     <div class="form-group">
                         <label for="edit-maxMonths">Макс. вік (місяці)</label>
-                        <input type="number" id="edit-maxMonths" class="form-control" required>
+                        <input type="number" id="edit-maxMonths" class="form-control">
                     </div>
                 </div>
 
                 <div class="section-header">Опис (JSON)</div>
                 <div class="form-group">
                     <label for="edit-title">Заголовок періоду</label>
-                    <input type="text" id="edit-title" class="form-control" required>
+                    <input type="text" id="edit-title" class="form-control">
                 </div>
                 <div class="form-group">
                     <label for="edit-subtitle">Підзаголовок/Суть</label>
-                    <textarea id="edit-subtitle" class="form-control" required></textarea>
+                    <textarea id="edit-subtitle" class="form-control"></textarea>
                 </div>
 
                 <div class="section-header">Ключові досягнення (Milestones)</div>
                 <div class="form-group">
                     <label for="edit-milestone-movement">Рухова активність</label>
-                    <input type="text" id="edit-milestone-movement" class="form-control" required>
+                    <input type="text" id="edit-milestone-movement" class="form-control">
                 </div>
                 <div class="form-group">
                     <label for="edit-milestone-speech">Мовлення</label>
-                    <input type="text" id="edit-milestone-speech" class="form-control" required>
+                    <input type="text" id="edit-milestone-speech" class="form-control">
                 </div>
                 <div class="form-group">
                     <label for="edit-milestone-cognition">Пізнання</label>
-                    <input type="text" id="edit-milestone-cognition" class="form-control" required>
+                    <input type="text" id="edit-milestone-cognition" class="form-control">
                 </div>
 
                 <div class="section-header">Поради для батьків (Tips)</div>
@@ -209,6 +209,7 @@
 
     <script>
         let periods = [];
+        let currentDescription = null;
         fetchPeriods();
 
         function addTip(containerId, value = '') {
@@ -268,16 +269,19 @@
                 return;
             }
 
-            tbody.innerHTML = periods.map(p => `
+            tbody.innerHTML = periods.map(p => {
+                const safeCode = AdminAuth.escapeHtml(p.code);
+                const safeLabel = AdminAuth.escapeHtml(p.label);
+                return `
                 <tr>
-                    <td><span class="badge">${p.code}</span></td>
-                    <td style="font-weight: 500;">${p.label}</td>
+                    <td><span class="badge">${safeCode}</span></td>
+                    <td style="font-weight: 500;">${safeLabel}</td>
                     <td>${p.minMonths} – ${p.maxMonths}</td>
                     <td>
                         <button class="action-btn edit-btn" onclick="openEditModal('${p.id}')">Редагувати</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         document.getElementById('add-period-form').addEventListener('submit', async (e) => {
@@ -317,16 +321,20 @@
             document.getElementById('edit-minMonths').value = p.minMonths;
             document.getElementById('edit-maxMonths').value = p.maxMonths;
 
-            // Parse description JSON
+            // Description may come from the API either as an already parsed object
+            // or as a raw JSON string (legacy), so handle both cases.
             let desc = { ua: { title: '', subtitle: '', milestones: { movement: '', speech: '', cognition: '' }, tips: [] } };
-            try {
-                if (p.description) {
+            if (p.description && typeof p.description === 'object') {
+                desc = p.description;
+            } else if (typeof p.description === 'string' && p.description.trim() !== '') {
+                try {
                     desc = JSON.parse(p.description);
+                } catch (e) {
+                    console.error("Failed to parse description", e);
+                    desc.ua.subtitle = p.description; // fallback if not JSON
                 }
-            } catch (e) {
-                console.error("Failed to parse description", e);
-                desc.ua.subtitle = p.description; // fallback if not JSON
             }
+            currentDescription = desc;
 
             const data = desc.ua || desc;
             document.getElementById('edit-title').value = data.title || '';
@@ -354,16 +362,59 @@
             document.getElementById('edit-modal').classList.remove('open');
         }
 
+        function constructEditDescription() {
+            const base = currentDescription || { ua: {} };
+            const ua = base.ua || base;
+            const existingMilestones = ua.milestones || {};
+
+            const title = document.getElementById('edit-title').value.trim();
+            const subtitle = document.getElementById('edit-subtitle').value.trim();
+            const movement = document.getElementById('edit-milestone-movement').value.trim();
+            const speech = document.getElementById('edit-milestone-speech').value.trim();
+            const cognition = document.getElementById('edit-milestone-cognition').value.trim();
+            const tips = collectTips('edit-tips-list');
+
+            // Nothing changed in the description block — keep the existing value.
+            if (!title && !subtitle && !movement && !speech && !cognition && tips.length === 0) {
+                return undefined;
+            }
+
+            const merged = {
+                ...ua,
+                ...(title ? { title } : {}),
+                ...(subtitle ? { subtitle } : {}),
+                milestones: {
+                    ...existingMilestones,
+                    ...(movement ? { movement } : {}),
+                    ...(speech ? { speech } : {}),
+                    ...(cognition ? { cognition } : {})
+                },
+                ...(tips.length > 0 ? { tips } : {})
+            };
+
+            // Preserve the original shape: some records are stored with a
+            // language wrapper (`ua`), while older ones are stored flat.
+            return JSON.stringify(base.ua ? { ...base, ua: merged } : merged);
+        }
+
         document.getElementById('edit-period-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('edit-id').value;
-            const payload = {
-                code: document.getElementById('edit-code').value,
-                label: document.getElementById('edit-label').value,
-                minMonths: parseInt(document.getElementById('edit-minMonths').value),
-                maxMonths: parseInt(document.getElementById('edit-maxMonths').value),
-                description: constructDescription('edit-')
-            };
+
+            // Send only the fields that were actually filled in, so the backend
+            // can perform a partial update without overwriting existing values.
+            const payload = {};
+            const code = document.getElementById('edit-code').value.trim();
+            const label = document.getElementById('edit-label').value.trim();
+            const minMonths = document.getElementById('edit-minMonths').value;
+            const maxMonths = document.getElementById('edit-maxMonths').value;
+            const description = constructEditDescription();
+
+            if (code) payload.code = code;
+            if (label) payload.label = label;
+            if (minMonths !== '' && !isNaN(parseInt(minMonths))) payload.minMonths = parseInt(minMonths);
+            if (maxMonths !== '' && !isNaN(parseInt(maxMonths))) payload.maxMonths = parseInt(maxMonths);
+            if (description !== undefined) payload.description = description;
 
             try {
                 const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods/' + id, {

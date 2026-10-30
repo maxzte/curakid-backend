@@ -3,13 +3,12 @@ package com.misterio.curakid.core.security
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
+import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
-import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.annotation.AsyncConfigurer
 import org.springframework.scheduling.annotation.EnableAsync
-import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService
+import org.springframework.security.concurrent.DelegatingSecurityContextRunnable
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
 
 @Configuration
 @EnableAsync
@@ -18,16 +17,15 @@ class AsyncConfig : AsyncConfigurer {
     @Bean
     @Primary
     fun applicationTaskExecutor(): TaskExecutor {
-        return TaskExecutorAdapter(
-            DelegatingSecurityContextExecutorService(
-                Executors.newVirtualThreadPerTaskExecutor()
-            )
-        )
+        val executor = SimpleAsyncTaskExecutor("curakid-vt-")
+        executor.setVirtualThreads(true)
+        executor.concurrencyLimit = 250 // Bulkhead to prevent memory/resource starvation under 1M DAU peak
+        executor.setTaskTerminationTimeout(25_000L)
+        executor.setTaskDecorator { runnable -> DelegatingSecurityContextRunnable(runnable) }
+        return executor
     }
 
     override fun getAsyncExecutor(): Executor {
-        return DelegatingSecurityContextExecutorService(
-            Executors.newVirtualThreadPerTaskExecutor()
-        )
+        return applicationTaskExecutor()
     }
 }

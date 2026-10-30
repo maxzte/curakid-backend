@@ -9,6 +9,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
+import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
@@ -17,7 +18,12 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 @Entity
-@Table(name = "children")
+@Table(
+    name = "children",
+    indexes = [
+        Index(name = "idx_children_user_active", columnList = "user_id, is_active")
+    ]
+)
 @SQLRestriction("deleted_at IS NULL")
 class Child(
 
@@ -69,14 +75,15 @@ class Child(
 
     fun calculateCorrectedAgeMonths(): Int {
         val chronologicalAge = ChronoUnit.MONTHS.between(birthDate, LocalDate.now()).toInt()
-        
+        val weeks = gestationalWeeks
+
         // Corrected age only applies to premature babies (< 40 weeks) up to 2 years
-        if (!isPremature || gestationalWeeks == null || gestationalWeeks!! >= 40 || chronologicalAge >= 24) {
+        if (!isPremature || weeks == null || weeks >= 40 || chronologicalAge >= 24) {
             return chronologicalAge
         }
 
         // Formula: Corrected Age = Chronological Age - (40 - Gestational Weeks) / 4 (weeks to months)
-        val weeksEarly = 40 - gestationalWeeks!!
+        val weeksEarly = 40 - weeks
         val monthsEarly = weeksEarly / 4
 
         return (chronologicalAge - monthsEarly).coerceAtLeast(0)

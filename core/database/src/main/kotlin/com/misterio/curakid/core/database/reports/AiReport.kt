@@ -8,7 +8,12 @@ import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "ai_reports")
+@Table(
+    name = "ai_reports",
+    indexes = [
+        Index(name = "idx_ai_reports_child_created", columnList = "child_id, created_at")
+    ]
+)
 @SQLRestriction("deleted_at IS NULL")
 class AiReport(
 

@@ -38,7 +38,10 @@ class CacheConfig {
         val cacheConfigs = mapOf(
             "lifePeriods" to defaultConfig.entryTtl(Duration.ofHours(24)),
             "assessmentReadiness" to defaultConfig.entryTtl(Duration.ofMinutes(60)),
-            "chatHistory" to defaultConfig.entryTtl(Duration.ofMinutes(30))
+            "chatHistory" to defaultConfig.entryTtl(Duration.ofMinutes(30)),
+            "fuzzyRules" to defaultConfig.entryTtl(Duration.ofHours(6)),
+            "queryEmbeddings" to defaultConfig.entryTtl(Duration.ofHours(24)),
+            "vaccineTemplates" to defaultConfig.entryTtl(Duration.ofHours(12))
         )
 
         return RedisCacheManager.builder(connectionFactory)
@@ -50,6 +53,9 @@ class CacheConfig {
     @Bean
     @ConditionalOnMissingBean(CacheManager::class)
     fun fallbackCacheManager(): CacheManager {
-        return ConcurrentMapCacheManager("lifePeriods", "assessmentReadiness", "chatHistory")
+        return ConcurrentMapCacheManager(
+            "lifePeriods", "assessmentReadiness", "chatHistory",
+            "fuzzyRules", "queryEmbeddings", "vaccineTemplates"
+        )
     }
 }

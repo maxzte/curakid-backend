@@ -30,12 +30,9 @@ COPY feature/measurements/build.gradle.kts feature/measurements/
 COPY feature/reports/build.gradle.kts feature/reports/
 COPY feature/notification/build.gradle.kts feature/notification/
 
-# Pre-fetch dependencies (кешується як окремий шар)
-RUN --mount=type=cache,target=/root/.gradle ./gradlew :springapp:dependencies --no-daemon
-
 # Copy all source code and build
 COPY . .
-RUN --mount=type=cache,target=/root/.gradle ./gradlew :springapp:bootJar --no-daemon
+RUN --mount=type=cache,target=/root/.gradle,sharing=locked ./gradlew :springapp:bootJar -x test --no-daemon
 
 # Stage 2: Extract layers
 FROM eclipse-temurin:21-jre-jammy AS extract
@@ -57,4 +54,4 @@ COPY --from=extract /app/application/ ./
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Djava.security.egd=file:/dev/./urandom org.springframework.boot.loader.launch.JarLauncher"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Djava.security.egd=file:/dev/./urandom org.springframework.boot.loader.launch.JarLauncher"]

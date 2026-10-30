@@ -21,6 +21,8 @@ class TokenBlacklistService(
 
     companion object {
         private const val REDIS_KEY_PREFIX = "blacklist:token:"
+        private const val LOCK_KEY_CLEANUP = "lock:scheduler:blacklist-cleanup"
+        private val LOCK_DURATION = Duration.ofMinutes(10)
     }
 
     // Local fallback in-memory cache if Redis is temporarily unavailable or in local test without Redis
@@ -50,33 +52,52 @@ class TokenBlacklistService(
     }
 
     fun isBlacklisted(jti: String): Boolean {
-        if (redisTemplate != null) {
-            try {
-                val existsInRedis = redisTemplate.hasKey(REDIS_KEY_PREFIX + jti)
-                if (existsInRedis == true) {
-                    return true
-                }
-            } catch (e: Exception) {
-                log.warn("Redis error checking blacklist for jti {}: {}", jti, e.message)
-            }
-        }
-
+        // Fast L1 in-memory check
         val inLocalCache = localFallbackCache.getIfPresent(jti)
         if (inLocalCache != null) {
             return inLocalCache
         }
 
-        val inDb = tokenBlacklistRepository.existsByJti(jti)
-        if (inDb) {
-            localFallbackCache.put(jti, true)
+        // Redis is the authoritative source for blacklisted tokens
+        if (redisTemplate != null) {
+            try {
+                val existsInRedis = redisTemplate.hasKey(REDIS_KEY_PREFIX + jti) == true
+                if (existsInRedis) {
+                    localFallbackCache.put(jti, true)
+                    return true
+                }
+                // Key does not exist in Redis -> token is NOT blacklisted.
+                // Do NOT fall through to PostgreSQL!
+                return false
+            } catch (e: Exception) {
+                log.warn("Redis error checking blacklist for jti {}: {}, falling back to database", jti, e.message)
+            }
         }
+
+        // Only reach database if Redis is unavailable or unconfigured
+        val inDb = tokenBlacklistRepository.existsByJti(jti)
+        localFallbackCache.put(jti, inDb)
         return inDb
     }
 
     @Scheduled(cron = "0 0 3 * * *") // Every day at 3 AM
     @Transactional
     fun clearExpiredTokens() {
+        if (redisTemplate != null) {
+            val acquired = try {
+                redisTemplate.opsForValue().setIfAbsent(LOCK_KEY_CLEANUP, "1", LOCK_DURATION)
+            } catch (e: Exception) {
+                log.warn("Redis unavailable for blacklist cleanup scheduler lock: {}", e.message)
+                true
+            }
+            if (acquired != true) {
+                log.debug("Another cluster node is running blacklist cleanup scheduler. Skipping.")
+                return
+            }
+        }
+
         localFallbackCache.invalidateAll()
         tokenBlacklistRepository.deleteAllByExpiryDateBefore(Instant.now())
+        log.info("Expired token blacklist entries cleaned up")
     }
 }

@@ -69,10 +69,10 @@ class AdminLegalService(
 }
 
 private fun LegalDocument.toAdminResponse() = AdminLegalDocumentResponse(
-    id = id!!,
+    id = requireNotNull(id) { "LegalDocument ID must not be null" },
     type = type.name,
     version = version,
     url = url,
     isActive = isActive,
-    publishedAt = createdAt!!,
+    publishedAt = createdAt ?: java.time.Instant.now(),
 )

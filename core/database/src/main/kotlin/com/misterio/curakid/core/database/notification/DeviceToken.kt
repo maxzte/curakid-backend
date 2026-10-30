@@ -6,7 +6,12 @@ import jakarta.persistence.*
 import java.time.Instant
 
 @Entity
-@Table(name = "user_device_tokens")
+@Table(
+    name = "user_device_tokens",
+    indexes = [
+        Index(name = "idx_device_tokens_user", columnList = "user_id")
+    ]
+)
 class DeviceToken(
 
     @ManyToOne(fetch = FetchType.LAZY)

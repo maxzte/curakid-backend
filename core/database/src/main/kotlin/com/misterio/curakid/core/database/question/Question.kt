@@ -8,15 +8,21 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
+import org.hibernate.annotations.BatchSize
 import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "questions")
+@Table(
+    name = "questions",
+    indexes = [
+        Index(name = "idx_questions_period_domain", columnList = "life_period_id, domain")
+    ]
+)
 @SQLRestriction("deleted_at IS NULL")
 class Question(
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     var text: String = "",
 
     @Enumerated(EnumType.STRING)
@@ -39,6 +45,7 @@ class Question(
 
     @OneToMany(mappedBy = "question", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
     @OrderBy("displayOrder ASC")
+    @BatchSize(size = 50)
     val options: MutableList<AnswerOption> = mutableListOf()
 
 ) : BaseEntity()

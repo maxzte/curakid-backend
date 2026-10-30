@@ -16,17 +16,22 @@ interface MedicalKnowledgeRepository : JpaRepository<MedicalKnowledge, UUID> {
 
     /**
      * Vector similarity search using pgvector cosine distance.
-     * Returns the top-N most relevant chunks for the given embedding.
-     * Urgency score can be used to boost category-specific results.
+     * Uses HNSW index inside candidate subquery with LIMIT, then deduplicates by source_id.
      */
     @Query(
         value = """
-            SELECT *, (embedding <=> CAST(:embedding AS vector)) as distance FROM (
-                SELECT DISTINCT ON (source_id) * FROM medical_knowledge
-                WHERE deleted_at IS NULL
-                ORDER BY source_id, embedding <=> CAST(:embedding AS vector)
-            ) sub
-            ORDER BY sub.embedding <=> CAST(:embedding AS vector)
+            SELECT dedup.id, dedup.title, dedup.content, dedup.distance FROM (
+                SELECT DISTINCT ON (sub.source_id) sub.id, sub.title, sub.content, sub.distance, sub.source_id FROM (
+                    SELECT id, title, content, source_id,
+                           (embedding <=> CAST(:embedding AS vector)) AS distance
+                    FROM medical_knowledge
+                    WHERE deleted_at IS NULL
+                    ORDER BY embedding <=> CAST(:embedding AS vector)
+                    LIMIT (:limit * 5)
+                ) sub
+                ORDER BY sub.source_id, sub.distance ASC
+            ) dedup
+            ORDER BY dedup.distance ASC
             LIMIT :limit
         """,
         nativeQuery = true
@@ -38,18 +43,24 @@ interface MedicalKnowledgeRepository : JpaRepository<MedicalKnowledge, UUID> {
 
     @Query(
         value = """
-            SELECT *, (embedding <=> CAST(:embedding AS vector)) as distance FROM (
-                SELECT DISTINCT ON (source_id) * FROM medical_knowledge mk
-                WHERE mk.deleted_at IS NULL AND (
-                    mk.metadata->'age' IS NULL OR 
-                    (
-                      (mk.metadata->'age'->>'min')::float <= :ageMonths AND 
-                      (mk.metadata->'age'->>'max')::float >= :ageMonths
+            SELECT dedup.id, dedup.title, dedup.content, dedup.distance FROM (
+                SELECT DISTINCT ON (sub.source_id) sub.id, sub.title, sub.content, sub.distance, sub.source_id FROM (
+                    SELECT id, title, content, source_id,
+                           (embedding <=> CAST(:embedding AS vector)) AS distance
+                    FROM medical_knowledge mk
+                    WHERE mk.deleted_at IS NULL AND (
+                        mk.metadata->'age' IS NULL OR 
+                        (
+                          (mk.metadata->'age'->>'min')::float <= :ageMonths AND 
+                          (mk.metadata->'age'->>'max')::float >= :ageMonths
+                        )
                     )
-                )
-                ORDER BY mk.source_id, mk.embedding <=> CAST(:embedding AS vector)
-            ) sub
-            ORDER BY sub.embedding <=> CAST(:embedding AS vector)
+                    ORDER BY mk.embedding <=> CAST(:embedding AS vector)
+                    LIMIT (:limit * 5)
+                ) sub
+                ORDER BY sub.source_id, sub.distance ASC
+            ) dedup
+            ORDER BY dedup.distance ASC
             LIMIT :limit
         """,
         nativeQuery = true

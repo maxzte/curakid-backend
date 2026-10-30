@@ -14,3 +14,6 @@ scipy==1.13.1
 scikit-learn==1.5.2
 scikit-fuzzy==0.5.0
 sentry-sdk[fastapi]==2.22.0
+
+# ---------- System 1 Decision Model ----------
+laya>=0.1.0

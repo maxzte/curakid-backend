@@ -26,7 +26,9 @@ interface AiReportRepository : JpaRepository<AiReport, UUID> {
 
     fun findByPeriodSummary(periodSummary: PeriodSummary): Optional<AiReport>
 
-    fun findByIdAndChildUser(reportId: UUID, user: User): Optional<AiReport>
+    fun findByIdAndChildUserId(reportId: UUID, userId: UUID): Optional<AiReport>
+
+    fun findByIdAndChildUser(reportId: UUID, user: User): Optional<AiReport> = findByIdAndChildUserId(reportId, user.id)
 
     @Modifying
     @Query("UPDATE AiReport r SET r.faithfulnessScore = :faithfulness, r.relevanceScore = :relevance WHERE r.id = :id")

@@ -1,12 +1,22 @@
 package com.misterio.curakid.feature.event
 
-import com.misterio.curakid.core.essential.common.events.ChildCreatedEvent
 import com.misterio.curakid.core.database.children.Child
 import com.misterio.curakid.core.database.children.ChildRepository
 import com.misterio.curakid.core.database.children.Gender
-import com.misterio.curakid.core.database.event.*
+import com.misterio.curakid.core.database.event.Event
+import com.misterio.curakid.core.database.event.EventRepository
+import com.misterio.curakid.core.database.event.EventStatus
+import com.misterio.curakid.core.database.event.EventType
+import com.misterio.curakid.core.database.event.VaccineEvent
+import com.misterio.curakid.core.database.event.VaccineEventRepository
+import com.misterio.curakid.core.database.event.VaccineTemplate
+import com.misterio.curakid.core.database.event.VaccineTemplateRepository
+import com.misterio.curakid.core.essential.common.events.ChildCreatedEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import com.misterio.curakid.core.database.readTx
+import com.misterio.curakid.core.database.writeTx
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -15,29 +25,47 @@ class VaccineService(
     private val vaccineEventRepository: VaccineEventRepository,
     private val vaccineTemplateRepository: VaccineTemplateRepository,
     private val childRepository: ChildRepository,
-    private val eventRepository: EventRepository
+    private val eventRepository: EventRepository,
+    private val transactionManager: PlatformTransactionManager
 ) {
 
     @EventListener
     fun onChildCreated(event: ChildCreatedEvent) {
-        val child = childRepository.findById(event.childId).orElse(null) ?: return
-        generateScheduleForChild(child)
-        generateDoctorVisitsForChild(child)
+        // Phase 1: Read Context
+        val context = transactionManager.readTx {
+            val child = childRepository.findById(event.typedChildId.value).orElse(null) ?: return@readTx null
+            val existingVaccines = vaccineEventRepository.findAllByChild(child)
+            val existingDoctorVisits = eventRepository.findAllByChildAndType(child, EventType.DOCTOR)
+            val templates = vaccineTemplateRepository.findAllByIsActiveTrue()
+            ScheduleContext(child, existingVaccines.isNotEmpty(), existingDoctorVisits.isNotEmpty(), templates)
+        } ?: return
+
+        // Phase 2: Domain Processing
+        val vaccinesToSave = if (!context.hasExistingVaccines) buildVaccineSchedule(context.child, context.templates) else emptyList()
+        val visitsToSave = if (!context.hasExistingDoctorVisits) buildDoctorVisits(context.child) else emptyList()
+
+        if (vaccinesToSave.isEmpty() && visitsToSave.isEmpty()) return
+
+        // Phase 3: Write Transaction
+        transactionManager.writeTx {
+            if (vaccinesToSave.isNotEmpty()) {
+                vaccineEventRepository.saveAll(vaccinesToSave)
+            }
+            if (visitsToSave.isNotEmpty()) {
+                eventRepository.saveAll(visitsToSave)
+            }
+        }
     }
 
-    private fun generateScheduleForChild(child: Child) {
-        val existing = vaccineEventRepository.findAllByChild(child)
-        if (existing.isNotEmpty()) return
+    private data class ScheduleContext(
+        val child: Child,
+        val hasExistingVaccines: Boolean,
+        val hasExistingDoctorVisits: Boolean,
+        val templates: List<VaccineTemplate>
+    )
 
-        val vaccines = buildVaccineSchedule(child)
-        vaccineEventRepository.saveAll(vaccines)
-    }
-
-    private fun generateDoctorVisitsForChild(child: Child) {
-        val existingDoctorVisits = eventRepository.findAllByChildAndType(child, EventType.DOCTOR)
-        if (existingDoctorVisits.isNotEmpty()) return
-
-        val visits = listOf(
+    private fun buildDoctorVisits(child: Child): List<Event> {
+        return listOf(
             doctorVisit(child, months = 1),
             doctorVisit(child, months = 1, days = 15),
             doctorVisit(child, months = 2),
@@ -55,7 +83,6 @@ class VaccineService(
             doctorVisit(child, months = 60),
             doctorVisit(child, months = 72)
         )
-        eventRepository.saveAll(visits)
     }
 
     private fun doctorVisit(child: Child, months: Int = 0, days: Int = 0): Event {
@@ -91,12 +118,9 @@ class VaccineService(
         }
     }
 
-    // https://vaccine.org.ua/vakczynacziya-v-ukrayini/vaccinationua-calendar/
-    private fun buildVaccineSchedule(child: Child): List<VaccineEvent> {
-        val templates = vaccineTemplateRepository.findAllByIsActiveTrue()
+    private fun buildVaccineSchedule(child: Child, templates: List<VaccineTemplate>): List<VaccineEvent> {
         if (templates.isNotEmpty()) {
             return templates.mapNotNull { template ->
-                // Apply gender filtering if needed (specifically for HPV/ВПЛ)
                 if (template.name == "ВПЛ" && child.gender != Gender.FEMALE) {
                     null
                 } else {
@@ -116,7 +140,6 @@ class VaccineService(
                 }
             }
         }
-
         return emptyList()
     }
 
@@ -127,5 +150,4 @@ class VaccineService(
             EventStatus.PLANNED
         }
     }
-
 }

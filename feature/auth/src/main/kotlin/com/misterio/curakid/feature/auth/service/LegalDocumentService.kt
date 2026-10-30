@@ -10,12 +10,15 @@ import com.misterio.curakid.feature.auth.LegalDocumentResponse
 import com.misterio.curakid.feature.auth.model.CreateLegalDocumentRequest
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import com.misterio.curakid.core.database.readTx
+import com.misterio.curakid.core.database.writeTx
 import java.util.*
 
 @Service
 class LegalDocumentService(
     private val repository: LegalDocumentRepository,
+    private val transactionManager: PlatformTransactionManager
 ) {
     private val logger = LoggerFactory.getLogger(LegalDocumentService::class.java)
 
@@ -34,47 +37,51 @@ class LegalDocumentService(
             ?: throw LegalDocumentNotFoundException("Документ $type не знайдено")
     }
 
-    @Transactional
     fun uploadDocument(request: CreateLegalDocumentRequest): LegalDocumentResponse {
         val type = ConsentType.valueOf(request.type)
-        if (repository.findByTypeAndVersion(type, request.version) != null) {
-            throw LegalDocumentAlreadyExistException(
-                "Документ ${request.type} версії ${request.version} вже існує"
-            )
+
+        transactionManager.readTx {
+            if (repository.findByTypeAndVersion(type, request.version) != null) {
+                throw LegalDocumentAlreadyExistException(
+                    "Документ ${request.type} версії ${request.version} вже існує"
+                )
+            }
+
+            if (repository.findByUrl(request.url) != null) {
+                throw LegalDocumentAlreadyExistException("Файл за URL ${request.url} вже існує")
+            }
         }
 
-        if (repository.findByUrl(request.url) != null) {
-            throw LegalDocumentAlreadyExistException("Файл за URL ${request.url} вже існує")
-        }
-
-        val document = repository.save(
-            LegalDocument(
-                type = type,
-                version = request.version,
-                url = request.url,
-                isActive = false,
+        val document = requireNotNull(transactionManager.writeTx {
+            repository.save(
+                LegalDocument(
+                    type = type,
+                    version = request.version,
+                    url = request.url,
+                    isActive = false,
+                )
             )
-        )
+        })
 
         return document.toResponse()
     }
 
-    // Активувати версію документу
-    // Деактивує попередню активну версію
-    @Transactional
     fun activateDocument(documentId: UUID): LegalDocumentResponse {
-        val document = repository.findById(documentId)
-            .orElseThrow { LegalDocumentNotFoundException("Документ не знайдено") }
+        val document = requireNotNull(transactionManager.readTx {
+            repository.findById(documentId)
+                .orElseThrow { LegalDocumentNotFoundException("Документ не знайдено") }
+        })
 
         if (document.isActive) {
             throw LegalDocumentAlreadyActivatedException("Документ вже активний")
         }
 
-        // Деактивуємо попередню версію
-        repository.deactivateAllByType(document.type)
-
-        document.isActive = true
-        val activated = repository.save(document)
+        val activated = requireNotNull(transactionManager.writeTx {
+            // Деактивуємо попередню версію
+            repository.deactivateAllByType(document.type)
+            document.isActive = true
+            repository.save(document)
+        })
 
         return activated.toResponse()
     }
@@ -84,5 +91,5 @@ private fun LegalDocument.toResponse() = LegalDocumentResponse(
     type = type.name,
     version = version,
     url = url,
-    publishedAt = createdAt!!,
+    publishedAt = createdAt ?: java.time.Instant.now(),
 )

@@ -1,14 +1,18 @@
 package com.misterio.curakid.core.security
 
+import com.misterio.curakid.core.database.auth.Role
+import com.misterio.curakid.core.database.auth.User
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import java.util.UUID
 
 @Component
 class JwtAuthenticationFilter(
@@ -61,7 +65,30 @@ class JwtAuthenticationFilter(
                     return
                 }
 
-                val userDetails = userDetailsService.loadUserByUsername(userEmail)
+                val userIdStr = claims?.get(JwtService.CLAIM_USER_ID, String::class.java)
+                val roleStr = claims?.get(JwtService.CLAIM_ROLE, String::class.java)
+
+                val userDetails: UserDetails = if (userIdStr != null && roleStr != null) {
+                    // Fully stateless path: no database query needed for 1M DAU peak traffic
+                    try {
+                        val role = Role.valueOf(roleStr)
+                        User(
+                            email = userEmail,
+                            passwordHash = "",
+                            name = userEmail,
+                            role = role,
+                            isActive = true
+                        ).apply {
+                            setId(UUID.fromString(userIdStr))
+                        }
+                    } catch (_: Exception) {
+                        userDetailsService.loadUserByUsername(userEmail)
+                    }
+                } else {
+                    // Fallback to database lookup for legacy tokens without uid/role claim
+                    userDetailsService.loadUserByUsername(userEmail)
+                }
+
                 if (!userDetails.isEnabled || userDetails.username != userEmail) {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token or user disabled")
                     return

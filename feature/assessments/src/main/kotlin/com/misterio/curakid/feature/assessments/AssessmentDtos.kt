@@ -1,13 +1,20 @@
 package com.misterio.curakid.feature.assessments
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.misterio.curakid.core.database.assessments.SkillAssessment
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
 // --- Requests ---
 data class SaveAnswersRequest(
+    @field:NotEmpty(message = "Answers list cannot be empty")
+    @field:Size(max = 100, message = "Maximum 100 answers per request")
+    @field:Valid
     val answers: List<AnswerRequest>,
     val assessmentDate: Instant? = null
 )
@@ -29,6 +36,7 @@ data class CompletePeriodAssessmentRequest(
 )
 
 data class PeriodReadinessResponse(
+    @get:JsonProperty("isReady")
     val isReady: Boolean,
     val completionPercent: Int,
     val requiredPercent: Int,
@@ -40,6 +48,7 @@ data class PeriodReadinessResponse(
 data class DomainReadinessResponse(
     val domain: String,
     val completionPercent: Int,
+    @get:JsonProperty("isReady")
     val isReady: Boolean,
     val requiredPercent: Int
 )
@@ -54,16 +63,18 @@ data class AssessmentResponse(
 
 fun SkillAssessment.toAssessmentResponse() = AssessmentResponse(
     assessmentId = id,
-    childId = child!!.id,
-    answers = answers.map {
+    childId = requireNotNull(child?.id) { "Child ID of assessment must not be null" },
+    answers = answers.mapNotNull { answer ->
+        val q = answer.question ?: return@mapNotNull null
+        val opt = answer.selectedOption ?: return@mapNotNull null
         AssessmentAnswerResponse(
-            assessmentAnswerId = it.id,
+            assessmentAnswerId = answer.id,
             question = QuestionResponse(
-                questionId = it.question?.id!!,
-                text = it.question?.text!!,
-                domain = it.question!!.domain.name,
-                weight = it.question!!.weight,
-                options = it.question!!.options.map { answerOption ->
+                questionId = requireNotNull(q.id) { "Question ID must not be null" },
+                text = q.text,
+                domain = q.domain.name,
+                weight = q.weight,
+                options = q.options.map { answerOption ->
                     OptionResponse(
                         optionId = answerOption.id,
                         text = answerOption.text,
@@ -73,12 +84,12 @@ fun SkillAssessment.toAssessmentResponse() = AssessmentResponse(
                 },
             ),
             selectedOption = OptionResponse(
-                optionId = it.selectedOption?.id!!,
-                text = it.selectedOption?.text!!,
-                value = it.selectedOption?.value!!,
-                displayOrder = it.selectedOption?.displayOrder!!,
+                optionId = requireNotNull(opt.id) { "Option ID must not be null" },
+                text = opt.text,
+                value = opt.value,
+                displayOrder = opt.displayOrder,
             ),
-            answeredAt = it.answeredAt,
+            answeredAt = answer.answeredAt,
         )
     },
     assessmentDate = assessmentDate

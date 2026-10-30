@@ -12,16 +12,20 @@ import java.util.UUID
 class KnowledgeService(
     private val medicalKnowledgeRepository: MedicalKnowledgeRepository,
     private val embeddingProvider: EmbeddingProvider,
+    private val intelligenceProvider: IntelligenceProvider,
 ) : KnowledgeProvider {
 
     private val log = LoggerFactory.getLogger(KnowledgeService::class.java)
 
     companion object {
-        /** Кількість чанків для базового пошуку (urgencyScore < 0.5) */
-        private const val TOP_K_DEFAULT = 5
+        /** Кількість кандидатів для початкового гібридного відбору */
+        private const val CANDIDATE_POOL_SIZE = 10
 
-        /** Кількість чанків для підвищеного urgency (>= 0.5) */
-        private const val TOP_K_URGENT = 8
+        /** Кількість чанків для базового звіту після реранкінгу */
+        private const val TOP_K_DEFAULT = 4
+
+        /** Кількість чанків для підвищеного urgency після реранкінгу */
+        private const val TOP_K_URGENT = 6
 
         /** Константа для алгоритму RRF */
         private const val RRF_K = 60
@@ -43,45 +47,83 @@ class KnowledgeService(
     }
 
     /**
-     * Шукає найрелевантніші медичні чанки у pgvector за косинусною подібністю + FTS.
+     * Шукає найрелевантніші медичні чанки у pgvector за косинусною подібністю + FTS,
+     * після чого виконує верифікацію та реранкінг через System 1 (Laya).
      */
-    override fun search(query: String, urgencyScore: BigDecimal, ageMonths: Int?): KnowledgeSearchResult {
+    override fun search(
+        query: String,
+        urgencyScore: BigDecimal,
+        ageMonths: Int?,
+        childAnamnesis: ChildAnamnesisContext?
+    ): KnowledgeSearchResult {
         log.debug("KnowledgeService.search: query='{}', urgencyScore={}, ageMonths={}", query, urgencyScore, ageMonths)
 
-        val topK = if (urgencyScore >= BigDecimal("0.5")) TOP_K_URGENT else TOP_K_DEFAULT
+        val targetCount = if (urgencyScore >= BigDecimal("0.5")) TOP_K_URGENT else TOP_K_DEFAULT
 
-        // 1. Vector Search
-        val vectorResults = performVectorSearch(query, ageMonths, topK)
-        
-        // 2. Full-Text Search (FTS)
-        val ftsResults = performFullTextSearch(query, topK)
+        // 1. Initial Candidate Retrieval: Vector Search + FTS (Pool of up to 10 candidates)
+        val vectorResults = performVectorSearch(query, ageMonths, CANDIDATE_POOL_SIZE)
+        val ftsResults = performFullTextSearch(query, CANDIDATE_POOL_SIZE)
 
-        // 3. Hybrid Reranking (Rank Reciprocal Fusion)
-        val combinedResults = rankReciprocalFusion(vectorResults, ftsResults, topK)
+        // 2. Hybrid Merge (RRF)
+        val combinedCandidates = rankReciprocalFusion(vectorResults, ftsResults, CANDIDATE_POOL_SIZE)
+        log.debug("Found {} candidate chunks before System 1 reranking", combinedCandidates.size)
 
-        log.debug("Found {} knowledge chunks after hybrid reranking", combinedResults.size)
-
-        // 4. Determine Confidence Level
-        val bestDistance = vectorResults.firstOrNull()?.distance ?: 1.0
-        val confidence = when {
-            combinedResults.isEmpty() -> SearchConfidence.FALLBACK
-            bestDistance <= DISTANCE_HIGH -> SearchConfidence.HIGH
-            bestDistance <= DISTANCE_CAUTION -> SearchConfidence.CAUTION
-            else -> SearchConfidence.FALLBACK
+        if (combinedCandidates.isEmpty()) {
+            return KnowledgeSearchResult(listOf(GENERAL_SAFETY_PROTOCOL), SearchConfidence.FALLBACK)
         }
 
-        val chunks = if (confidence == SearchConfidence.FALLBACK) {
+        // 3. System 1 (Laya) Evidence Gatekeeper & Reranking
+        val candidateDtos = combinedCandidates.map { proj ->
+            KnowledgeChunkDto(
+                title = proj.title,
+                content = proj.content
+            )
+        }
+
+        val childContextMap = mutableMapOf<String, Any>()
+        if (childAnamnesis != null) {
+            childContextMap["ageMonths"] = childAnamnesis.ageMonths
+            childContextMap["isPremature"] = childAnamnesis.isPremature
+            childContextMap["allergies"] = childAnamnesis.allergies
+            childContextMap["chronicConditions"] = childAnamnesis.chronicConditions
+            childContextMap["notes"] = childAnamnesis.notes
+        } else if (ageMonths != null) {
+            childContextMap["ageMonths"] = ageMonths
+        }
+
+        val rerankResponse = intelligenceProvider.rerankChunks(
+            RerankRequestDto(
+                query = query,
+                childContext = childContextMap,
+                chunks = candidateDtos
+            )
+        )
+
+        // Filter out contraindicated or irrelevant chunks and limit to targetCount
+        val verifiedChunks = rerankResponse.chunks
+            .filter { it.isSafeAndApplicable && (it.relevanceScore ?: 0.5) >= 0.35 }
+            .take(targetCount)
+
+        log.debug("Retained {} verified chunks after System 1 filtering", verifiedChunks.size)
+
+        // 4. Calibrated Confidence Level
+        // If vector distance indicates caution/fallback, respect it; otherwise consider Laya relevance
+        val bestDistance = vectorResults.firstOrNull()?.distance ?: 1.0
+        val bestLayaScore = verifiedChunks.firstOrNull()?.relevanceScore ?: 0.0
+
+        val confidence = when {
+            verifiedChunks.isEmpty() || bestDistance > DISTANCE_CAUTION -> SearchConfidence.FALLBACK
+            bestDistance > DISTANCE_HIGH || bestLayaScore < 0.70 -> SearchConfidence.CAUTION
+            else -> SearchConfidence.HIGH
+        }
+
+        val finalChunks = if (confidence == SearchConfidence.FALLBACK || verifiedChunks.isEmpty()) {
             listOf(GENERAL_SAFETY_PROTOCOL)
         } else {
-            combinedResults.map { proj ->
-                KnowledgeChunkDto(
-                    title = proj.title,
-                    content = proj.content
-                )
-            }
+            verifiedChunks
         }
 
-        return KnowledgeSearchResult(chunks, confidence)
+        return KnowledgeSearchResult(finalChunks, confidence)
     }
 
     private fun performVectorSearch(query: String, ageMonths: Int?, limit: Int): List<MedicalKnowledgeProjection> {
@@ -148,6 +190,6 @@ class KnowledgeService(
         return scores.entries
             .sortedByDescending { it.value }
             .take(limit)
-            .map { idToProjection[it.key]!! }
+            .mapNotNull { idToProjection[it.key] }
     }
 }

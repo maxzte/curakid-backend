@@ -162,4 +162,52 @@ class WhoPercentileCalculator {
         val heightKey = (heightCm * 10).roundToInt()
         return map[heightKey] ?: map.minByOrNull { abs(it.key - heightKey) }?.value
     }
+
+    /**
+     * Builds standard percentile norms map (P3, P15, P50, P85, P97) for child anthropometry.
+     */
+    fun buildNormsMap(
+        gender: Gender?,
+        ageDays: Int,
+        heightCm: Double? = null,
+        keyPrefix: String = "WHO"
+    ): Map<String, Map<String, Double>> {
+        val res = mutableMapOf<String, Map<String, Double>>()
+
+        fun addNorms(variable: String, type: ChartType) {
+            getParamsForAge(type, gender, ageDays)?.let { p ->
+                res[variable] = mapOf(
+                    "P3" to p.p3, "P15" to p.p15, "P50" to p.p50, "P85" to p.p85, "P97" to p.p97
+                )
+            }
+        }
+
+        if (keyPrefix == "WHO") {
+            addNorms("WFA (kg)", ChartType.WFA)
+            addNorms("HFA (cm)", ChartType.HFA)
+            addNorms("BMI", ChartType.BMI)
+            addNorms("HCFA (cm)", ChartType.HCFA)
+            heightCm?.let { h ->
+                getParamsForHeight(gender, h, ageDays)?.let { p ->
+                    res["WFH (kg)"] = mapOf(
+                        "P3" to p.p3, "P15" to p.p15, "P50" to p.p50, "P85" to p.p85, "P97" to p.p97
+                    )
+                }
+            }
+        } else {
+            addNorms("wfaZscore", ChartType.WFA)
+            addNorms("hfaZscore", ChartType.HFA)
+            addNorms("bmiZscore", ChartType.BMI)
+            addNorms("hcfaZscore", ChartType.HCFA)
+            heightCm?.let { h ->
+                getParamsForHeight(gender, h, ageDays)?.let { p ->
+                    res["wfhZscore"] = mapOf(
+                        "P3" to p.p3, "P15" to p.p15, "P50" to p.p50, "P85" to p.p85, "P97" to p.p97
+                    )
+                }
+            }
+        }
+
+        return res
+    }
 }

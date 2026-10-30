@@ -64,3 +64,30 @@ CREATE INDEX IF NOT EXISTS idx_medical_knowledge_fts_en
 CREATE INDEX IF NOT EXISTS idx_medical_knowledge_fts_simple
     ON medical_knowledge USING gin (to_tsvector('simple', title || ' ' || content))
     WHERE deleted_at IS NULL;
+
+-- Skill Assessments Index
+CREATE INDEX IF NOT EXISTS idx_skill_assessments_child_period
+    ON skill_assessments (child_id, life_period_id)
+    WHERE deleted_at IS NULL;
+
+-- Refresh Tokens Index and cleanup of stale unique constraints
+ALTER TABLE refresh_tokens DROP CONSTRAINT IF EXISTS uk7tdcd6ab5wsgoudnvj7xf1b7l;
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_expiry
+    ON refresh_tokens (user_id, expiry_date);
+
+-- Device Tokens Index
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user_active
+    ON user_device_tokens (user_id, is_active);
+
+-- Token Blacklist Expiration Index
+CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at
+    ON token_blacklist (expiry_date);
+
+-- Children & Users High-Scale Query Indexes
+CREATE INDEX IF NOT EXISTS idx_children_user_active
+    ON children (user_id, is_active)
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_users_email_active
+    ON users (email)
+    WHERE deleted_at IS NULL;

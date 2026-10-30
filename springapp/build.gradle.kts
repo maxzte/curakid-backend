@@ -1,10 +1,11 @@
 plugins {
     alias(libs.plugins.curakid.spring.app)
-    id("io.gatling.gradle") version "3.15.1"
+    alias(libs.plugins.gatling.plugin)
+    alias(libs.plugins.sentry.plugin)
 }
 
 group = "com.misterio.curakid"
-version = "0.0.1-SNAPSHOT"
+version = "0.0.1"
 description = "curakid"
 
 dependencies {
@@ -26,18 +27,17 @@ dependencies {
     implementation(projects.feature.notification)
 
     implementation(libs.spring.boot.starter.web)
-    implementation(libs.spring.boot.starter.thymeleaf)
-    implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.micrometer.registry.prometheus)
+    implementation(libs.spring.ai.google.gemini)
     implementation(libs.spring.boot.starter.cache)
     implementation(libs.spring.boot.starter.data.redis)
-    implementation(libs.spring.boot.starter.data.jpa)
-    implementation(libs.spring.boot.starter.security)
-    implementation(libs.spring.boot.starter.mail)
+    implementation(libs.spring.kafka)
 
-    implementation(libs.spring.ai.google.gemini)
     implementation(libs.pdfbox)
-    implementation(libs.sentry.spring.boot.starter)
-    testImplementation(libs.jjwt.api)
+    //implementation(libs.sentry.spring.boot.starter)
+    implementation(libs.jsoup)
 
     implementation(libs.kotlin.reflect)
     developmentOnly("org.springframework.boot:spring-boot-devtools")

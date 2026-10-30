@@ -25,7 +25,7 @@ class MeasurementCalculator {
         if (points.isEmpty()) return null
 
         val oldest = points.last()
-        val oldestValue = metric(oldest)!!
+        val oldestValue = metric(oldest) ?: return null
 
         val minutes = ChronoUnit.MINUTES.between(oldest.measurementDate, currentDate)
         // Velocity logic is unstable on micro-intervals (less than 1 hour)

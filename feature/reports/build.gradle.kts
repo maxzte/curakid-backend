@@ -10,4 +10,5 @@ dependencies {
     implementation(projects.core.medical)
 
     implementation(libs.spring.ai.google.gemini)
+    implementation(libs.spring.kafka)
 }

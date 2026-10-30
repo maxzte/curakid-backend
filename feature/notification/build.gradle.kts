@@ -11,4 +11,7 @@ dependencies {
     implementation(libs.firebase.admin)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.data.redis)
+    implementation(libs.spring.kafka)
+    testImplementation(projects.core.security)
+    testImplementation(libs.spring.kafka.test)
 }

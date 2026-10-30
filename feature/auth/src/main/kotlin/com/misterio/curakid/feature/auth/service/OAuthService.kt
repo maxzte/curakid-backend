@@ -14,7 +14,8 @@ import com.misterio.curakid.core.database.auth.OAuthProviderRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import com.misterio.curakid.core.database.writeTx
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 
@@ -24,15 +25,15 @@ class OAuthService(
     private val userRepository: UserRepository,
     private val oauthProviderRepository: OAuthProviderRepository,
     private val jwtService: JwtService,
-    private val refreshTokenRepository: RefreshTokenRepository
+    private val refreshTokenRepository: RefreshTokenRepository,
+    private val transactionManager: PlatformTransactionManager? = null
 ) {
     private val verifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), GsonFactory())
         .setAudience(listOf(googleClientId))
         .build()
 
-    @Transactional
     fun loginWithGoogle(idTokenString: String): AuthResponse {
-
+        // External network call happens strictly outside database transaction
         val idToken = try {
             verifier.verify(idTokenString)
         } catch (e: Exception) {
@@ -44,47 +45,57 @@ class OAuthService(
         val fullName = payload["name"] as String? ?: "Google User"
         val googleUserId = payload.subject
 
-        val existingUser = userRepository.findByEmail(email).orElse(null)
-        val user = if (existingUser != null) {
-            if (existingUser.deletedAt != null) {
-                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Account was deleted")
-            }
-            if (!existingUser.isActive) {
-                // Verified Google account confirms email ownership -> activate user
-                existingUser.isActive = true
-                existingUser.verificationCode = null
-                existingUser.verificationCodeExpiry = null
-                userRepository.save(existingUser)
+        val user = executeInTransaction {
+            val existingUser = userRepository.findByEmail(email).orElse(null)
+            val u = if (existingUser != null) {
+                if (existingUser.deletedAt != null) {
+                    throw ResponseStatusException(HttpStatus.FORBIDDEN, "Account was deleted")
+                }
+                if (!existingUser.isActive) {
+                    // Verified Google account confirms email ownership -> activate user
+                    existingUser.isActive = true
+                    existingUser.verificationCode = null
+                    existingUser.verificationCodeExpiry = null
+                    userRepository.save(existingUser)
+                } else {
+                    existingUser
+                }
             } else {
-                existingUser
+                val newUser = User(
+                    email = email,
+                    passwordHash = "", // OAuth users don't have a password
+                    name = fullName,
+                    isActive = true,
+                )
+                userRepository.save(newUser)
             }
-        } else {
-            val newUser = User(
-                email = email,
-                passwordHash = "", // OAuth users don't have a password
-                name = fullName,
-                isActive = true,
-            )
-            userRepository.save(newUser)
+
+            oauthProviderRepository.findByProviderNameAndProviderUserId("google", googleUserId)
+                .orElseGet {
+                    val newProvider = OAuthProvider(
+                        user = u,
+                        providerName = "google",
+                        providerUserId = googleUserId
+                    )
+                    oauthProviderRepository.save(newProvider)
+                }
+            u
         }
 
-        oauthProviderRepository.findByProviderNameAndProviderUserId("google", googleUserId)
-            .orElseGet {
-                val newProvider = OAuthProvider(
-                    user = user,
-                    providerName = "google",
-                    providerUserId = googleUserId
-                )
-                oauthProviderRepository.save(newProvider)
-            }
-
         val accessToken = jwtService.generateAccessToken(user)
-        val refreshTokenStr = generateAndSaveRefreshToken(user)
+        val refreshTokenStr = executeInTransaction { generateAndSaveRefreshToken(user) }
 
         return AuthResponse(accessToken, refreshTokenStr, onboardingCompleted = user.onboardingCompleted)
     }
 
+    private fun <T> executeInTransaction(action: () -> T): T {
+        return transactionManager?.writeTx { action() } ?: action()
+    }
+
     private fun generateAndSaveRefreshToken(user: User): String {
+        refreshTokenRepository.deleteByUser(user)
+        refreshTokenRepository.flush()
+
         val tokenStr = jwtService.generateRefreshToken(user)
         val refreshToken = RefreshToken(
             user = user,

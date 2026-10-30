@@ -4,7 +4,7 @@ import com.misterio.curakid.core.database.development.LifePeriod
 import com.misterio.curakid.feature.development.LifePeriodQuestionService.Companion.parseDescription
 import tools.jackson.databind.ObjectMapper
 import java.math.BigDecimal
-import java.util.UUID
+import java.util.*
 
 data class LifePeriodResponse(
     val id: UUID,
@@ -52,6 +52,7 @@ internal fun LifePeriod.toResponse(objectMapper: ObjectMapper) = LifePeriodRespo
     minMonths = minMonths,
     maxMonths = maxMonths,
     questions = questions
+        .filter { it.isActive }
         .sortedBy { it.weight }
         .map { q ->
             QuestionResponse(

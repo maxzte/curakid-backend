@@ -12,6 +12,12 @@ fun sanitizeUserInput(input: String?): String {
         .replace("<|im_end|>", "")
         .replace("<system>", "")
         .replace("</system>", "")
+        .replace("<user_query>", "")
+        .replace("</user_query>", "")
+        .replace("<child_profile>", "")
+        .replace("</child_profile>", "")
+        .replace("<retrieved_medical_knowledge>", "")
+        .replace("</retrieved_medical_knowledge>", "")
         .trim()
 }
 

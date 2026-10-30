@@ -1,5 +1,9 @@
 package com.misterio.curakid.admin.service
 
+import com.misterio.curakid.admin.AdminLifePeriodResponse
+import com.misterio.curakid.admin.AdminOptionResponse
+import com.misterio.curakid.admin.AdminPrerequisiteResponse
+import com.misterio.curakid.admin.AdminQuestionResponse
 import com.misterio.curakid.admin.CreateAnswerOptionRequest
 import com.misterio.curakid.admin.CreateLifePeriodRequest
 import com.misterio.curakid.admin.CreateQuizQuestionRequest
@@ -9,7 +13,11 @@ import com.misterio.curakid.core.database.development.LifePeriod
 import com.misterio.curakid.core.database.development.LifePeriodRepository
 import com.misterio.curakid.core.database.question.Question
 import com.misterio.curakid.core.database.question.QuestionRepository
+import com.misterio.curakid.core.essential.common.events.CatalogUpdatedEvent
+import com.misterio.curakid.feature.development.LifePeriodQuestionService
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.cache.annotation.CacheEvict
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -19,32 +27,76 @@ import java.util.*
 class AdminQuizService(
     private val lifePeriodRepository: LifePeriodRepository,
     private val questionRepository: QuestionRepository,
-    private val answerOptionRepository: AnswerOptionRepository
+    private val answerOptionRepository: AnswerOptionRepository,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val objectMapper: ObjectMapper? = null
 ) {
+
+    fun toResponse(lp: LifePeriod): AdminLifePeriodResponse {
+        val mapper = objectMapper ?: ObjectMapper()
+        return AdminLifePeriodResponse(
+            id = requireNotNull(lp.id) { "LifePeriod ID must not be null" },
+            code = lp.code,
+            label = lp.label,
+            description = LifePeriodQuestionService.parseDescription(lp.description, mapper),
+            minMonths = lp.minMonths,
+            maxMonths = lp.maxMonths,
+            questions = lp.questions.filter { it.isActive }.map { toResponse(it) }
+        )
+    }
+
+    fun toResponse(q: Question): AdminQuestionResponse {
+        return AdminQuestionResponse(
+            id = requireNotNull(q.id) { "Question ID must not be null" },
+            text = q.text,
+            domain = q.domain,
+            weight = q.weight,
+            prerequisite = q.prerequisite?.let { p ->
+                val pid = requireNotNull(p.id) { "Prerequisite ID must not be null" }
+                AdminPrerequisiteResponse(pid, p.text)
+            },
+            options = q.options.filter { it.deletedAt == null }.map { toResponse(it) }
+        )
+    }
+
+    fun toResponse(opt: AnswerOption): AdminOptionResponse {
+        return AdminOptionResponse(
+            id = requireNotNull(opt.id) { "Option ID must not be null" },
+            text = opt.text,
+            value = opt.value,
+            order = opt.displayOrder
+        )
+    }
 
     // --- Life Periods ---
 
     @Transactional(readOnly = true)
     fun getLifePeriods(): List<LifePeriod> {
         val periods = lifePeriodRepository.findAllWithQuestions()
-        val questionIds = periods.flatMap { it.questions }.mapNotNull { it.id }
+        val questionIds = periods.flatMap { it.questions }.map { it.id }
         if (questionIds.isNotEmpty()) {
             questionRepository.findAllWithOptionsByIdIn(questionIds)
         }
         return periods
     }
 
+    private fun publishCatalogSync() {
+        eventPublisher.publishEvent(CatalogUpdatedEvent("LIFE_PERIODS"))
+    }
+
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
-    fun createLifePeriod(request: CreateLifePeriodRequest): LifePeriod {
+    fun createLifePeriod(request: CreateLifePeriodRequest): AdminLifePeriodResponse {
         val period = LifePeriod(
-            code = request.code,
-            label = request.label,
-            description = request.description,
-            minMonths = request.minMonths,
-            maxMonths = request.maxMonths
+            code = requireNotNull(request.code) { "Code is required" },
+            label = requireNotNull(request.label) { "Label is required" },
+            description = request.description ?: "",
+            minMonths = request.minMonths ?: 0,
+            maxMonths = request.maxMonths ?: 0
         )
-        return lifePeriodRepository.save(period)
+        val saved = lifePeriodRepository.save(period)
+        publishCatalogSync()
+        return toResponse(saved)
     }
 
     @Transactional
@@ -72,27 +124,30 @@ class AdminQuizService(
         existing.code = "deleted_${existing.code}_${now.epochSecond}"
         existing.deletedAt = now
         lifePeriodRepository.save(existing)
+        publishCatalogSync()
     }
 
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
-    fun updateLifePeriod(id: UUID, request: CreateLifePeriodRequest): LifePeriod {
+    fun updateLifePeriod(id: UUID, request: CreateLifePeriodRequest): AdminLifePeriodResponse {
         val existing = lifePeriodRepository.findById(id).orElseThrow {
             IllegalArgumentException("LifePeriod $id not found")
         }
-        existing.code = request.code
-        existing.label = request.label
-        existing.description = request.description
-        existing.minMonths = request.minMonths
-        existing.maxMonths = request.maxMonths
-        return lifePeriodRepository.save(existing)
+        request.code?.let { existing.code = it }
+        request.label?.let { existing.label = it }
+        request.description?.let { existing.description = it }
+        request.minMonths?.let { existing.minMonths = it }
+        request.maxMonths?.let { existing.maxMonths = it }
+        val saved = lifePeriodRepository.save(existing)
+        publishCatalogSync()
+        return toResponse(saved)
     }
 
     // --- Questions ---
 
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
-    fun createQuestion(lifePeriodId: UUID, request: CreateQuizQuestionRequest): Question {
+    fun createQuestion(lifePeriodId: UUID, request: CreateQuizQuestionRequest): AdminQuestionResponse {
         val period = lifePeriodRepository.findById(lifePeriodId)
             .orElseThrow { IllegalArgumentException("LifePeriod $lifePeriodId not found") }
 
@@ -120,12 +175,14 @@ class AdminQuizService(
             )
         }
         
-        return questionRepository.save(question)
+        val saved = questionRepository.save(question)
+        publishCatalogSync()
+        return toResponse(saved)
     }
 
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
-    fun updateQuestion(id: UUID, request: CreateQuizQuestionRequest): Question {
+    fun updateQuestion(id: UUID, request: CreateQuizQuestionRequest): AdminQuestionResponse {
         val existing = questionRepository.findById(id).orElseThrow {
             IllegalArgumentException("Question $id not found")
         }
@@ -146,7 +203,9 @@ class AdminQuizService(
         existing.domain = request.domain
         existing.weight = request.weight
         existing.prerequisite = prerequisite
-        return questionRepository.save(existing)
+        val saved = questionRepository.save(existing)
+        publishCatalogSync()
+        return toResponse(saved)
     }
 
     private fun checkCyclicDependency(targetId: UUID, prereqId: UUID) {
@@ -155,19 +214,20 @@ class AdminQuizService(
         visited.add(targetId)
         
         var depth = 0
-        val MAX_DEPTH = 20 // Safety limit to prevent infinite loops in DB
+        val maxDepth = 20 // Safety limit to prevent infinite loops in DB
 
-        while (current != null && depth < MAX_DEPTH) {
-            if (current.id == targetId) {
+        while (current != null && depth < maxDepth) {
+            val currentId = current.id
+            if (currentId == targetId) {
                 throw IllegalArgumentException("Виявлено циклічну залежність: нове правило створює замкнене коло залежностей")
             }
-            if (visited.contains(current.id)) break
-            visited.add(current.id!!)
+            if (visited.contains(currentId)) break
+            visited.add(currentId)
             current = current.prerequisite
             depth++
         }
         
-        if (depth >= MAX_DEPTH) {
+        if (depth >= maxDepth) {
             // Log warning but don't block if we reach extreme depth, 
             // though in developmental milestones 20 levels is more than enough
         }
@@ -186,13 +246,14 @@ class AdminQuizService(
         
         existing.deletedAt = now
         questionRepository.save(existing)
+        publishCatalogSync()
     }
 
     // --- Answer Options ---
 
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
-    fun createAnswerOption(questionId: UUID, request: CreateAnswerOptionRequest): AnswerOption {
+    fun createAnswerOption(questionId: UUID, request: CreateAnswerOptionRequest): AdminOptionResponse {
         val question = questionRepository.findById(questionId)
             .orElseThrow { IllegalArgumentException("Question $questionId not found") }
 
@@ -202,7 +263,9 @@ class AdminQuizService(
             value = request.value,
             displayOrder = request.displayOrder
         )
-        return answerOptionRepository.save(option)
+        val saved = answerOptionRepository.save(option)
+        publishCatalogSync()
+        return toResponse(saved)
     }
 
     @Transactional
@@ -213,17 +276,20 @@ class AdminQuizService(
         }
         existing.deletedAt = Instant.now()
         answerOptionRepository.save(existing)
+        publishCatalogSync()
     }
 
     @Transactional
     @CacheEvict(value = ["lifePeriods"], allEntries = true)
-    fun updateAnswerOption(id: UUID, request: CreateAnswerOptionRequest): AnswerOption {
+    fun updateAnswerOption(id: UUID, request: CreateAnswerOptionRequest): AdminOptionResponse {
         val existing = answerOptionRepository.findById(id).orElseThrow {
             IllegalArgumentException("AnswerOption $id not found")
         }
         existing.text = request.text
         existing.value = request.value
         existing.displayOrder = request.displayOrder
-        return answerOptionRepository.save(existing)
+        val saved = answerOptionRepository.save(existing)
+        publishCatalogSync()
+        return toResponse(saved)
     }
 }

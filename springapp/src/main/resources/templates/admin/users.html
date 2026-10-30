@@ -89,13 +89,13 @@
                     
                     return `
                     <tr>
-                        <td style="font-weight: 500;">${user.fullName}</td>
-                        <td>${user.email}</td>
+                        <td style="font-weight: 500;">${AdminAuth.escapeHtml(user.fullName)}</td>
+                        <td>${AdminAuth.escapeHtml(user.email)}</td>
                         <td><span class="badge ${roleClass}">${roleName}</span></td>
                         <td><span class="status-dot ${statusClass}"></span> ${statusText}</td>
-                        <td style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">${user.id}</td>
+                        <td style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">${AdminAuth.escapeHtml(user.id)}</td>
                         <td>
-                            ${isActive ? `<button class="action-btn delete-btn" onclick="deleteUser('${user.id}')">Видалити</button>` : ''}
+                            ${isActive ? `<button class="action-btn delete-btn" onclick="deleteUser('${AdminAuth.escapeHtml(user.id)}')">Видалити</button>` : ''}
                         </td>
                     </tr>
                 `}).join('');
@@ -114,21 +114,37 @@
                 return;
             }
 
-            let html = '';
-            // Previous
-            html += `<button class="btn btn-sm ${current === 0 ? 'disabled' : ''}" onclick="fetchUsers(${current - 1}, '${currentSearch}')" ${current === 0 ? 'disabled' : ''}>←</button>`;
+            const DOTS = '...';
+            const neighbors = 2; // скільки сторінок показуємо з обох боку поточної
 
-            // Pages
-            for (let i = 0; i < totalPages; i++) {
-                if (i === current) {
-                    html += `<button class="btn btn-sm" style="background-color: var(--primary); color: white;">${i + 1}</button>`;
-                } else {
-                    html += `<button class="btn btn-sm" onclick="fetchUsers(${i}, '${currentSearch}')">${i + 1}</button>`;
-                }
+            const visible = new Set();
+            visible.add(0);
+            visible.add(totalPages - 1);
+            for (let i = Math.max(0, current - neighbors); i <= Math.min(totalPages - 1, current + neighbors); i++) {
+                visible.add(i);
             }
 
+            const sorted = Array.from(visible).sort((a, b) => a - b);
+
+            let html = '';
+            // Previous
+            html += `<button class="btn btn-sm pagination-btn ${current === 0 ? 'disabled' : ''}" onclick="fetchUsers(${current - 1}, '${currentSearch}')" ${current === 0 ? 'disabled' : ''}>←</button>`;
+
+            let prev = null;
+            sorted.forEach(i => {
+                if (prev !== null && i > prev + 1) {
+                    html += `<span class="pagination-dots">${DOTS}</span>`;
+                }
+                if (i === current) {
+                    html += `<button class="btn btn-sm pagination-btn active" disabled>${i + 1}</button>`;
+                } else {
+                    html += `<button class="btn btn-sm pagination-btn" onclick="fetchUsers(${i}, '${currentSearch}')">${i + 1}</button>`;
+                }
+                prev = i;
+            });
+
             // Next
-            html += `<button class="btn btn-sm ${current === totalPages - 1 ? 'disabled' : ''}" onclick="fetchUsers(${current + 1}, '${currentSearch}')" ${current === totalPages - 1 ? 'disabled' : ''}>→</button>`;
+            html += `<button class="btn btn-sm pagination-btn ${current === totalPages - 1 ? 'disabled' : ''}" onclick="fetchUsers(${current + 1}, '${currentSearch}')" ${current === totalPages - 1 ? 'disabled' : ''}>→</button>`;
 
             container.innerHTML = html;
         }

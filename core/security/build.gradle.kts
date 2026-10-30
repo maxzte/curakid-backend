@@ -16,7 +16,7 @@ dependencies {
 
     implementation("com.google.guava:guava:33.4.0-jre")
 
-    implementation(libs.jjwt.api)
+    api(libs.jjwt.api)
     runtimeOnly(libs.jjwt.impl)
     runtimeOnly(libs.jjwt.jackson)
 }

@@ -8,9 +8,14 @@ import java.time.Instant
 import java.util.*
 
 @Entity
-@Table(name = "events")
+@Table(
+    name = "events",
+    indexes = [
+        Index(name = "idx_events_child_date", columnList = "child_id, date")
+    ]
+)
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
-@DiscriminatorColumn(name = "event_kind", discriminatorType = DiscriminatorType.STRING)
+@DiscriminatorColumn(name = "event_kind", discriminatorType = DiscriminatorType.STRING, columnDefinition = "varchar(31) default 'EVENT'")
 @DiscriminatorValue("EVENT")
 @SQLRestriction("deleted_at IS NULL")
 open class Event(

@@ -38,7 +38,7 @@ graph TD
 
 ### Core Components:
 1. **Spring Boot Orchestrator (`:springapp` & `:core:*`, `:feature:*`)**: Manages domain logic, authentication, REST API versioned endpoints (`/api/v1`), security filters, RAG pipelines, and database persistence.
-2. **Intelligence Service (`intelligence/`)**: A dedicated Python FastAPI microservice running a **Fuzzy Inference System (FIS)** for non-linear health/development risk assessment and local transformer models (`Laya-multilingual`) for text processing and embedding generation.
+2. **Intelligence Service (`intelligence/`)**: A dedicated Python FastAPI microservice running a **Fuzzy Inference System (FIS)** for non-linear health/development risk assessment and the **Laya** neural decision model for fast System 1 clinical triage.
 3. **Database (`PostgreSQL + pgvector`)**: Stores relational domain models (children, measurements, assessments, chat sessions) and high-dimensional vector embeddings of medical guidelines for semantic search.
 4. **Message Broker (`Apache Kafka`)**: Handles asynchronous event-driven workflows (push notifications, background report generation, token cleanup).
 5. **Caching (`Redis`)**: Provides fast caching and session store management.

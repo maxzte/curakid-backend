@@ -1,39 +1,92 @@
 /**
- * Curakid Admin Centralized API Utility
+ * Curakid Admin Centralized API Client
  */
-const API_BASE = '/api/v1';
+const ApiClient = {
+    baseUrl: '/api/v1',
 
-async function apiFetch(endpoint, options = {}) {
-    let url = endpoint;
-    if (url.startsWith('/api/') && !url.startsWith('/api/v1/')) {
-        url = '/api/v1' + url.substring(4);
-    } else if (!url.startsWith('http') && !url.startsWith('/api/v1/')) {
-        url = API_BASE + (url.startsWith('/') ? url : '/' + url);
-    }
-
-    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
-
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-    };
-
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(url, {
-        ...options,
-        headers
-    });
-
-    if (response.status === 401 || response.status === 403) {
-        if (!window.location.pathname.includes('/admin/login')) {
-            localStorage.removeItem('accessToken');
-            sessionStorage.removeItem('accessToken');
-            window.location.href = '/admin/login';
+    getHeaders(contentType = 'application/json') {
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('curakid_admin_token');
+        const headers = {};
+        if (contentType) {
+            headers['Content-Type'] = contentType;
         }
-    }
+        if (token) {
+            headers['Authorization'] = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
+        }
+        return headers;
+    },
 
-    return response;
-}
+    async request(endpoint, options = {}) {
+        let url = endpoint;
+        if (!url.startsWith('http')) {
+            if (url.startsWith('/api/v1/')) {
+                url = url;
+            } else if (url.startsWith('/api/')) {
+                url = '/api/v1' + url.substring(4);
+            } else {
+                url = this.baseUrl + (url.startsWith('/') ? url : '/' + url);
+            }
+        }
+
+        const isFormData = options.body instanceof FormData;
+        const contentType = isFormData ? null : 'application/json';
+        const headers = {
+            ...this.getHeaders(contentType),
+            ...(options.headers || {})
+        };
+
+        const config = {
+            ...options,
+            headers
+        };
+
+        if (options.body && !isFormData && typeof options.body === 'object') {
+            config.body = JSON.stringify(options.body);
+        }
+
+        try {
+            const response = await fetch(url, config);
+
+            if (response.status === 401 || response.status === 403) {
+                if (!window.location.pathname.includes('/admin/login') && !window.location.pathname.includes('/admin/ui/login')) {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('curakid_admin_token');
+                    window.location.href = '/admin/ui/login';
+                }
+                throw new Error("Неавторизований доступ або сесія вичерпана.");
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Помилка сервера (${response.status})`);
+            }
+
+            if (response.status === 204) return null;
+            return await response.json();
+        } catch (error) {
+            console.error(`API Error [${endpoint}]:`, error);
+            if (typeof AdminAuth !== 'undefined' && AdminAuth.showToast) {
+                AdminAuth.showToast(error.message || "Помилка з'єднання з сервером", 'error');
+            }
+            throw error;
+        }
+    },
+
+    get(endpoint, options = {}) {
+        return this.request(endpoint, { ...options, method: 'GET' });
+    },
+
+    post(endpoint, body, options = {}) {
+        return this.request(endpoint, { ...options, method: 'POST', body });
+    },
+
+    put(endpoint, body, options = {}) {
+        return this.request(endpoint, { ...options, method: 'PUT', body });
+    },
+
+    delete(endpoint, options = {}) {
+        return this.request(endpoint, { ...options, method: 'DELETE' });
+    }
+};
+
+window.ApiClient = ApiClient;

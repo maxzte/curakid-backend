@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curakid Admin - Knowledge Base</title>
-    <th:block th:replace="admin/fragments :: head-links"></th:block>
+    <th:block th:replace="~{admin/fragments :: head-links}"></th:block>
 </head>
 <body>
 
@@ -16,7 +16,6 @@
             <h2>База знань (Статті)</h2>
         </div>
 
-        
         <div class="card fade-in" style="margin-bottom: 2rem;">
             <h3>Керування категоріями</h3>
             <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Створіть категорії для статей (напр. Харчування, Розвиток).</p>
@@ -125,183 +124,6 @@
         </div>
     </div>
 
-    <script>
-        initPage();
-
-        async function initPage() {
-            await fetchCategories();
-            await fetchArticles();
-        }
-
-
-        let categories = [];
-        let uploadMode = 'manual';
-
-        function setUploadMode(mode) {
-            uploadMode = mode;
-            document.getElementById('toggle-manual').classList.toggle('active', mode === 'manual');
-            document.getElementById('toggle-file').classList.toggle('active', mode === 'file');
-            document.getElementById('manual-input-section').style.display = mode === 'manual' ? 'block' : 'none';
-            document.getElementById('file-input-section').style.display = mode === 'file' ? 'block' : 'none';
-
-            document.getElementById('content').required = mode === 'manual';
-            document.getElementById('file').required = mode === 'file';
-        }
-
-        async function fetchCategories() {
-            try {
-                const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/categories');
-                if (!response) return;
-                categories = await response.json();
-                
-                const select = document.getElementById('category');
-                if (categories.length === 0) {
-                    select.innerHTML = '<option value="">Немає категорій - будь ласка, створіть спочатку</option>';
-                } else {
-                    select.innerHTML = categories.map(c => `
-                        <option value="${c.id}">${c.displayName} (${c.name})</option>
-                    `).join('');
-                }
-            } catch (err) {
-                AdminAuth.showToast('Не вдалося завантажити категорії', 'error');
-            }
-        }
-
-        async function fetchArticles() {
-            try {
-                const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge');
-                if (!response) return;
-                
-                if (!response.ok) throw new Error("Failed to fetch articles");
-
-                const articles = await response.json();
-                const tbody = document.getElementById('articles-table-body');
-                
-                if (articles.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Статей не знайдено.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = articles.map(art => {
-                    const cat = art.category ? art.category.displayName : 'Без категорії';
-                    return `
-                    <tr>
-                        <td style="font-weight: 500;">${escapeHtml(art.title)}</td>
-                        <td><span class="badge">${escapeHtml(cat)}</span></td>
-                        <td>
-                            <button class="delete-btn" onclick="deleteArticle('${art.id}')">Видалити</button>
-                        </td>
-                    </tr>
-                    `;
-                }).join('');
-
-            } catch (err) {
-                AdminAuth.showToast(err.message, 'error');
-            }
-        }
-
-        document.getElementById('add-article-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submit-btn');
-            const title = document.getElementById('title').value;
-            const categoryId = document.getElementById('category').value;
-            const minAge = document.getElementById('minAge').value;
-            const maxAge = document.getElementById('maxAge').value;
-
-            try {
-                btn.disabled = true;
-                btn.textContent = 'Обробка...';
-
-                let response;
-                if (uploadMode === 'manual') {
-                    const payload = {
-                        title: title,
-                        categoryId: categoryId,
-                        content: document.getElementById('content').value,
-                        // Note: Backend JSON endpoint might need update to support age,
-                        // but for now we focus on the file upload which we just added.
-                    };
-                    response = await AdminAuth.apiFetch('/api/v1/admin/knowledge', {
-                        method: 'POST',
-                        body: JSON.stringify(payload)
-                    });
-                } else {
-                    const formData = new FormData();
-                    formData.append('title', title);
-                    formData.append('categoryId', categoryId);
-                    formData.append('file', document.getElementById('file').files[0]);
-                    if (minAge) formData.append('minAge', minAge);
-                    if (maxAge) formData.append('maxAge', maxAge);
-
-                    response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/upload', {
-                        method: 'POST',
-                        body: formData // AdminAuth.apiFetch needs to handle FormData correctly (no JSON stringify)
-                    });
-                }
-
-                if (response && response.ok) {
-                    AdminAuth.showToast('Статтю збережено та векторизовано успішно!', 'success');
-                    e.target.reset();
-                    setUploadMode('manual');
-                    await fetchArticles();
-                }
-
-            } catch (err) {
-                AdminAuth.showToast(err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Зберегти та згенерувати вектори';
-            }
-        });
-
-        document.getElementById('add-category-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                name: document.getElementById('cat-name').value.toUpperCase(),
-                displayName: document.getElementById('cat-display').value
-            };
-
-            try {
-                const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/categories', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-
-            if (response && response.ok) {
-                AdminAuth.showToast('Категорію додано!', 'success');
-                e.target.reset();
-                await fetchCategories();
-            }
-        } catch (err) {
-            AdminAuth.showToast(err.message, 'error');
-        }
-    });
-
-    async function deleteArticle(id) {
-        if (!confirm('Ви впевнені, що хочете видалити цю статтю?')) return;
-
-        try {
-            const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/' + id, {
-                method: 'DELETE'
-            });
-
-            if (response && response.ok) {
-                AdminAuth.showToast('Статтю видалено.', 'success');
-                await fetchArticles();
-            }
-        } catch (err) {
-            AdminAuth.showToast(err.message, 'error');
-        }
-    }
-
-        function escapeHtml(unsafe) {
-            return (unsafe || '').toString()
-                 .replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;")
-                 .replace(/"/g, "&quot;")
-                 .replace(/'/g, "&#039;");
-        }
-    </script>
+    <script th:src="@{/admin/js/articles.js}"></script>
 </body>
 </html>

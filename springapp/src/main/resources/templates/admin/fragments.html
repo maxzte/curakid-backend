@@ -46,6 +46,7 @@
 </div>
 
 <div th:fragment="scripts">
+    <script th:src="@{/admin/js/api.js}"></script>
     <script th:inline="javascript">
         const AdminAuth = {
             escapeHtml: (unsafe) => {
@@ -58,10 +59,11 @@
                     .replace(/'/g, "&#039;");
             },
 
-            getToken: () => localStorage.getItem('curakid_admin_token'),
+            getToken: () => localStorage.getItem('curakid_admin_token') || localStorage.getItem('accessToken'),
             
             logout: () => {
                 localStorage.removeItem('curakid_admin_token');
+                localStorage.removeItem('accessToken');
                 document.cookie = "admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict";
                 window.location.href = '/admin/ui/login';
             },
@@ -69,48 +71,6 @@
             checkAuth: () => {
                 if (!AdminAuth.getToken() && window.location.pathname !== '/admin/ui/login') {
                     window.location.href = '/admin/ui/login';
-                }
-            },
-
-            getHeaders: () => {
-                const token = AdminAuth.getToken();
-                return {
-                    'Authorization': token && (token.startsWith('Bearer ') ? token : 'Bearer ' + token),
-                    'Content-Type': 'application/json'
-                };
-            },
-
-            apiFetch: async (url, options = {}) => {
-                const headers = AdminAuth.getHeaders();
-
-                // If body is FormData, don't set Content-Type header manually
-                // Fetch will automatically set it with the correct boundary
-                if (options.body instanceof FormData) {
-                    delete headers['Content-Type'];
-                }
-
-                const config = {
-                    ...options,
-                    headers: {
-                        ...headers,
-                        ...(options.headers || {})
-                    }
-                };
-
-                try {
-                    const response = await fetch(url, config);
-                    
-                    if (response.status === 401) {
-                        console.error('Session expired or unauthorized');
-                        AdminAuth.logout();
-                        return null;
-                    }
-                    
-                    return response;
-                } catch (e) {
-                    console.error('API Error:', e);
-                    AdminAuth.showToast('Помилка з\'єднання з сервером', 'error');
-                    throw e;
                 }
             },
 

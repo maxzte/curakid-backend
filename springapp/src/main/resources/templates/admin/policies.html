@@ -73,7 +73,7 @@
 
         async function fetchDocuments() {
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/legal');
+                const response = await AdminAuth.apiFetch('/api/v1/admin/legal');
                 if (!response) return;
 
                 const docs = await response.json();
@@ -161,7 +161,7 @@
             }
 
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/legal', {
+                const response = await AdminAuth.apiFetch('/api/v1/admin/legal', {
                     method: 'POST',
                     body: JSON.stringify(payload)
                 });
@@ -182,7 +182,7 @@
         async function activateDoc(id) {
             if (!confirm('Активувати цей документ? Попередня активна версія цього типу буде автоматично деактивована.')) return;
             try {
-                const response = await AdminAuth.apiFetch(`/api/admin/legal/${id}/activate`, {
+                const response = await AdminAuth.apiFetch(`/api/v1/admin/legal/${id}/activate`, {
                     method: 'POST'
                 });
                 if (response && response.ok) {
@@ -200,7 +200,7 @@
         async function deactivateDoc(id) {
             if (!confirm('Деактивувати цей документ?')) return;
             try {
-                const response = await AdminAuth.apiFetch(`/api/admin/legal/${id}/deactivate`, {
+                const response = await AdminAuth.apiFetch(`/api/v1/admin/legal/${id}/deactivate`, {
                     method: 'POST'
                 });
                 if (response && response.ok) {

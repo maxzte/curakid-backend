@@ -63,7 +63,7 @@
             currentSearch = email;
 
             try {
-                const url = `/api/admin/users?page=${page}&size=20&email=${encodeURIComponent(email)}`;
+                const url = `/api/v1/admin/users?page=${page}&size=20&email=${encodeURIComponent(email)}`;
                 const response = await AdminAuth.apiFetch(url);
                 if (!response) return;
                 
@@ -162,7 +162,7 @@
         async function deleteUser(id) {
             if (!confirm('Ви впевнені, що хочете видалити цього користувача? Це призведе до анонімізації всіх його даних та даних його дітей.')) return;
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/users/' + id, {
+                const response = await AdminAuth.apiFetch('/api/v1/admin/users/' + id, {
                     method: 'DELETE'
                 });
                 if (response && response.ok) {

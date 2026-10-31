@@ -792,7 +792,7 @@
 
         async function fetchRules() {
             try {
-                const res = await AdminAuth.apiFetch('/api/admin/fuzzy/rules');
+                const res = await AdminAuth.apiFetch('/api/v1/admin/fuzzy/rules');
                 if (!res) return;
                 rules = await res.json();
                 renderRules();
@@ -910,7 +910,7 @@
                     isActive: r.isActive !== undefined ? r.isActive : (r.active !== undefined ? r.active : true)
                 }));
 
-                const res = await AdminAuth.apiFetch('/api/admin/fuzzy/rules', {
+                const res = await AdminAuth.apiFetch('/api/v1/admin/fuzzy/rules', {
                     method: 'PUT',
                     body: JSON.stringify({ rules: rulesToSave })
                 });

@@ -63,7 +63,7 @@
         // --- Fetch & Render ---
         async function fetchPeriods() {
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods');
+                const response = await AdminAuth.apiFetch('/api/v1/admin/quiz/life-periods');
                 if (!response) return;
                 
                 const payload = await response.json();
@@ -318,7 +318,7 @@
             if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
 
             try {
-                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/life-periods/${periodId}/questions`, {
+                const resp = await AdminAuth.apiFetch(`/api/v1/admin/quiz/life-periods/${periodId}/questions`, {
                     method: 'POST',
                     body: JSON.stringify({ text, domain, weight, options, prerequisiteId })
                 });
@@ -338,7 +338,7 @@
             if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
 
             try {
-                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${id}`, {
+                const resp = await AdminAuth.apiFetch(`/api/v1/admin/quiz/questions/${id}`, {
                     method: 'PUT',
                     body: JSON.stringify({ text, domain, weight, prerequisiteId })
                 });
@@ -352,7 +352,7 @@
         async function deleteQuestion(id) {
             if (!confirm('Видалити це запитання та всі його варіанти?')) return;
             try {
-                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${id}`, {
+                const resp = await AdminAuth.apiFetch(`/api/v1/admin/quiz/questions/${id}`, {
                     method: 'DELETE'
                 });
                 if (resp && resp.ok) {
@@ -376,7 +376,7 @@
             if (!text) { AdminAuth.showToast('Текст варіанту обов’язковий', 'error'); return; }
 
             try {
-                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/questions/${questionId}/options`, {
+                const resp = await AdminAuth.apiFetch(`/api/v1/admin/quiz/questions/${questionId}/options`, {
                     method: 'POST',
                     body: JSON.stringify({ text, value: valueFloat, displayOrder })
                 });
@@ -399,7 +399,7 @@
             }
 
             try {
-                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/options/${id}`, {
+                const resp = await AdminAuth.apiFetch(`/api/v1/admin/quiz/options/${id}`, {
                     method: 'PUT',
                     body: JSON.stringify({ text, value: valueFloat, displayOrder })
                 });
@@ -413,7 +413,7 @@
         async function deleteOption(id) {
             if (!confirm('Ви впевнені?')) return;
             try {
-                const resp = await AdminAuth.apiFetch(`/api/admin/quiz/options/${id}`, {
+                const resp = await AdminAuth.apiFetch(`/api/v1/admin/quiz/options/${id}`, {
                     method: 'DELETE'
                 });
                 if (resp && resp.ok) {

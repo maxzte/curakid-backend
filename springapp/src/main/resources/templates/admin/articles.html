@@ -150,7 +150,7 @@
 
         async function fetchCategories() {
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/knowledge/categories');
+                const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/categories');
                 if (!response) return;
                 categories = await response.json();
                 
@@ -169,7 +169,7 @@
 
         async function fetchArticles() {
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/knowledge');
+                const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge');
                 if (!response) return;
                 
                 if (!response.ok) throw new Error("Failed to fetch articles");
@@ -221,7 +221,7 @@
                         // Note: Backend JSON endpoint might need update to support age,
                         // but for now we focus on the file upload which we just added.
                     };
-                    response = await AdminAuth.apiFetch('/api/admin/knowledge', {
+                    response = await AdminAuth.apiFetch('/api/v1/admin/knowledge', {
                         method: 'POST',
                         body: JSON.stringify(payload)
                     });
@@ -233,7 +233,7 @@
                     if (minAge) formData.append('minAge', minAge);
                     if (maxAge) formData.append('maxAge', maxAge);
 
-                    response = await AdminAuth.apiFetch('/api/admin/knowledge/upload', {
+                    response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/upload', {
                         method: 'POST',
                         body: formData // AdminAuth.apiFetch needs to handle FormData correctly (no JSON stringify)
                     });
@@ -262,7 +262,7 @@
             };
 
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/knowledge/categories', {
+                const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/categories', {
                     method: 'POST',
                     body: JSON.stringify(payload)
                 });
@@ -281,7 +281,7 @@
         if (!confirm('Ви впевнені, що хочете видалити цю статтю?')) return;
 
         try {
-            const response = await AdminAuth.apiFetch('/api/admin/knowledge/' + id, {
+            const response = await AdminAuth.apiFetch('/api/v1/admin/knowledge/' + id, {
                 method: 'DELETE'
             });
 

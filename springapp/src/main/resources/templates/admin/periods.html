@@ -250,7 +250,7 @@
 
         async function fetchPeriods() {
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods');
+                const response = await AdminAuth.apiFetch('/api/v1/admin/quiz/life-periods');
                 if (!response) return;
                 
                 if (!response.ok) throw new Error("Помилка завантаження");
@@ -295,7 +295,7 @@
             };
 
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods', {
+                const response = await AdminAuth.apiFetch('/api/v1/admin/quiz/life-periods', {
                     method: 'POST',
                     body: JSON.stringify(payload)
                 });
@@ -417,7 +417,7 @@
             if (description !== undefined) payload.description = description;
 
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/quiz/life-periods/' + id, {
+                const response = await AdminAuth.apiFetch('/api/v1/admin/quiz/life-periods/' + id, {
                     method: 'PUT',
                     body: JSON.stringify(payload)
                 });

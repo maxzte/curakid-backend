@@ -214,7 +214,7 @@
 
         async function fetchVaccines() {
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/vaccines');
+                const response = await AdminAuth.apiFetch('/api/v1/admin/vaccines');
                 if (!response) return;
                 const vaccines = await response.json();
                 renderVaccines(vaccines);
@@ -266,7 +266,7 @@
             content.style.display = 'none';
 
             try {
-                const res = await AdminAuth.apiFetch('/api/admin/vaccines/sync/preview', { method: 'POST' });
+                const res = await AdminAuth.apiFetch('/api/v1/admin/vaccines/sync/preview', { method: 'POST' });
                 if (!res || !res.ok) throw new Error('Помилка отримання даних парсера');
                 currentPreviewData = await res.json();
                 renderSyncModal(currentPreviewData);
@@ -375,7 +375,7 @@
             }
 
             try {
-                const res = await AdminAuth.apiFetch('/api/admin/vaccines/sync/apply', {
+                const res = await AdminAuth.apiFetch('/api/v1/admin/vaccines/sync/apply', {
                     method: 'POST',
                     body: JSON.stringify({ toAdd: selectedNew, toUpdate: selectedChanged })
                 });
@@ -397,7 +397,7 @@
             }
 
             try {
-                const res = await AdminAuth.apiFetch('/api/admin/vaccines/sync/backfill', { method: 'POST' });
+                const res = await AdminAuth.apiFetch('/api/v1/admin/vaccines/sync/backfill', { method: 'POST' });
                 if (res && res.ok) {
                     const summary = await res.json();
                     AdminAuth.showToast(`Успішно! Опрацьовано дітей: ${summary.totalChildren}. Створено подій: ${summary.createdEventsCount} (Пропущено: ${summary.skippedEventsCount}, Заплановано: ${summary.plannedEventsCount})`, 'success');
@@ -424,7 +424,7 @@
             };
 
             try {
-                const url = id ? `/api/admin/vaccines/${id}` : '/api/admin/vaccines';
+                const url = id ? `/api/v1/admin/vaccines/${id}` : '/api/v1/admin/vaccines';
                 const method = id ? 'PUT' : 'POST';
                 
                 const response = await AdminAuth.apiFetch(url, {
@@ -445,7 +445,7 @@
         async function deleteVaccine(id) {
             if (!confirm('Ви впевнені?')) return;
             try {
-                const response = await AdminAuth.apiFetch(`/api/admin/vaccines/${id}`, {
+                const response = await AdminAuth.apiFetch(`/api/v1/admin/vaccines/${id}`, {
                     method: 'DELETE'
                 });
                 if (response && response.ok) {
@@ -459,7 +459,7 @@
 
         window.editVaccine = async function(id) {
             try {
-                const response = await AdminAuth.apiFetch('/api/admin/vaccines');
+                const response = await AdminAuth.apiFetch('/api/v1/admin/vaccines');
                 if (!response) return;
                 const vaccines = await response.json();
                 const v = vaccines.find(v => v.id === id);

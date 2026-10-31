@@ -121,8 +121,8 @@ if (typeof window !== 'undefined') {
     window.activateDoc = activateDoc;
     window.deactivateDoc = deactivateDoc;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        await loadDocumentsData();
+    function initPolicies() {
+        loadDocumentsData();
 
         const policyForm = document.getElementById('policy-form');
         if (policyForm) {
@@ -154,5 +154,11 @@ if (typeof window !== 'undefined') {
                 }
             });
         }
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPolicies);
+    } else {
+        initPolicies();
+    }
 }

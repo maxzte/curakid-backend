@@ -430,7 +430,13 @@ if (typeof window !== 'undefined') {
     window.updateOption = updateOption;
     window.deleteOption = deleteOption;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        await loadPeriodsData();
-    });
+    function initQuizzes() {
+        loadPeriodsData();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initQuizzes);
+    } else {
+        initQuizzes();
+    }
 }

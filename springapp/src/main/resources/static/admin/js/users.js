@@ -140,7 +140,15 @@ if (typeof window !== 'undefined') {
     window.resetSearch = resetSearch;
     window.deleteUser = deleteUser;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        await fetchUsers();
-    });
+    function initUsers() {
+        fetchUsers();
+    }
+
+    if (!window.__VITEST__) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initUsers);
+        } else {
+            initUsers();
+        }
+    }
 }

@@ -61,7 +61,7 @@ describe('ApiClient Unit Tests', () => {
             const result = await ApiClient.get('/admin/users');
 
             // Then
-            expect(fetchSpy).toHaveBeenCalledWith('/api/v1/admin/users', expect.objectContaining({
+            expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/admin/users'), expect.objectContaining({
                 method: 'GET'
             }));
             expect(result).toEqual(mockResponse);

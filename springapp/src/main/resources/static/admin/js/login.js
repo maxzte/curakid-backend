@@ -3,7 +3,7 @@
  */
 import { ApiClient } from './api.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+export function initLogin() {
     const loginForm = document.getElementById('login-form');
     if (!loginForm) return;
 
@@ -47,4 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-});
+}
+
+if (typeof window !== 'undefined' && !window.__VITEST__) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLogin);
+    } else {
+        initLogin();
+    }
+}

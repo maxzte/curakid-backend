@@ -19,13 +19,18 @@ export const ApiClient = {
     async request(endpoint, options = {}) {
         let url = endpoint;
         if (!url.startsWith('http')) {
-            if (url.startsWith('/api/v1/')) {
-                url = url;
-            } else if (url.startsWith('/api/')) {
-                url = '/api/v1' + url.substring(4);
+            let path = endpoint;
+            if (path.startsWith('/api/v1/')) {
+                path = path;
+            } else if (path.startsWith('/api/')) {
+                path = '/api/v1' + path.substring(4);
             } else {
-                url = this.baseUrl + (url.startsWith('/') ? url : '/' + url);
+                path = this.baseUrl + (path.startsWith('/') ? path : '/' + path);
             }
+            const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'about:')
+                ? window.location.origin
+                : 'http://localhost';
+            url = origin + path;
         }
 
         const isFormData = options.body instanceof FormData;

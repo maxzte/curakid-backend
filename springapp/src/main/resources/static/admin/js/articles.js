@@ -117,9 +117,9 @@ if (typeof window !== 'undefined') {
     window.setUploadMode = setUploadMode;
     window.deleteArticle = deleteArticle;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        await loadCategoriesData();
-        await loadArticlesData();
+    function initArticles() {
+        loadCategoriesData();
+        loadArticlesData();
 
         const addArticleForm = document.getElementById('add-article-form');
         if (addArticleForm) {
@@ -194,5 +194,13 @@ if (typeof window !== 'undefined') {
                 }
             });
         }
-    });
+    }
+
+    if (!window.__VITEST__) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initArticles);
+        } else {
+            initArticles();
+        }
+    }
 }

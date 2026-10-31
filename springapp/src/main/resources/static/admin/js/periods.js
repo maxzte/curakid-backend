@@ -187,8 +187,8 @@ if (typeof window !== 'undefined') {
     window.openEditModal = openEditModal;
     window.closeModal = closeModal;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        await loadPeriodsData();
+    function initPeriods() {
+        loadPeriodsData();
 
         const addPeriodForm = document.getElementById('add-period-form');
         if (addPeriodForm) {
@@ -248,5 +248,13 @@ if (typeof window !== 'undefined') {
                 }
             });
         }
-    });
+    }
+
+    if (!window.__VITEST__) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPeriods);
+        } else {
+            initPeriods();
+        }
+    }
 }

@@ -277,7 +277,47 @@ if (typeof window !== 'undefined') {
     window.editVaccine = editVaccine;
     window.resetForm = resetForm;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        await loadVaccinesData();
-    });
+    function initVaccines() {
+        loadVaccinesData();
+
+        const vaccineForm = document.getElementById('vaccine-form');
+        if (vaccineForm) {
+            vaccineForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('vaccine-id').value;
+                const payload = {
+                    name: document.getElementById('name').value,
+                    disease: document.getElementById('disease').value,
+                    doseNumber: parseInt(document.getElementById('doseNumber').value),
+                    totalDoses: parseInt(document.getElementById('totalDoses').value),
+                    type: document.getElementById('type').value,
+                    scheduledAgeMonths: document.getElementById('scheduledAgeMonths').value ? parseInt(document.getElementById('scheduledAgeMonths').value) : null,
+                    scheduledAgeDays: document.getElementById('scheduledAgeDays').value ? parseInt(document.getElementById('scheduledAgeDays').value) : null,
+                    notes: document.getElementById('notes').value
+                };
+
+                try {
+                    if (id) {
+                        await VaccinesApi.updateVaccine(id, payload);
+                    } else {
+                        await VaccinesApi.createVaccine(payload);
+                    }
+
+                    if (window.AdminAuth && window.AdminAuth.showToast) {
+                        window.AdminAuth.showToast('Збережено успішно!', 'success');
+                    }
+                    VaccinesUI.resetForm();
+                    await loadVaccinesData();
+                } catch (err) {
+                    // Handled
+                }
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initVaccines);
+    } else {
+        initVaccines();
+    }
 }

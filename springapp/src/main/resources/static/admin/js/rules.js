@@ -204,7 +204,13 @@ if (typeof window !== 'undefined') {
     window.closeJsonEditor = closeJsonEditor;
     window.applyJsonRules = applyJsonRules;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        await loadRulesData();
-    });
+    function initRules() {
+        loadRulesData();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initRules);
+    } else {
+        initRules();
+    }
 }

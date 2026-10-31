@@ -4,6 +4,15 @@
 import { ApiClient } from './api.js';
 
 export function initLogin() {
+    // Clear stale credentials on login screen initialization
+    if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('curakid_admin_token');
+    }
+    if (typeof document !== 'undefined') {
+        document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
+    }
+
     const loginForm = document.getElementById('login-form');
     if (!loginForm) return;
 

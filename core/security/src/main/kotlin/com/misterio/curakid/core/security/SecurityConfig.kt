@@ -102,7 +102,7 @@ class SecurityConfig(
                 auth.requestMatchers("/api/auth/**", "/api/v1/auth/**").permitAll()
                 auth.requestMatchers("/admin/ui/login").permitAll()
                 auth.requestMatchers("/admin/ui", "/admin/ui/**").hasRole("ADMIN")
-                auth.requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+                auth.requestMatchers("/css/**", "/js/**", "/images/**", "/admin/js/**", "/admin/css/**", "/favicon.ico").permitAll()
                 auth.requestMatchers("/api/admin/**", "/api/v1/admin/**").hasRole("ADMIN")
                 auth.anyRequest().authenticated()
             }

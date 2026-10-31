@@ -1,12 +1,11 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PeriodsApi, PeriodsUI, addTip, removeTip, openEditModal, closeModal } from '../../main/resources/static/admin/js/periods.js';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';
 
 describe('Periods Module Unit Tests', () => {
     beforeEach(() => {
+        vi.restoreAllMocks();
+
         document.body.innerHTML = `
             <table>
                 <tbody id="periods-table-body"></tbody>
@@ -36,8 +35,6 @@ describe('Periods Module Unit Tests', () => {
                 .replace(/'/g, '&#039;'),
             showToast: vi.fn()
         };
-
-        vi.restoreAllMocks();
     });
 
     describe('PeriodsApi', () => {
@@ -131,8 +128,8 @@ describe('Periods Module Unit Tests', () => {
             PeriodsUI.renderTable();
 
             // Then
-            expect(tbody.innerHTML).not.toContain('<script>code</script>');
-            expect(tbody.innerHTML).toContain('&lt;script&gt;code&lt;/script&gt;');
+            expect(tbody.querySelector('script')).toBeNull();
+            expect(tbody.textContent).toContain('<script>code</script>');
         });
     });
 });

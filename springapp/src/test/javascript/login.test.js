@@ -1,6 +1,3 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';
 import { initLogin } from '../../main/resources/static/admin/js/login.js';

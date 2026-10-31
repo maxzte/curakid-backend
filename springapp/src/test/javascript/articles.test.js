@@ -1,12 +1,11 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ArticlesApi, ArticlesUI, setUploadMode, deleteArticle } from '../../main/resources/static/admin/js/articles.js';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';
 
 describe('Articles Module Unit Tests', () => {
     beforeEach(() => {
+        vi.restoreAllMocks();
+
         document.body.innerHTML = `
             <div id="toggle-manual" class="active"></div>
             <div id="toggle-file"></div>
@@ -32,7 +31,6 @@ describe('Articles Module Unit Tests', () => {
         };
 
         window.confirm = vi.fn().mockReturnValue(true);
-        vi.restoreAllMocks();
     });
 
     describe('ArticlesApi', () => {
@@ -98,9 +96,9 @@ describe('Articles Module Unit Tests', () => {
 
             // Then
             expect(tbody.children.length).toBe(1);
-            expect(tbody.innerHTML).not.toContain('<script>alert("xss")</script>');
-            expect(tbody.innerHTML).toContain('&lt;script&gt;alert("xss")&lt;/script&gt;');
-            expect(tbody.innerHTML).toContain('Харчування');
+            expect(tbody.querySelector('script')).toBeNull();
+            expect(tbody.textContent).toContain('<script>alert("xss")</script>');
+            expect(tbody.textContent).toContain('Харчування');
         });
 
         it('should delete article and show success toast when user confirms', async () => {

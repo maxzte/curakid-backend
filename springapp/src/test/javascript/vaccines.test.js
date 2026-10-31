@@ -1,12 +1,11 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { VaccinesApi, VaccinesUI, openSyncModal, triggerBackfill, deleteVaccine } from '../../main/resources/static/admin/js/vaccines.js';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';
 
 describe('Vaccines Module Unit Tests', () => {
     beforeEach(() => {
+        vi.restoreAllMocks();
+
         document.body.innerHTML = `
             <table>
                 <tbody id="vaccines-table-body"></tbody>
@@ -46,7 +45,6 @@ describe('Vaccines Module Unit Tests', () => {
         };
 
         window.confirm = vi.fn().mockReturnValue(true);
-        vi.restoreAllMocks();
     });
 
     describe('VaccinesApi', () => {
@@ -93,8 +91,8 @@ describe('Vaccines Module Unit Tests', () => {
             expect(tbody.children[0].innerHTML).toContain('BCG');
             expect(tbody.children[1].innerHTML).toContain('Hepatitis B');
             // XSS escaping check
-            expect(tbody.innerHTML).not.toContain('<script>xss</script>');
-            expect(tbody.innerHTML).toContain('&lt;script&gt;xss&lt;/script&gt;');
+            expect(tbody.querySelector('script')).toBeNull();
+            expect(tbody.textContent).toContain('<script>xss</script>');
         });
 
         it('should format age correctly in formatAge', () => {

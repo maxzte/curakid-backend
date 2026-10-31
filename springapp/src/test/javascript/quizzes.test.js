@@ -1,6 +1,3 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QuizzesApi, QuizzesUI, addQuestion, addOption, deleteQuestion } from '../../main/resources/static/admin/js/quizzes.js';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';

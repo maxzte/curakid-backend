@@ -1,6 +1,3 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PoliciesApi, PoliciesUI, activateDoc } from '../../main/resources/static/admin/js/policies.js';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';

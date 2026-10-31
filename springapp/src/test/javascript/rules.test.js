@@ -1,6 +1,3 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RulesApi, RulesUI, addNewRule, addCondition, removeCondition, updateCondition, removeRule, saveAllRules, applyJsonRules } from '../../main/resources/static/admin/js/rules.js';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';

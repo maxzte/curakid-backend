@@ -1,12 +1,11 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UsersApi, UsersUI } from '../../main/resources/static/admin/js/users.js';
 import { ApiClient } from '../../main/resources/static/admin/js/api.js';
 
 describe('Users Module Unit Tests', () => {
     beforeEach(() => {
+        vi.restoreAllMocks();
+
         document.body.innerHTML = `
             <table>
                 <tbody id="users-table-body"></tbody>
@@ -24,8 +23,6 @@ describe('Users Module Unit Tests', () => {
                 .replace(/'/g, '&#039;'),
             showToast: vi.fn()
         };
-
-        vi.restoreAllMocks();
     });
 
     describe('UsersApi', () => {
@@ -94,8 +91,8 @@ describe('Users Module Unit Tests', () => {
             UsersUI.renderUsersTable(xssUser);
 
             // Then
-            expect(tbody.innerHTML).not.toContain('<script>alert("xss")</script>');
-            expect(tbody.innerHTML).toContain('&lt;script&gt;alert("xss")&lt;/script&gt;');
+            expect(tbody.querySelector('script')).toBeNull();
+            expect(tbody.textContent).toContain('<script>alert("xss")</script>');
         });
     });
 

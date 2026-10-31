@@ -34,6 +34,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.web.server.ResponseStatusException
+import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -58,7 +59,7 @@ class AuthService(
         private const val MAX_OTP_ATTEMPTS = 5
     }
 
-    private val secureRandom = java.security.SecureRandom()
+    private val secureRandom = SecureRandom()
 
     private fun generateSixDigitCode(): String = String.format("%06d", secureRandom.nextInt(1_000_000))
 

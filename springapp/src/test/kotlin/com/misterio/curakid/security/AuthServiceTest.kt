@@ -33,6 +33,7 @@ import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 import java.util.Date
 import java.util.Optional
@@ -76,7 +77,7 @@ class AuthServiceTest {
         val existingActiveUser = User(email = "test@test.com", passwordHash = "hash", name = "Name", isActive = true)
         whenever(userRepository.findByEmail(any())).thenReturn(Optional.of(existingActiveUser))
 
-        assertThrows<org.springframework.web.server.ResponseStatusException> {
+        assertThrows<ResponseStatusException> {
             authService.register(request, mock<HttpServletRequest>())
         }
     }
@@ -167,7 +168,7 @@ class AuthServiceTest {
 
         whenever(jwtService.parseToken(tokenStr)).thenReturn(JwtService.JwtResult.Access(mock()))
 
-        assertThrows<org.springframework.web.server.ResponseStatusException> {
+        assertThrows<ResponseStatusException> {
             authService.refreshToken(RefreshTokenRequest(tokenStr))
         }
     }

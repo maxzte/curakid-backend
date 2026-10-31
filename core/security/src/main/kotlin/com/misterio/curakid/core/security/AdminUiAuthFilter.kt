@@ -41,18 +41,13 @@ class AdminUiAuthFilter(
         }
 
         try {
-            val claims = jwtService.parseValidClaims(token)
-            if (claims == null) {
+            val result = jwtService.parseToken(token)
+            if (result !is JwtService.JwtResult.Access) {
                 response.sendRedirect("/admin/ui/login")
                 return
             }
 
-            val tokenType = claims.get(JwtService.CLAIM_TOKEN_TYPE, String::class.java)
-            if (tokenType != null && tokenType != JwtService.TYPE_ACCESS) {
-                response.sendRedirect("/admin/ui/login")
-                return
-            }
-
+            val claims = result.claims
             val jti = claims.id
             if (jti != null && tokenBlacklistService.isBlacklisted(jti)) {
                 response.sendRedirect("/admin/ui/login")

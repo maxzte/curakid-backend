@@ -148,10 +148,13 @@ class RateLimitFilter(
         val authHeader = request.getHeader("Authorization")
         if (authHeader != null && authHeader.startsWith("Bearer ") && jwtService != null) {
             val jwt = authHeader.substring(7)
-            val userId = jwtService.extractUserId(jwt)
-            if (userId != null) return "user:$userId"
-            val username = jwtService.extractUsername(jwt)
-            if (username != null) return "user:$username"
+            val result = jwtService.parseToken(jwt)
+            if (result is JwtService.JwtResult.Access) {
+                val userId = result.claims.get(JwtService.CLAIM_USER_ID, String::class.java)
+                if (userId != null) return "user:$userId"
+                val username = result.claims.subject
+                if (username != null) return "user:$username"
+            }
         }
         return "ip:" + extractClientIp(request)
     }

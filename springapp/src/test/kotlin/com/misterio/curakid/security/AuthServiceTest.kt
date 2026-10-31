@@ -25,7 +25,6 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.junit.jupiter.MockitoSettings
 import org.mockito.quality.Strictness
 import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -114,8 +113,9 @@ class AuthServiceTest {
         val user = User(email = "test@test.com", isActive = true).apply { id = UUID.randomUUID() }
         val refreshTokenObj = RefreshToken(user = user, token = refreshTokenStr, expiryDate = Instant.now().plusSeconds(3600))
 
+        val mockClaims: Claims = mock()
+        whenever(jwtService.parseToken(refreshTokenStr)).thenReturn(JwtService.JwtResult.Refresh(mockClaims))
         whenever(refreshTokenRepository.findByToken(refreshTokenStr)).thenReturn(Optional.of(refreshTokenObj))
-        whenever(jwtService.extractTokenType(refreshTokenStr)).thenReturn(JwtService.TYPE_REFRESH)
         whenever(jwtService.generateAccessToken(user)).thenReturn("new-access-token")
         whenever(jwtService.generateRefreshToken(user)).thenReturn(refreshTokenStr)
 
@@ -129,14 +129,11 @@ class AuthServiceTest {
     fun `logout should blacklist token and delete refresh token`() {
         val authHeader = "Bearer token.jwt"
         val refreshToken = "refresh-token"
-        whenever(jwtService.extractJti("token.jwt")).thenReturn("jti-123")
 
         val claims: Claims = mock()
-        val expiration = Date(System.currentTimeMillis() + 10000)
-        whenever(claims.expiration).thenReturn(expiration)
-        whenever(jwtService.extractClaim(eq("token.jwt"), anyOrNull<(Claims) -> Any>())).thenAnswer {
-            (it.arguments[1] as (Claims) -> Any).invoke(claims)
-        }
+        whenever(claims.id).thenReturn("jti-123")
+        whenever(claims.expiration).thenReturn(Date(System.currentTimeMillis() + 10000))
+        whenever(jwtService.getClaimsIgnoringExpiration("token.jwt")).thenReturn(claims)
 
         val mockUser = User(email = "test@test.com", passwordHash = "hash", name = "Name").apply { id = UUID.randomUUID() }
         val mockToken = RefreshToken(user = mockUser, token = refreshToken, expiryDate = Instant.now())
@@ -167,15 +164,11 @@ class AuthServiceTest {
     @Test
     fun `refreshToken should throw 401 when token type is access instead of refresh`() {
         val tokenStr = "access-token-passed-to-refresh"
-        val user = User(email = "test@test.com", isActive = true).apply { id = UUID.randomUUID() }
-        val refreshTokenObj = RefreshToken(user = user, token = tokenStr, expiryDate = Instant.now().plusSeconds(3600))
 
-        whenever(refreshTokenRepository.findByToken(tokenStr)).thenReturn(Optional.of(refreshTokenObj))
-        whenever(jwtService.extractTokenType(tokenStr)).thenReturn(JwtService.TYPE_ACCESS)
+        whenever(jwtService.parseToken(tokenStr)).thenReturn(JwtService.JwtResult.Access(mock()))
 
         assertThrows<org.springframework.web.server.ResponseStatusException> {
             authService.refreshToken(RefreshTokenRequest(tokenStr))
         }
-        verify(refreshTokenRepository).delete(refreshTokenObj)
     }
 }

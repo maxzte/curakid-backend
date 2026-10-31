@@ -263,7 +263,10 @@ class AuthService(
     }
 
     fun refreshToken(request: RefreshTokenRequest): AuthResponse {
-        val claims = jwtService.parseValidClaims(request.refreshToken)
+        val result = jwtService.parseToken(request.refreshToken)
+        if (result !is JwtService.JwtResult.Refresh) {
+            throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token")
+        }
 
         val (refreshToken, user) = requireNotNull(transactionManager.readTx {
             val token = refreshTokenRepository.findByToken(request.refreshToken)
@@ -275,12 +278,6 @@ class AuthService(
         if (refreshToken.expiryDate < Instant.now()) {
             transactionManager.writeTx { refreshTokenRepository.delete(refreshToken) }
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired")
-        }
-
-        val tokenType = (claims?.get("type") as? String) ?: jwtService.extractTokenType(request.refreshToken)
-        if (tokenType != null && tokenType != JwtService.TYPE_REFRESH) {
-            transactionManager.writeTx { refreshTokenRepository.delete(refreshToken) }
-            throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token type for refresh")
         }
 
         if (!user.isActive) {
@@ -302,14 +299,15 @@ class AuthService(
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             try {
                 val jwt = authHeader.substring(7)
-                val jti = jwtService.extractJti(jwt)
-                val expiry = jwtService.extractClaim(jwt) { it.expiration }.toInstant()
+                val claims = jwtService.getClaimsIgnoringExpiration(jwt)
+                val jti = claims?.id
+                val expiry = claims?.expiration?.toInstant()
 
-                if (jti != null) {
+                if (jti != null && expiry != null) {
                     tokenBlacklistService.addToBlacklist(jti, expiry)
                 }
             } catch (_: Exception) {
-                // Ignore invalid/expired access token and still revoke refresh token.
+                // Ignore invalid access token and still revoke refresh token.
             }
         }
 

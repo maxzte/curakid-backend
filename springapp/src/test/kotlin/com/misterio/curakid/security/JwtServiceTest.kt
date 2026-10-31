@@ -22,66 +22,59 @@ class JwtServiceTest {
         )
     }
 
-
     @Test
-    fun `should generate and validate access token`() {
+    fun `should generate and validate access token as JwtResult Access`() {
         val user = User(email = "test@test.com", role = Role.ROLE_USER).apply { id = UUID.randomUUID() }
 
         val token = jwtService.generateAccessToken(user)
         assertNotNull(token)
 
-        val email = jwtService.extractUsername(token)
-        assertEquals("test@test.com", email)
+        val result = jwtService.parseToken(token)
+        assertTrue(result is JwtService.JwtResult.Access)
 
-        val jti = jwtService.extractJti(token)
-        assertNotNull(jti)
-
-        assertTrue(jwtService.isTokenValid(token, user))
+        val claims = (result as JwtService.JwtResult.Access).claims
+        assertEquals("test@test.com", claims.subject)
+        assertNotNull(claims.id)
+        assertEquals(user.id.toString(), claims.get(JwtService.CLAIM_USER_ID, String::class.java))
+        assertEquals(Role.ROLE_USER.name, claims.get(JwtService.CLAIM_ROLE, String::class.java))
     }
 
     @Test
-    fun `should generate and validate refresh token`() {
+    fun `should generate and validate refresh token as JwtResult Refresh`() {
         val user = User(email = "refresh@test.com").apply { id = UUID.randomUUID() }
+
         val token = jwtService.generateRefreshToken(user)
+        assertNotNull(token)
 
-        assertEquals("refresh@test.com", jwtService.extractUsername(token))
-        assertTrue(jwtService.isTokenValid(token, user))
+        val result = jwtService.parseToken(token)
+        assertTrue(result is JwtService.JwtResult.Refresh)
+
+        val claims = (result as JwtService.JwtResult.Refresh).claims
+        assertEquals("refresh@test.com", claims.subject)
+        assertNotNull(claims.id)
     }
 
     @Test
-    fun `isTokenValid should return false for different user`() {
-        val user1 = User(email = "user1@test.com").apply { id = UUID.randomUUID() }
-        val user2 = User(email = "user2@test.com").apply { id = UUID.randomUUID() }
-
-        val token = jwtService.generateAccessToken(user1)
-        assertFalse(jwtService.isTokenValid(token, user2))
+    fun `parseToken should return Invalid for invalid or tampered token`() {
+        val result = jwtService.parseToken("invalid.token.string")
+        assertTrue(result is JwtService.JwtResult.Invalid)
     }
 
     @Test
-    fun `generateAccessToken should set token type to access and contain jti`() {
-        val user = User(email = "user@test.com").apply { id = UUID.randomUUID() }
-        val token = jwtService.generateAccessToken(user)
+    fun `parseToken should return Expired for expired token`() {
+        val expiredJwtService = JwtService(
+            secret = secret,
+            accessExpiration = -1000L,
+            refreshExpiration = -1000L
+        )
+        val user = User(email = "expired@test.com").apply { id = UUID.randomUUID() }
+        val token = expiredJwtService.generateAccessToken(user)
 
-        assertEquals(JwtService.TYPE_ACCESS, jwtService.extractTokenType(token))
-        assertNotNull(jwtService.extractJti(token))
-        
-        val claims = jwtService.parseValidClaims(token)
+        val result = jwtService.parseToken(token)
+        assertTrue(result is JwtService.JwtResult.Expired)
+
+        val claims = jwtService.getClaimsIgnoringExpiration(token)
         assertNotNull(claims)
-        assertEquals("user@test.com", claims?.subject)
-        assertEquals(JwtService.TYPE_ACCESS, claims?.get(JwtService.CLAIM_TOKEN_TYPE, String::class.java))
-    }
-
-    @Test
-    fun `generateRefreshToken should set token type to refresh and contain jti`() {
-        val user = User(email = "user@test.com").apply { id = UUID.randomUUID() }
-        val token = jwtService.generateRefreshToken(user)
-
-        assertEquals(JwtService.TYPE_REFRESH, jwtService.extractTokenType(token))
-        assertNotNull(jwtService.extractJti(token))
-    }
-
-    @Test
-    fun `parseValidClaims should return null for invalid or tampered token`() {
-        assertNull(jwtService.parseValidClaims("invalid.token.string"))
+        assertEquals("expired@test.com", claims?.subject)
     }
 }

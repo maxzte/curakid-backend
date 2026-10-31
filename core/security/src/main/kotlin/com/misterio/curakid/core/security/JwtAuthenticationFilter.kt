@@ -31,17 +31,16 @@ class JwtAuthenticationFilter(
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             val jwt = authHeader.substring(7)
 
-            try {
-                val claims = jwtService.parseValidClaims(jwt)
-                val userEmail = claims?.subject ?: jwtService.extractUsername(jwt)
-                val jti = claims?.id ?: jwtService.extractJti(jwt)
-                val tokenType = claims?.get(JwtService.CLAIM_TOKEN_TYPE, String::class.java)
-                    ?: jwtService.extractTokenType(jwt)
+            when (val result = jwtService.parseToken(jwt)) {
+                is JwtService.JwtResult.Refresh -> {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Refresh tokens cannot be used as Access tokens")
+                    return
+                }
+                is JwtService.JwtResult.Access -> {
+                    val claims = result.claims
+                    val jti = claims.id
+                    val userEmail = claims.subject
 
-                val isValidType = tokenType == null || tokenType == JwtService.TYPE_ACCESS
-                val isValidToken = claims != null || jwtService.isTokenValid(jwt)
-
-                if (isValidType && isValidToken && userEmail != null && SecurityContextHolder.getContext().authentication == null) {
                     val blacklisted = try {
                         jti != null && tokenBlacklistService.isBlacklisted(jti)
                     } catch (e: Exception) {
@@ -49,43 +48,53 @@ class JwtAuthenticationFilter(
                         false
                     }
 
-                    if (!blacklisted) {
-                        val userIdStr = claims?.get(JwtService.CLAIM_USER_ID, String::class.java)
-                        val roleStr = claims?.get(JwtService.CLAIM_ROLE, String::class.java)
-
-                        val userDetails: UserDetails = if (userIdStr != null && roleStr != null) {
-                            // Fully stateless path: no database query needed for 1M DAU peak traffic
-                            try {
-                                val role = Role.valueOf(roleStr)
-                                User(
-                                    email = userEmail,
-                                    passwordHash = "",
-                                    name = userEmail,
-                                    role = role,
-                                    isActive = true
-                                ).apply {
-                                    setId(UUID.fromString(userIdStr))
-                                }
-                            } catch (_: Exception) {
-                                userDetailsService.loadUserByUsername(userEmail)
-                            }
-                        } else {
-                            // Fallback to database lookup for legacy tokens without uid/role claim
-                            userDetailsService.loadUserByUsername(userEmail)
-                        }
-
-                        if (userDetails.isEnabled && userDetails.username == userEmail) {
-                            val authToken = UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.authorities
-                            )
-                            authToken.details = WebAuthenticationDetailsSource().buildDetails(request)
-                            SecurityContextHolder.getContext().authentication = authToken
-                        }
+                    if (blacklisted) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token revoked")
+                        return
                     }
+
+                    val userIdStr = claims.get(JwtService.CLAIM_USER_ID, String::class.java)
+                    val roleStr = claims.get(JwtService.CLAIM_ROLE, String::class.java)
+
+                    val userDetails: UserDetails? = if (userIdStr != null && roleStr != null) {
+                        try {
+                            val role = Role.valueOf(roleStr)
+                            User(
+                                email = userEmail,
+                                passwordHash = "",
+                                name = userEmail,
+                                role = role,
+                                isActive = true
+                            ).apply {
+                                setId(UUID.fromString(userIdStr))
+                            }
+                        } catch (_: Exception) {
+                            try {
+                                userDetailsService.loadUserByUsername(userEmail)
+                            } catch (_: Exception) { null }
+                        }
+                    } else {
+                        try {
+                            userDetailsService.loadUserByUsername(userEmail)
+                        } catch (_: Exception) { null }
+                    }
+
+                    if (userDetails == null || !userDetails.isEnabled || userDetails.username != userEmail) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token or user disabled")
+                        return
+                    }
+
+                    val authToken = UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.authorities
+                    )
+                    authToken.details = WebAuthenticationDetailsSource().buildDetails(request)
+                    SecurityContextHolder.getContext().authentication = authToken
                 }
-            } catch (e: Exception) {
-                logger.debug("JWT validation failed: ${e.message}")
-                SecurityContextHolder.clearContext()
+                is JwtService.JwtResult.Expired, is JwtService.JwtResult.Invalid -> {
+                    // Do not set SecurityContext; let filterChain proceed.
+                    // Public endpoints (e.g., /auth/login) will be allowed.
+                    // Protected endpoints will be blocked by AuthorizationFilter.
+                }
             }
         }
 

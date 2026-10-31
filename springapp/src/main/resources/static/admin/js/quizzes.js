@@ -1,9 +1,10 @@
 /**
  * Quizzes Domain & UI Controller
  */
+import { ApiClient } from './api.js';
 
 // --- API Service Layer ---
-const QuizzesApi = {
+export const QuizzesApi = {
     getLifePeriods: () => ApiClient.get('/admin/quiz/life-periods'),
     addQuestion: (periodId, payload) => ApiClient.post(`/admin/quiz/life-periods/${periodId}/questions`, payload),
     updateQuestion: (id, payload) => ApiClient.put(`/admin/quiz/questions/${id}`, payload),
@@ -14,7 +15,7 @@ const QuizzesApi = {
 };
 
 // --- UI / Render Layer ---
-const QuizzesUI = {
+export const QuizzesUI = {
     allQuestionsGlobal: [],
 
     normalizePeriodsPayload(payload) {
@@ -44,6 +45,9 @@ const QuizzesUI = {
         const container = document.getElementById('periods-container');
         if (!container) return;
 
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str) : String(str ?? '');
+
         if (periods.length === 0) {
             container.innerHTML = '<div class="empty-state">Вікових періодів не знайдено. Додайте новий вище.</div>';
             return;
@@ -54,8 +58,8 @@ const QuizzesUI = {
                 <div class="period-header" onclick="togglePeriod(this)">
                     <div class="period-info">
                         <span class="toggle">▶</span>
-                        <strong>${AdminAuth.escapeHtml(p.label)}</strong>
-                        <span class="badge">${AdminAuth.escapeHtml(p.code)}</span>
+                        <strong>${escapeHtml(p.label)}</strong>
+                        <span class="badge">${escapeHtml(p.code)}</span>
                         <span style="color: var(--text-muted); font-size: 0.85rem;">${p.minMonths}–${p.maxMonths} мiс</span>
                         <span style="color: var(--text-muted); font-size: 0.85rem;">(${p.questions ? p.questions.length : 0} питань)</span>
                     </div>
@@ -218,23 +222,23 @@ const QuizzesUI = {
     }
 };
 
-window.togglePeriod = function(headerEl) {
+export function togglePeriod(headerEl) {
     const body = headerEl.nextElementSibling;
     const toggle = headerEl.querySelector('.toggle');
     body.classList.toggle('open');
     toggle.classList.toggle('open');
-};
+}
 
-window.toggleOptions = function(headerEl) {
+export function toggleOptions(headerEl) {
     const container = headerEl.closest('.question-item');
     const list = container.querySelector('.options-list');
     const icon = headerEl.querySelector('.toggle-icon');
 
     const isOpen = list.classList.toggle('open');
     icon.textContent = isOpen ? '▼' : '▶';
-};
+}
 
-window.addOptionRowToNewQuestion = function(periodId) {
+export function addOptionRowToNewQuestion(periodId) {
     const container = document.getElementById(`q-options-container-${periodId}`);
     if (!container) return;
     const div = document.createElement('div');
@@ -247,9 +251,9 @@ window.addOptionRowToNewQuestion = function(periodId) {
         <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0.2rem 0.5rem;">×</button>
     `;
     container.appendChild(div);
-};
+}
 
-window.addQuestion = async function(periodId) {
+export async function addQuestion(periodId) {
     const text = document.getElementById(`q-text-${periodId}`).value;
     const domain = document.getElementById(`q-domain-${periodId}`).value;
     const weight = parseFloat(document.getElementById(`q-weight-${periodId}`).value);
@@ -273,103 +277,136 @@ window.addQuestion = async function(periodId) {
     });
 
     if (options.some(o => o.value < 0 || o.value > 100)) {
-        AdminAuth.showToast('Значення варіантів мають бути від 0 до 100', 'error');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Значення варіантів мають бути від 0 до 100', 'error');
+        }
         return;
     }
 
-    if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
+    if (!text) {
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Текст запитання обов’язковий', 'error');
+        }
+        return;
+    }
 
     try {
         await QuizzesApi.addQuestion(periodId, { text, domain, weight, options, prerequisiteId });
-        AdminAuth.showToast('Запитання додано', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Запитання додано', 'success');
+        }
         await loadPeriodsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.updateQuestionData = async function(id) {
+export async function updateQuestionData(id) {
     const text = document.getElementById(`q-text-edit-${id}`).value;
     const domain = document.getElementById(`q-domain-edit-${id}`).value;
     const weight = parseFloat(document.getElementById(`q-weight-edit-${id}`).value);
     const prerequisiteId = document.getElementById(`q-prereq-edit-${id}`).value || null;
 
-    if (!text) { AdminAuth.showToast('Текст запитання обов’язковий', 'error'); return; }
+    if (!text) {
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Текст запитання обов’язковий', 'error');
+        }
+        return;
+    }
 
     try {
         await QuizzesApi.updateQuestion(id, { text, domain, weight, prerequisiteId });
-        AdminAuth.showToast('Запитання оновлено', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Запитання оновлено', 'success');
+        }
         await loadPeriodsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.deleteQuestion = async function(id) {
+export async function deleteQuestion(id) {
     if (!confirm('Видалити це запитання та всі його варіанти?')) return;
     try {
         await QuizzesApi.deleteQuestion(id);
-        AdminAuth.showToast('Запитання видалено', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Запитання видалено', 'success');
+        }
         await loadPeriodsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.addOption = async function(questionId) {
+export async function addOption(questionId) {
     const text = document.getElementById(`o-text-${questionId}`).value;
     const value = document.getElementById(`o-value-${questionId}`).value;
     const displayOrder = parseInt(document.getElementById(`o-order-${questionId}`).value) || 1;
 
     const valueFloat = parseFloat(value);
     if (isNaN(valueFloat) || valueFloat < 0 || valueFloat > 100) {
-        AdminAuth.showToast('Значення має бути числом від 0 до 100', 'error');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Значення має бути числом від 0 до 100', 'error');
+        }
         return;
     }
 
-    if (!text) { AdminAuth.showToast('Текст варіанту обов’язковий', 'error'); return; }
+    if (!text) {
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Текст варіанту обов’язковий', 'error');
+        }
+        return;
+    }
 
     try {
         await QuizzesApi.addOption(questionId, { text, value: valueFloat, displayOrder });
-        AdminAuth.showToast('Варіант додано', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Варіант додано', 'success');
+        }
         await loadPeriodsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.updateOption = async function(id) {
+export async function updateOption(id) {
     const text = document.getElementById(`o-text-edit-${id}`).value;
     const value = document.getElementById(`o-value-edit-${id}`).value;
     const displayOrder = parseInt(document.getElementById(`o-order-edit-${id}`).value) || 0;
 
     const valueFloat = parseFloat(value);
     if (isNaN(valueFloat) || valueFloat < 0 || valueFloat > 100) {
-        AdminAuth.showToast('Значення має бути числом від 0 до 100', 'error');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Значення має бути числом від 0 до 100', 'error');
+        }
         return;
     }
 
     try {
         await QuizzesApi.updateOption(id, { text, value: valueFloat, displayOrder });
-        AdminAuth.showToast('Варіант оновлено', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Варіант оновлено', 'success');
+        }
         await loadPeriodsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.deleteOption = async function(id) {
+export async function deleteOption(id) {
     if (!confirm('Ви впевнені?')) return;
     try {
         await QuizzesApi.deleteOption(id);
-        AdminAuth.showToast('Option deleted', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Option deleted', 'success');
+        }
         await loadPeriodsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-async function loadPeriodsData() {
+export async function loadPeriodsData() {
     try {
         const payload = await QuizzesApi.getLifePeriods();
         const periods = QuizzesUI.normalizePeriodsPayload(payload).map(p => QuizzesUI.normalizePeriod(p));
@@ -380,6 +417,20 @@ async function loadPeriodsData() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadPeriodsData();
-});
+if (typeof window !== 'undefined') {
+    window.QuizzesApi = QuizzesApi;
+    window.QuizzesUI = QuizzesUI;
+    window.togglePeriod = togglePeriod;
+    window.toggleOptions = toggleOptions;
+    window.addOptionRowToNewQuestion = addOptionRowToNewQuestion;
+    window.addQuestion = addQuestion;
+    window.updateQuestionData = updateQuestionData;
+    window.deleteQuestion = deleteQuestion;
+    window.addOption = addOption;
+    window.updateOption = updateOption;
+    window.deleteOption = deleteOption;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadPeriodsData();
+    });
+}

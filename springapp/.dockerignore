@@ -4,6 +4,11 @@ build/
 */build/
 bin/
 
+# Node / JS
+node_modules/
+.vitest/
+coverage/
+
 # Documentation & Design
 *.md
 .git/

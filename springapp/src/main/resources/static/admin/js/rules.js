@@ -1,15 +1,16 @@
 /**
  * Fuzzy Rules Domain & UI Controller
  */
+import { ApiClient } from './api.js';
 
 // --- API Service Layer ---
-const RulesApi = {
+export const RulesApi = {
     getRules: () => ApiClient.get('/admin/fuzzy/rules'),
     saveRules: (rulesToSave) => ApiClient.put('/admin/fuzzy/rules', { rules: rulesToSave })
 };
 
 // --- UI / Render Layer ---
-const RulesUI = {
+export const RulesUI = {
     rules: [],
     variables: [
         'ageMonths', 'wfaZscore', 'hfaZscore', 'bmiZscore', 'hcfaZscore', 'wfhZscore',
@@ -103,7 +104,7 @@ const RulesUI = {
     }
 };
 
-window.addNewRule = function() {
+export function addNewRule() {
     RulesUI.rules.push({
         domain: 'GENERAL',
         conditions: [{ variable: 'wfaZscore', term: 'NORMAL' }],
@@ -111,33 +112,33 @@ window.addNewRule = function() {
         isActive: true
     });
     RulesUI.renderRules();
-};
+}
 
-window.addCondition = function(ruleIndex) {
+export function addCondition(ruleIndex) {
     const used = RulesUI.rules[ruleIndex].conditions.map(c => c.variable);
     const nextVar = RulesUI.variables.find(v => !used.includes(v));
     if (nextVar) {
         RulesUI.rules[ruleIndex].conditions.push({ variable: nextVar, term: nextVar.includes('Score') ? 'NORMAL' : 'NORMAL' });
         RulesUI.renderRules();
     }
-};
+}
 
-window.removeCondition = function(ri, ci) {
+export function removeCondition(ri, ci) {
     RulesUI.rules[ri].conditions.splice(ci, 1);
     RulesUI.renderRules();
-};
+}
 
-window.updateCondition = function(ri, ci, field, val) {
+export function updateCondition(ri, ci, field, val) {
     RulesUI.rules[ri].conditions[ci][field] = val;
     RulesUI.renderRules();
-};
+}
 
-window.removeRule = function(index) {
+export function removeRule(index) {
     RulesUI.rules.splice(index, 1);
     RulesUI.renderRules();
-};
+}
 
-window.saveAllRules = async function() {
+export async function saveAllRules() {
     try {
         const rulesToSave = RulesUI.rules.map(r => ({
             domain: r.domain || 'GENERAL',
@@ -147,21 +148,23 @@ window.saveAllRules = async function() {
         }));
 
         await RulesApi.saveRules(rulesToSave);
-        AdminAuth.showToast("Базу знань оновлено успішно!", "success");
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast("Базу знань оновлено успішно!", "success");
+        }
     } catch (e) {
         // Handled
     }
-};
+}
 
-window.openJsonEditor = function() {
+export function openJsonEditor() {
     RulesUI.openJsonEditor();
-};
+}
 
-window.closeJsonEditor = function() {
+export function closeJsonEditor() {
     RulesUI.closeJsonEditor();
-};
+}
 
-window.applyJsonRules = async function() {
+export async function applyJsonRules() {
     try {
         const val = document.getElementById('rules-json').value;
         const newRules = JSON.parse(val);
@@ -171,13 +174,15 @@ window.applyJsonRules = async function() {
         RulesUI.renderRules();
         RulesUI.closeJsonEditor();
 
-        await window.saveAllRules();
+        await saveAllRules();
     } catch (e) {
-        AdminAuth.showToast("Помилка JSON: " + e.message, "error");
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast("Помилка JSON: " + e.message, "error");
+        }
     }
-};
+}
 
-async function loadRulesData() {
+export async function loadRulesData() {
     try {
         RulesUI.rules = await RulesApi.getRules();
         RulesUI.renderRules();
@@ -186,6 +191,20 @@ async function loadRulesData() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadRulesData();
-});
+if (typeof window !== 'undefined') {
+    window.RulesApi = RulesApi;
+    window.RulesUI = RulesUI;
+    window.addNewRule = addNewRule;
+    window.addCondition = addCondition;
+    window.removeCondition = removeCondition;
+    window.updateCondition = updateCondition;
+    window.removeRule = removeRule;
+    window.saveAllRules = saveAllRules;
+    window.openJsonEditor = openJsonEditor;
+    window.closeJsonEditor = closeJsonEditor;
+    window.applyJsonRules = applyJsonRules;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadRulesData();
+    });
+}

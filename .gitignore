@@ -65,4 +65,9 @@ venv/
 ._*
 Thumbs.db
 
+### Node & Frontend Testing ###
+node_modules/
+.vitest/
+coverage/
+
 serviceAccountKey.json

@@ -1,16 +1,17 @@
 /**
  * Users Domain & UI Controller
  */
+import { ApiClient } from './api.js';
 
 // --- API Service Layer ---
-const UsersApi = {
+export const UsersApi = {
     getUsers: (page = 0, email = '', size = 20) =>
         ApiClient.get(`/admin/users?page=${page}&size=${size}&email=${encodeURIComponent(email)}`),
     deleteUser: (id) => ApiClient.delete(`/admin/users/${id}`)
 };
 
 // --- UI / Render Layer ---
-const UsersUI = {
+export const UsersUI = {
     renderUsersTable(users) {
         const tbody = document.getElementById('users-table-body');
         if (!tbody) return;
@@ -19,6 +20,10 @@ const UsersUI = {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Користувачів не знайдено.</td></tr>';
             return;
         }
+
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str)
+            : String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
         tbody.innerHTML = users.map(user => {
             const isActive = user.isActive === true || user.active === true;
@@ -30,13 +35,13 @@ const UsersUI = {
 
             return `
             <tr>
-                <td style="font-weight: 500;">${AdminAuth.escapeHtml(user.fullName)}</td>
-                <td>${AdminAuth.escapeHtml(user.email)}</td>
+                <td style="font-weight: 500;">${escapeHtml(user.fullName)}</td>
+                <td>${escapeHtml(user.email)}</td>
                 <td><span class="badge ${roleClass}">${roleName}</span></td>
                 <td><span class="status-dot ${statusClass}"></span> ${statusText}</td>
-                <td style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">${AdminAuth.escapeHtml(user.id)}</td>
+                <td style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">${escapeHtml(user.id)}</td>
                 <td>
-                    ${isActive ? `<button class="action-btn delete-btn" onclick="deleteUser('${AdminAuth.escapeHtml(user.id)}')">Видалити</button>` : ''}
+                    ${isActive ? `<button class="action-btn delete-btn" onclick="deleteUser('${escapeHtml(user.id)}')">Видалити</button>` : ''}
                 </td>
             </tr>
         `}).join('');
@@ -87,7 +92,7 @@ const UsersUI = {
 let currentPage = 0;
 let currentSearch = '';
 
-window.fetchUsers = async function(page = 0, email = '') {
+export async function fetchUsers(page = 0, email = '') {
     currentPage = page;
     currentSearch = email;
 
@@ -100,31 +105,42 @@ window.fetchUsers = async function(page = 0, email = '') {
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.applySearch = function() {
+export function applySearch() {
     const emailInput = document.getElementById('search-email');
     const email = emailInput ? emailInput.value : '';
-    window.fetchUsers(0, email);
-};
+    fetchUsers(0, email);
+}
 
-window.resetSearch = function() {
+export function resetSearch() {
     const emailInput = document.getElementById('search-email');
     if (emailInput) emailInput.value = '';
-    window.fetchUsers(0, '');
-};
+    fetchUsers(0, '');
+}
 
-window.deleteUser = async function(id) {
+export async function deleteUser(id) {
     if (!confirm('Ви впевнені, що хочете видалити цього користувача? Це призведе до анонімізації всіх його даних та даних його дітей.')) return;
     try {
         await UsersApi.deleteUser(id);
-        AdminAuth.showToast('Користувача видалено та анонімізовано', 'success');
-        await window.fetchUsers(currentPage, currentSearch);
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Користувача видалено та анонімізовано', 'success');
+        }
+        await fetchUsers(currentPage, currentSearch);
     } catch (err) {
         // Handled
     }
-};
+}
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await window.fetchUsers();
-});
+if (typeof window !== 'undefined') {
+    window.UsersApi = UsersApi;
+    window.UsersUI = UsersUI;
+    window.fetchUsers = fetchUsers;
+    window.applySearch = applySearch;
+    window.resetSearch = resetSearch;
+    window.deleteUser = deleteUser;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await fetchUsers();
+    });
+}

@@ -1,6 +1,8 @@
 /**
  * Admin Login Controller
  */
+import { ApiClient } from './api.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
     if (!loginForm) return;
@@ -36,8 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = '/admin/ui/articles';
 
         } catch (err) {
-            if (typeof AdminAuth !== 'undefined' && AdminAuth.showToast) {
-                AdminAuth.showToast(err.message || 'Помилка входу', 'error');
+            if (typeof window.AdminAuth !== 'undefined' && window.AdminAuth.showToast) {
+                window.AdminAuth.showToast(err.message || 'Помилка входу', 'error');
             }
             if (btn) {
                 btn.disabled = false;

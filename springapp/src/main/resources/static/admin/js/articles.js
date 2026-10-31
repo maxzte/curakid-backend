@@ -1,9 +1,10 @@
 /**
  * Knowledge Base Articles Domain & UI Controller
  */
+import { ApiClient } from './api.js';
 
 // --- API Service Layer ---
-const ArticlesApi = {
+export const ArticlesApi = {
     getCategories: () => ApiClient.get('/admin/knowledge/categories'),
     getArticles: () => ApiClient.get('/admin/knowledge'),
     createArticle: (payload) => ApiClient.post('/admin/knowledge', payload),
@@ -13,7 +14,7 @@ const ArticlesApi = {
 };
 
 // --- UI / Render Layer ---
-const ArticlesUI = {
+export const ArticlesUI = {
     uploadMode: 'manual',
 
     setUploadMode(mode) {
@@ -35,11 +36,15 @@ const ArticlesUI = {
     renderCategoriesSelect(categories) {
         const select = document.getElementById('category');
         if (!select) return;
+
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str) : String(str ?? '');
+
         if (!categories || categories.length === 0) {
             select.innerHTML = '<option value="">Немає категорій - будь ласка, створіть спочатку</option>';
         } else {
             select.innerHTML = categories.map(c => `
-                <option value="${c.id}">${AdminAuth.escapeHtml(c.displayName)} (${AdminAuth.escapeHtml(c.name)})</option>
+                <option value="${c.id}">${escapeHtml(c.displayName)} (${escapeHtml(c.name)})</option>
             `).join('');
         }
     },
@@ -47,6 +52,9 @@ const ArticlesUI = {
     renderArticlesTable(articles) {
         const tbody = document.getElementById('articles-table-body');
         if (!tbody) return;
+
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str) : String(str ?? '');
 
         if (!articles || articles.length === 0) {
             tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Статей не знайдено.</td></tr>';
@@ -57,8 +65,8 @@ const ArticlesUI = {
             const cat = art.category ? art.category.displayName : 'Без категорії';
             return `
             <tr>
-                <td style="font-weight: 500;">${AdminAuth.escapeHtml(art.title)}</td>
-                <td><span class="badge">${AdminAuth.escapeHtml(cat)}</span></td>
+                <td style="font-weight: 500;">${escapeHtml(art.title)}</td>
+                <td><span class="badge">${escapeHtml(cat)}</span></td>
                 <td>
                     <button class="delete-btn" onclick="deleteArticle('${art.id}')">Видалити</button>
                 </td>
@@ -68,23 +76,24 @@ const ArticlesUI = {
     }
 };
 
-// --- Global Actions ---
-window.setUploadMode = function(mode) {
+export async function setUploadMode(mode) {
     ArticlesUI.setUploadMode(mode);
-};
+}
 
-window.deleteArticle = async function(id) {
+export async function deleteArticle(id) {
     if (!confirm('Ви впевнені, що хочете видалити цю статтю?')) return;
     try {
         await ArticlesApi.deleteArticle(id);
-        AdminAuth.showToast('Статтю видалено.', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Статтю видалено.', 'success');
+        }
         await loadArticlesData();
     } catch (err) {
         // Handled by ApiClient toast
     }
-};
+}
 
-async function loadCategoriesData() {
+export async function loadCategoriesData() {
     try {
         const categories = await ArticlesApi.getCategories();
         ArticlesUI.renderCategoriesSelect(categories);
@@ -93,7 +102,7 @@ async function loadCategoriesData() {
     }
 }
 
-async function loadArticlesData() {
+export async function loadArticlesData() {
     try {
         const articles = await ArticlesApi.getArticles();
         ArticlesUI.renderArticlesTable(articles);
@@ -102,78 +111,88 @@ async function loadArticlesData() {
     }
 }
 
-// --- Event Controllers ---
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadCategoriesData();
-    await loadArticlesData();
+if (typeof window !== 'undefined') {
+    window.ArticlesApi = ArticlesApi;
+    window.ArticlesUI = ArticlesUI;
+    window.setUploadMode = setUploadMode;
+    window.deleteArticle = deleteArticle;
 
-    const addArticleForm = document.getElementById('add-article-form');
-    if (addArticleForm) {
-        addArticleForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submit-btn');
-            const title = document.getElementById('title').value;
-            const categoryId = document.getElementById('category').value;
-            const minAge = document.getElementById('minAge').value;
-            const maxAge = document.getElementById('maxAge').value;
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadCategoriesData();
+        await loadArticlesData();
 
-            try {
-                if (btn) {
-                    btn.disabled = true;
-                    btn.textContent = 'Обробка...';
+        const addArticleForm = document.getElementById('add-article-form');
+        if (addArticleForm) {
+            addArticleForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('submit-btn');
+                const title = document.getElementById('title').value;
+                const categoryId = document.getElementById('category').value;
+                const minAge = document.getElementById('minAge').value;
+                const maxAge = document.getElementById('maxAge').value;
+
+                try {
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.textContent = 'Обробка...';
+                    }
+
+                    if (ArticlesUI.uploadMode === 'manual') {
+                        const payload = {
+                            title: title,
+                            categoryId: categoryId,
+                            content: document.getElementById('content').value
+                        };
+                        await ArticlesApi.createArticle(payload);
+                    } else {
+                        const formData = new FormData();
+                        formData.append('title', title);
+                        formData.append('categoryId', categoryId);
+                        formData.append('file', document.getElementById('file').files[0]);
+                        if (minAge) formData.append('minAge', minAge);
+                        if (maxAge) formData.append('maxAge', maxAge);
+
+                        await ArticlesApi.uploadArticleFile(formData);
+                    }
+
+                    if (window.AdminAuth && window.AdminAuth.showToast) {
+                        window.AdminAuth.showToast('Статтю збережено та векторизовано успішно!', 'success');
+                    }
+                    e.target.reset();
+                    ArticlesUI.setUploadMode('manual');
+                    await loadArticlesData();
+
+                } catch (err) {
+                    // Handled
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Зберегти та згенерувати вектори';
+                    }
                 }
+            });
+        }
 
-                if (ArticlesUI.uploadMode === 'manual') {
-                    const payload = {
-                        title: title,
-                        categoryId: categoryId,
-                        content: document.getElementById('content').value
-                    };
-                    await ArticlesApi.createArticle(payload);
-                } else {
-                    const formData = new FormData();
-                    formData.append('title', title);
-                    formData.append('categoryId', categoryId);
-                    formData.append('file', document.getElementById('file').files[0]);
-                    if (minAge) formData.append('minAge', minAge);
-                    if (maxAge) formData.append('maxAge', maxAge);
+        const addCategoryForm = document.getElementById('add-category-form');
+        if (addCategoryForm) {
+            addCategoryForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    name: document.getElementById('cat-name').value.toUpperCase(),
+                    displayName: document.getElementById('cat-display').value
+                };
 
-                    await ArticlesApi.uploadArticleFile(formData);
+                try {
+                    await ArticlesApi.createCategory(payload);
+                    if (window.AdminAuth && window.AdminAuth.showToast) {
+                        window.AdminAuth.showToast('Категорію додано!', 'success');
+                    }
+                    e.target.reset();
+                    await loadCategoriesData();
+                } catch (err) {
+                    // Handled
                 }
-
-                AdminAuth.showToast('Статтю збережено та векторизовано успішно!', 'success');
-                e.target.reset();
-                ArticlesUI.setUploadMode('manual');
-                await loadArticlesData();
-
-            } catch (err) {
-                // Handled
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Зберегти та згенерувати вектори';
-                }
-            }
-        });
-    }
-
-    const addCategoryForm = document.getElementById('add-category-form');
-    if (addCategoryForm) {
-        addCategoryForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                name: document.getElementById('cat-name').value.toUpperCase(),
-                displayName: document.getElementById('cat-display').value
-            };
-
-            try {
-                await ArticlesApi.createCategory(payload);
-                AdminAuth.showToast('Категорію додано!', 'success');
-                e.target.reset();
-                await loadCategoriesData();
-            } catch (err) {
-                // Handled
-            }
-        });
-    }
-});
+            });
+        }
+    });
+}

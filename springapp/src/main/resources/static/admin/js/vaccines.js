@@ -1,9 +1,10 @@
 /**
  * Vaccines Domain & UI Controller
  */
+import { ApiClient } from './api.js';
 
 // --- API Service Layer ---
-const VaccinesApi = {
+export const VaccinesApi = {
     getVaccines: () => ApiClient.get('/admin/vaccines'),
     createVaccine: (payload) => ApiClient.post('/admin/vaccines', payload),
     updateVaccine: (id, payload) => ApiClient.put(`/admin/vaccines/${id}`, payload),
@@ -14,13 +15,16 @@ const VaccinesApi = {
 };
 
 // --- UI / Render Layer ---
-const VaccinesUI = {
+export const VaccinesUI = {
     currentPreviewData: null,
 
     renderVaccines(vaccines) {
         const tbody = document.getElementById('vaccines-table-body');
         if (!tbody) return;
         tbody.innerHTML = '';
+
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str) : String(str ?? '');
 
         vaccines.sort((a, b) => {
             const ageA = (a.scheduledAgeMonths || 0) * 30 + (a.scheduledAgeDays || 0);
@@ -36,12 +40,12 @@ const VaccinesUI = {
             if (!ageStr) ageStr = '-';
 
             tr.innerHTML = `
-                <td><strong>${AdminAuth.escapeHtml(v.name)}</strong></td>
-                <td>${AdminAuth.escapeHtml(v.disease)}</td>
+                <td><strong>${escapeHtml(v.name)}</strong></td>
+                <td>${escapeHtml(v.disease)}</td>
                 <td>${v.doseNumber} з ${v.totalDoses}</td>
                 <td><span class="badge">${v.type === 'VACCINATION' ? 'Вакцинація' : 'Ревакцинація'}</span></td>
                 <td>${ageStr}</td>
-                <td><small>${AdminAuth.escapeHtml(v.notes) || '-'}</small></td>
+                <td><small>${escapeHtml(v.notes) || '-'}</small></td>
                 <td>
                     <button class="btn btn-sm" onclick="editVaccine('${v.id}')">Редагувати</button>
                     <button class="btn btn-sm" style="background-color: var(--danger-color);" onclick="deleteVaccine('${v.id}')">Видалити</button>
@@ -58,6 +62,9 @@ const VaccinesUI = {
 
         if (!newBody || !changedBody || !missingBody) return;
 
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str) : String(str ?? '');
+
         newBody.innerHTML = '';
         changedBody.innerHTML = '';
         missingBody.innerHTML = '';
@@ -69,8 +76,8 @@ const VaccinesUI = {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><input type="checkbox" class="new-item-check" data-index="${idx}" checked></td>
-                    <td><strong>${AdminAuth.escapeHtml(item.name)}</strong></td>
-                    <td>${AdminAuth.escapeHtml(item.disease)}</td>
+                    <td><strong>${escapeHtml(item.name)}</strong></td>
+                    <td>${escapeHtml(item.disease)}</td>
                     <td>${item.doseNumber} з ${item.totalDoses}</td>
                     <td>${item.type}</td>
                     <td>${this.formatAge(item.scheduledAgeMonths, item.scheduledAgeDays)}</td>
@@ -86,8 +93,8 @@ const VaccinesUI = {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><input type="checkbox" class="changed-item-check" data-index="${idx}" checked></td>
-                    <td><strong>${AdminAuth.escapeHtml(pair.proposed.name)}</strong></td>
-                    <td>${AdminAuth.escapeHtml(pair.proposed.disease)}</td>
+                    <td><strong>${escapeHtml(pair.proposed.name)}</strong></td>
+                    <td>${escapeHtml(pair.proposed.disease)}</td>
                     <td>${pair.proposed.doseNumber} з ${pair.proposed.totalDoses}</td>
                     <td>${this.formatAge(pair.current.scheduledAgeMonths, pair.current.scheduledAgeDays)}</td>
                     <td style="color: #b06000;"><strong>${this.formatAge(pair.proposed.scheduledAgeMonths, pair.proposed.scheduledAgeDays)}</strong></td>
@@ -102,8 +109,8 @@ const VaccinesUI = {
             data.missingVaccines.forEach(item => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${AdminAuth.escapeHtml(item.name)}</strong></td>
-                    <td>${AdminAuth.escapeHtml(item.disease)}</td>
+                    <td><strong>${escapeHtml(item.name)}</strong></td>
+                    <td>${escapeHtml(item.disease)}</td>
                     <td>${item.doseNumber} з ${item.totalDoses}</td>
                     <td>${item.type}</td>
                     <td>${this.formatAge(item.scheduledAgeMonths, item.scheduledAgeDays)}</td>
@@ -130,7 +137,7 @@ const VaccinesUI = {
     }
 };
 
-window.openSyncModal = async function() {
+export async function openSyncModal() {
     const modal = document.getElementById('sync-modal');
     const loading = document.getElementById('sync-loading');
     const content = document.getElementById('sync-content');
@@ -147,20 +154,20 @@ window.openSyncModal = async function() {
     } catch (err) {
         if (loading) loading.innerHTML = `<span style="color: var(--danger-color);">Помилка: ${err.message}</span>`;
     }
-};
+}
 
-window.closeSyncModal = function() {
+export function closeSyncModal() {
     const modal = document.getElementById('sync-modal');
     if (modal) modal.style.display = 'none';
-};
+}
 
-window.toggleSelectAll = function(type) {
+export function toggleSelectAll(type) {
     const master = document.getElementById(`select-all-${type}`);
     const checks = document.querySelectorAll(`.${type}-item-check`);
     checks.forEach(c => c.checked = master.checked);
-};
+}
 
-window.applySyncSelection = async function() {
+export async function applySyncSelection() {
     if (!VaccinesUI.currentPreviewData) return;
 
     const selectedNew = [];
@@ -176,45 +183,53 @@ window.applySyncSelection = async function() {
     });
 
     if (selectedNew.length === 0 && selectedChanged.length === 0) {
-        AdminAuth.showToast('Нічого не вибрано для застосування', 'warning');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Нічого не вибрано для застосування', 'warning');
+        }
         return;
     }
 
     try {
         await VaccinesApi.applySync({ toAdd: selectedNew, toUpdate: selectedChanged });
-        AdminAuth.showToast('Зміни успішно застосовано!', 'success');
-        window.closeSyncModal();
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Зміни успішно застосовано!', 'success');
+        }
+        closeSyncModal();
         await loadVaccinesData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.triggerBackfill = async function() {
+export async function triggerBackfill() {
     if (!confirm('Згенерувати графік вакцин для всіх існуючих дітей? Минулі вакцини отримають статус SKIPPED.')) {
         return;
     }
 
     try {
         const summary = await VaccinesApi.triggerBackfill();
-        AdminAuth.showToast(`Успішно! Опрацьовано дітей: ${summary.totalChildren}. Створено подій: ${summary.createdEventsCount} (Пропущено: ${summary.skippedEventsCount}, Заплановано: ${summary.plannedEventsCount})`, 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast(`Успішно! Опрацьовано дітей: ${summary.totalChildren}. Створено подій: ${summary.createdEventsCount} (Пропущено: ${summary.skippedEventsCount}, Заплановано: ${summary.plannedEventsCount})`, 'success');
+        }
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.deleteVaccine = async function(id) {
+export async function deleteVaccine(id) {
     if (!confirm('Ви впевнені?')) return;
     try {
         await VaccinesApi.deleteVaccine(id);
-        AdminAuth.showToast('Видалено', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Видалено', 'success');
+        }
         await loadVaccinesData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.editVaccine = async function(id) {
+export async function editVaccine(id) {
     try {
         const vaccines = await VaccinesApi.getVaccines();
         const v = vaccines.find(v => v.id === id);
@@ -235,13 +250,13 @@ window.editVaccine = async function(id) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     } catch (err) {}
-};
+}
 
-window.resetForm = function() {
+export function resetForm() {
     VaccinesUI.resetForm();
-};
+}
 
-async function loadVaccinesData() {
+export async function loadVaccinesData() {
     try {
         const vaccines = await VaccinesApi.getVaccines();
         VaccinesUI.renderVaccines(vaccines);
@@ -250,38 +265,19 @@ async function loadVaccinesData() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadVaccinesData();
+if (typeof window !== 'undefined') {
+    window.VaccinesApi = VaccinesApi;
+    window.VaccinesUI = VaccinesUI;
+    window.openSyncModal = openSyncModal;
+    window.closeSyncModal = closeSyncModal;
+    window.toggleSelectAll = toggleSelectAll;
+    window.applySyncSelection = applySyncSelection;
+    window.triggerBackfill = triggerBackfill;
+    window.deleteVaccine = deleteVaccine;
+    window.editVaccine = editVaccine;
+    window.resetForm = resetForm;
 
-    const vaccineForm = document.getElementById('vaccine-form');
-    if (vaccineForm) {
-        vaccineForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('vaccine-id').value;
-            const payload = {
-                name: document.getElementById('name').value,
-                disease: document.getElementById('disease').value,
-                doseNumber: parseInt(document.getElementById('doseNumber').value),
-                totalDoses: parseInt(document.getElementById('totalDoses').value),
-                type: document.getElementById('type').value,
-                scheduledAgeMonths: document.getElementById('scheduledAgeMonths').value ? parseInt(document.getElementById('scheduledAgeMonths').value) : null,
-                scheduledAgeDays: document.getElementById('scheduledAgeDays').value ? parseInt(document.getElementById('scheduledAgeDays').value) : null,
-                notes: document.getElementById('notes').value
-            };
-
-            try {
-                if (id) {
-                    await VaccinesApi.updateVaccine(id, payload);
-                } else {
-                    await VaccinesApi.createVaccine(payload);
-                }
-
-                AdminAuth.showToast('Збережено успішно!', 'success');
-                VaccinesUI.resetForm();
-                await loadVaccinesData();
-            } catch (err) {
-                // Handled
-            }
-        });
-    }
-});
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadVaccinesData();
+    });
+}

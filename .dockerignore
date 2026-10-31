@@ -17,6 +17,12 @@ docs/
 bin/
 out/
 
+# --- Node / JS ---
+node_modules/
+.vitest/
+coverage/
+npm-debug.log*
+
 # --- Python (Intelligence) ---
 # Оскільки контекст бекенду - весь корінь,
 # ігноруємо все важке від Python-сервісу

@@ -1,16 +1,17 @@
 /**
  * Life Periods Domain & UI Controller
  */
+import { ApiClient } from './api.js';
 
 // --- API Service Layer ---
-const PeriodsApi = {
+export const PeriodsApi = {
     getPeriods: () => ApiClient.get('/admin/quiz/life-periods'),
     createPeriod: (payload) => ApiClient.post('/admin/quiz/life-periods', payload),
     updatePeriod: (id, payload) => ApiClient.put(`/admin/quiz/life-periods/${id}`, payload)
 };
 
 // --- UI / Render Layer ---
-const PeriodsUI = {
+export const PeriodsUI = {
     periods: [],
     currentDescription: null,
 
@@ -18,14 +19,17 @@ const PeriodsUI = {
         const tbody = document.getElementById('periods-table-body');
         if (!tbody) return;
 
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str) : String(str ?? '');
+
         if (!this.periods || this.periods.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Періодів не знайдено</td></tr>';
             return;
         }
 
         tbody.innerHTML = this.periods.map(p => {
-            const safeCode = AdminAuth.escapeHtml(p.code);
-            const safeLabel = AdminAuth.escapeHtml(p.label);
+            const safeCode = escapeHtml(p.code);
+            const safeLabel = escapeHtml(p.label);
             return `
             <tr>
                 <td><span class="badge">${safeCode}</span></td>
@@ -71,12 +75,12 @@ const PeriodsUI = {
         const tipsContainer = document.getElementById('edit-tips-list');
         tipsContainer.innerHTML = '';
         if (data.tips && Array.isArray(data.tips)) {
-            data.tips.forEach(t => window.addTip('edit-tips-list', t));
+            data.tips.forEach(t => addTip('edit-tips-list', t));
         } else if (data.tip) {
-            window.addTip('edit-tips-list', data.tip);
+            addTip('edit-tips-list', data.tip);
         }
         if (tipsContainer.children.length === 0) {
-            window.addTip('edit-tips-list');
+            addTip('edit-tips-list');
         }
 
         document.getElementById('edit-modal')?.classList.add('open');
@@ -87,7 +91,7 @@ const PeriodsUI = {
     }
 };
 
-window.addTip = function(containerId, value = '') {
+export function addTip(containerId, value = '') {
     const container = document.getElementById(containerId);
     if (!container) return;
     const div = document.createElement('div');
@@ -97,21 +101,21 @@ window.addTip = function(containerId, value = '') {
         <button type="button" class="btn remove-tip-btn" onclick="removeTip(this)">×</button>
     `;
     container.appendChild(div);
-};
+}
 
-window.removeTip = function(btn) {
+export function removeTip(btn) {
     if (btn && btn.parentElement) {
         btn.parentElement.remove();
     }
-};
+}
 
-window.openEditModal = function(id) {
+export function openEditModal(id) {
     PeriodsUI.openEditModal(id);
-};
+}
 
-window.closeModal = function() {
+export function closeModal() {
     PeriodsUI.closeModal();
-};
+}
 
 function collectTips(containerId) {
     const inputs = document.querySelectorAll(`#${containerId} .tip-input`);
@@ -166,7 +170,7 @@ function constructEditDescription() {
     return JSON.stringify(base.ua ? { ...base, ua: merged } : merged);
 }
 
-async function loadPeriodsData() {
+export async function loadPeriodsData() {
     try {
         PeriodsUI.periods = await PeriodsApi.getPeriods();
         PeriodsUI.renderTable();
@@ -175,61 +179,74 @@ async function loadPeriodsData() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadPeriodsData();
+if (typeof window !== 'undefined') {
+    window.PeriodsApi = PeriodsApi;
+    window.PeriodsUI = PeriodsUI;
+    window.addTip = addTip;
+    window.removeTip = removeTip;
+    window.openEditModal = openEditModal;
+    window.closeModal = closeModal;
 
-    const addPeriodForm = document.getElementById('add-period-form');
-    if (addPeriodForm) {
-        addPeriodForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                code: document.getElementById('code').value,
-                label: document.getElementById('label').value,
-                minMonths: parseInt(document.getElementById('minMonths').value),
-                maxMonths: parseInt(document.getElementById('maxMonths').value),
-                description: constructDescription('')
-            };
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadPeriodsData();
 
-            try {
-                await PeriodsApi.createPeriod(payload);
-                AdminAuth.showToast('Період успішно додано!', 'success');
-                e.target.reset();
-                document.getElementById('add-tips-list').innerHTML = '';
-                window.addTip('add-tips-list');
-                await loadPeriodsData();
-            } catch (err) {
-                // Handled
-            }
-        });
-    }
+        const addPeriodForm = document.getElementById('add-period-form');
+        if (addPeriodForm) {
+            addPeriodForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    code: document.getElementById('code').value,
+                    label: document.getElementById('label').value,
+                    minMonths: parseInt(document.getElementById('minMonths').value),
+                    maxMonths: parseInt(document.getElementById('maxMonths').value),
+                    description: constructDescription('')
+                };
 
-    const editPeriodForm = document.getElementById('edit-period-form');
-    if (editPeriodForm) {
-        editPeriodForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('edit-id').value;
+                try {
+                    await PeriodsApi.createPeriod(payload);
+                    if (window.AdminAuth && window.AdminAuth.showToast) {
+                        window.AdminAuth.showToast('Період успішно додано!', 'success');
+                    }
+                    e.target.reset();
+                    document.getElementById('add-tips-list').innerHTML = '';
+                    addTip('add-tips-list');
+                    await loadPeriodsData();
+                } catch (err) {
+                    // Handled
+                }
+            });
+        }
 
-            const payload = {};
-            const code = document.getElementById('edit-code').value.trim();
-            const label = document.getElementById('edit-label').value.trim();
-            const minMonths = document.getElementById('edit-minMonths').value;
-            const maxMonths = document.getElementById('edit-maxMonths').value;
-            const description = constructEditDescription();
+        const editPeriodForm = document.getElementById('edit-period-form');
+        if (editPeriodForm) {
+            editPeriodForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('edit-id').value;
 
-            if (code) payload.code = code;
-            if (label) payload.label = label;
-            if (minMonths !== '' && !isNaN(parseInt(minMonths))) payload.minMonths = parseInt(minMonths);
-            if (maxMonths !== '' && !isNaN(parseInt(maxMonths))) payload.maxMonths = parseInt(maxMonths);
-            if (description !== undefined) payload.description = description;
+                const payload = {};
+                const code = document.getElementById('edit-code').value.trim();
+                const label = document.getElementById('edit-label').value.trim();
+                const minMonths = document.getElementById('edit-minMonths').value;
+                const maxMonths = document.getElementById('edit-maxMonths').value;
+                const description = constructEditDescription();
 
-            try {
-                await PeriodsApi.updatePeriod(id, payload);
-                AdminAuth.showToast('Період оновлено!', 'success');
-                PeriodsUI.closeModal();
-                await loadPeriodsData();
-            } catch (err) {
-                // Handled
-            }
-        });
-    }
-});
+                if (code) payload.code = code;
+                if (label) payload.label = label;
+                if (minMonths !== '' && !isNaN(parseInt(minMonths))) payload.minMonths = parseInt(minMonths);
+                if (maxMonths !== '' && !isNaN(parseInt(maxMonths))) payload.maxMonths = parseInt(maxMonths);
+                if (description !== undefined) payload.description = description;
+
+                try {
+                    await PeriodsApi.updatePeriod(id, payload);
+                    if (window.AdminAuth && window.AdminAuth.showToast) {
+                        window.AdminAuth.showToast('Період оновлено!', 'success');
+                    }
+                    PeriodsUI.closeModal();
+                    await loadPeriodsData();
+                } catch (err) {
+                    // Handled
+                }
+            });
+        }
+    });
+}

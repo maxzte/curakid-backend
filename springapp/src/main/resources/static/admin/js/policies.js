@@ -1,9 +1,10 @@
 /**
  * Legal Documents Domain & UI Controller
  */
+import { ApiClient } from './api.js';
 
 // --- API Service Layer ---
-const PoliciesApi = {
+export const PoliciesApi = {
     getDocuments: () => ApiClient.get('/admin/legal'),
     createDocument: (payload) => ApiClient.post('/admin/legal', payload),
     activateDocument: (id) => ApiClient.post(`/admin/legal/${id}/activate`),
@@ -11,7 +12,7 @@ const PoliciesApi = {
 };
 
 // --- UI / Render Layer ---
-const PoliciesUI = {
+export const PoliciesUI = {
     typeLabel(type) {
         if (type === 'TERMS') return 'Умови використання';
         if (type === 'PRIVACY_POLICY') return 'Політика конфіденційності';
@@ -21,6 +22,9 @@ const PoliciesUI = {
     renderTable(docs) {
         const tbody = document.getElementById('policies-table-body');
         if (!tbody) return;
+
+        const escapeHtml = (str) => (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.escapeHtml)
+            ? window.AdminAuth.escapeHtml(str) : String(str ?? '');
 
         if (!docs || docs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Документів не знайдено.</td></tr>';
@@ -50,9 +54,9 @@ const PoliciesUI = {
                 ? `<button class="delete-btn" onclick="deactivateDoc('${d.id}')">Деактивувати</button>`
                 : '';
 
-            const safeVersion = AdminAuth.escapeHtml(d.version);
-            const safeUrl = AdminAuth.escapeHtml(d.url);
-            const shortUrl = AdminAuth.escapeHtml(d.url.length > 40 ? d.url.substring(0, 40) + '…' : d.url);
+            const safeVersion = escapeHtml(d.version);
+            const safeUrl = escapeHtml(d.url);
+            const shortUrl = escapeHtml(d.url.length > 40 ? d.url.substring(0, 40) + '…' : d.url);
 
             return `
                 <tr>
@@ -76,29 +80,33 @@ const PoliciesUI = {
     }
 };
 
-window.activateDoc = async function(id) {
+export async function activateDoc(id) {
     if (!confirm('Активувати цей документ? Попередня активна версія цього типу буде автоматично деактивована.')) return;
     try {
         await PoliciesApi.activateDocument(id);
-        AdminAuth.showToast('Документ активовано', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Документ активовано', 'success');
+        }
         await loadDocumentsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-window.deactivateDoc = async function(id) {
+export async function deactivateDoc(id) {
     if (!confirm('Деактивувати цей документ?')) return;
     try {
         await PoliciesApi.deactivateDocument(id);
-        AdminAuth.showToast('Документ деактивовано', 'success');
+        if (typeof window !== 'undefined' && window.AdminAuth && window.AdminAuth.showToast) {
+            window.AdminAuth.showToast('Документ деактивовано', 'success');
+        }
         await loadDocumentsData();
     } catch (err) {
         // Handled
     }
-};
+}
 
-async function loadDocumentsData() {
+export async function loadDocumentsData() {
     try {
         const docs = await PoliciesApi.getDocuments();
         PoliciesUI.renderTable(docs);
@@ -107,33 +115,44 @@ async function loadDocumentsData() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadDocumentsData();
+if (typeof window !== 'undefined') {
+    window.PoliciesApi = PoliciesApi;
+    window.PoliciesUI = PoliciesUI;
+    window.activateDoc = activateDoc;
+    window.deactivateDoc = deactivateDoc;
 
-    const policyForm = document.getElementById('policy-form');
-    if (policyForm) {
-        policyForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadDocumentsData();
 
-            const payload = {
-                type: document.getElementById('doc-type').value,
-                version: document.getElementById('doc-version').value.trim(),
-                url: document.getElementById('doc-url').value.trim(),
-            };
+        const policyForm = document.getElementById('policy-form');
+        if (policyForm) {
+            policyForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
 
-            if (!payload.version) {
-                AdminAuth.showToast('Версія обов\'язкова', 'error');
-                return;
-            }
+                const payload = {
+                    type: document.getElementById('doc-type').value,
+                    version: document.getElementById('doc-version').value.trim(),
+                    url: document.getElementById('doc-url').value.trim(),
+                };
 
-            try {
-                await PoliciesApi.createDocument(payload);
-                AdminAuth.showToast('Документ додано. Активуйте його якщо потрібно.', 'success');
-                policyForm.reset();
-                await loadDocumentsData();
-            } catch (err) {
-                // Handled
-            }
-        });
-    }
-});
+                if (!payload.version) {
+                    if (window.AdminAuth && window.AdminAuth.showToast) {
+                        window.AdminAuth.showToast('Версія обов\'язкова', 'error');
+                    }
+                    return;
+                }
+
+                try {
+                    await PoliciesApi.createDocument(payload);
+                    if (window.AdminAuth && window.AdminAuth.showToast) {
+                        window.AdminAuth.showToast('Документ додано. Активуйте його якщо потрібно.', 'success');
+                    }
+                    policyForm.reset();
+                    await loadDocumentsData();
+                } catch (err) {
+                    // Handled
+                }
+            });
+        }
+    });
+}

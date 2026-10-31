@@ -1,7 +1,7 @@
 /**
  * Curakid Admin Centralized API Client
  */
-const ApiClient = {
+export const ApiClient = {
     baseUrl: '/api/v1',
 
     getHeaders(contentType = 'application/json') {
@@ -48,7 +48,7 @@ const ApiClient = {
             const response = await fetch(url, config);
 
             if (response.status === 401 || response.status === 403) {
-                if (!window.location.pathname.includes('/admin/login') && !window.location.pathname.includes('/admin/ui/login')) {
+                if (typeof window !== 'undefined' && window.location && !window.location.pathname.includes('/admin/login') && !window.location.pathname.includes('/admin/ui/login')) {
                     localStorage.removeItem('accessToken');
                     localStorage.removeItem('curakid_admin_token');
                     window.location.href = '/admin/ui/login';
@@ -65,8 +65,8 @@ const ApiClient = {
             return await response.json();
         } catch (error) {
             console.error(`API Error [${endpoint}]:`, error);
-            if (typeof AdminAuth !== 'undefined' && AdminAuth.showToast) {
-                AdminAuth.showToast(error.message || "Помилка з'єднання з сервером", 'error');
+            if (typeof window !== 'undefined' && typeof window.AdminAuth !== 'undefined' && window.AdminAuth.showToast) {
+                window.AdminAuth.showToast(error.message || "Помилка з'єднання з сервером", 'error');
             }
             throw error;
         }
@@ -89,4 +89,6 @@ const ApiClient = {
     }
 };
 
-window.ApiClient = ApiClient;
+if (typeof window !== 'undefined') {
+    window.ApiClient = ApiClient;
+}
